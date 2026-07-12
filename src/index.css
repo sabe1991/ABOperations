@@ -157,12 +157,40 @@ body {
   margin: 0;
   padding: 0;
 }
+.calendar__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
 .calendar__event {
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   display: grid;
   grid-template-columns: 3.5rem auto 1fr auto;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0;
+  padding: 0.35rem 0.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.calendar__event:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.calendar__event[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.calendar__event:disabled {
+  cursor: default;
+}
+.calendar__recur-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  align-self: center;
+  margin-right: 0.3rem;
 }
 .calendar__time {
   font-size: 0.85rem;
@@ -424,4 +452,21 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.9rem;
+}
+.sheet__times {
+  display: flex;
+  gap: 0.75rem;
+}
+.sheet__time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+.sheet__row-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
 }
