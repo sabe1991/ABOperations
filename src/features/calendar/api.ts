@@ -64,6 +64,8 @@ interface GoogleEvent {
   id: string
   summary?: string
   status?: string
+  location?: string
+  description?: string
   start?: { dateTime?: string; date?: string }
   end?: { dateTime?: string; date?: string }
   recurringEventId?: string
@@ -77,6 +79,9 @@ export interface CalendarEvent {
   calendarId: string
   calendarName: string
   calendarColor: string
+  // 場所・詳細メモ（無ければ空文字）
+  location: string
+  description: string
   // 終日予定かどうか
   allDay: boolean
   // 並べ替え用のソートキー（開始時刻の数値）。終日予定はその日の0時扱い。
@@ -157,6 +162,8 @@ async function fetchEventsForCalendar(
       calendarId: cal.id,
       calendarName: cal.summary,
       calendarColor: color,
+      location: ev.location ?? '',
+      description: ev.description ?? '',
       allDay,
       startMs,
       start,
@@ -199,6 +206,8 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' }
 export interface EventDraft {
   calendarId: string
   title: string
+  location: string
+  description: string
   allDay: boolean
   startDate: string // 'YYYY-MM-DD'
   endDate: string // 'YYYY-MM-DD'（終日は「含む最終日」。API へは排他的に+1して送る）
@@ -215,7 +224,15 @@ type EventTimePoint = { date?: string | null; dateTime?: string | null; timeZone
 function draftToBody(
   draft: EventDraft,
   forPatch: boolean,
-): { summary: string; start: EventTimePoint; end: EventTimePoint } {
+): {
+  summary: string
+  location: string
+  description: string
+  start: EventTimePoint
+  end: EventTimePoint
+} {
+  // 場所・詳細は常に送る（空文字を送れば patch で消去できる）。
+  const common = { summary: draft.title, location: draft.location, description: draft.description }
   if (draft.allDay) {
     const start: EventTimePoint = { date: draft.startDate }
     // 終日 end.date は排他的（翌日）。含む最終日 + 1日。
@@ -226,7 +243,7 @@ function draftToBody(
       end.dateTime = null
       end.timeZone = null
     }
-    return { summary: draft.title, start, end }
+    return { ...common, start, end }
   }
   const timeZone = getTimeZone()
   // オフセット無しのローカル日時 + timeZone で送る（端末TZで確定）。秒(:00)を必ず補う。
@@ -236,7 +253,7 @@ function draftToBody(
     start.date = null
     end.date = null
   }
-  return { summary: draft.title, start, end }
+  return { ...common, start, end }
 }
 
 // 楽観的更新用に、下書きから画面表示用の CalendarEvent を組み立てる（サーバー往復なし）。
@@ -258,6 +275,8 @@ export function draftToLocalEvent(
     calendarId: draft.calendarId,
     calendarName,
     calendarColor,
+    location: draft.location,
+    description: draft.description,
     allDay,
     startMs,
     start,

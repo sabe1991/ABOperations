@@ -233,7 +233,12 @@ function EventList({
                       style={{ backgroundColor: ev.calendarColor }}
                       aria-hidden
                     />
-                    <span className="calendar__title">{ev.title}</span>
+                    <span className="calendar__title-cell">
+                      <span className="calendar__title">{ev.title}</span>
+                      {ev.location && (
+                        <span className="calendar__location">📍 {ev.location}</span>
+                      )}
+                    </span>
                     <span className="calendar__cal-name">{ev.calendarName}</span>
                   </button>
 
@@ -283,6 +288,8 @@ function EventSheet({
       ? {
           calendarId: event.calendarId,
           title: event.title,
+          location: event.location,
+          description: event.description,
           allDay: event.allDay,
           startDate: event.startDateStr,
           endDate: event.endDateStr,
@@ -295,6 +302,8 @@ function EventSheet({
   const spanDays = daysBetweenStr(initial.startDate, initial.endDate)
 
   const [title, setTitle] = useState(initial.title)
+  const [location, setLocation] = useState(initial.location)
+  const [description, setDescription] = useState(initial.description)
   const [calendarId, setCalendarId] = useState(initial.calendarId)
   const [allDay, setAllDay] = useState(initial.allDay)
   const [date, setDate] = useState(initial.startDate)
@@ -313,6 +322,8 @@ function EventSheet({
     onSubmit({
       calendarId,
       title: trimmed,
+      location: location.trim(),
+      description: description.trim(),
       allDay,
       startDate: date,
       endDate: addDaysStr(date, spanDays),
@@ -404,6 +415,30 @@ function EventSheet({
           </div>
         )}
 
+        <label className="sheet__label" htmlFor="ev-location">
+          場所
+        </label>
+        <input
+          id="ev-location"
+          className="tasks__add-input"
+          type="text"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="場所（任意）"
+        />
+
+        <label className="sheet__label" htmlFor="ev-desc">
+          メモ
+        </label>
+        <textarea
+          id="ev-desc"
+          className="tasks__add-input sheet__textarea"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="詳細・メモ（任意）"
+          rows={3}
+        />
+
         {errorMsg && <p className="welcome__error">{errorMsg}</p>}
 
         <div className="sheet__buttons">
@@ -430,6 +465,8 @@ function defaultCreateDraft(calendarId: string): EventDraft {
   return {
     calendarId,
     title: '',
+    location: '',
+    description: '',
     allDay: false,
     startDate: dateStr,
     endDate: dateStr,

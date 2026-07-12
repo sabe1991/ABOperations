@@ -203,8 +203,20 @@ body {
   border-radius: 50%;
   display: inline-block;
 }
+.calendar__title-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
 .calendar__title {
   font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar__location {
+  font-size: 0.72rem;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -469,4 +481,8 @@ body {
   gap: 0.4rem;
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+.sheet__textarea {
+  resize: vertical;
+  min-height: 3.5rem;
 }
