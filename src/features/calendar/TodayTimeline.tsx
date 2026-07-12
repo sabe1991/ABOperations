@@ -8,8 +8,6 @@ import type { CalendarEvent } from './api'
 
 const HOUR_PX = 48 // 1時間あたりの高さ(px)
 const GUTTER = 40 // 左の時刻ラベル幅(px)
-const DEFAULT_START_MIN = 7 * 60 // 既定の表示開始 7:00
-const DEFAULT_END_MIN = 23 * 60 // 既定の表示終了 23:00
 
 function fmtDate(d: Date): string {
   const y = d.getFullYear()
@@ -87,17 +85,10 @@ export function TodayTimeline() {
       return { ev, startMin, endMin }
     })
 
-  // 表示範囲を決める（既定 7-23。範囲外の予定と現在時刻を含むよう時間単位で広げる）。
-  let winStart = DEFAULT_START_MIN
-  let winEnd = DEFAULT_END_MIN
-  for (const t of timed) {
-    winStart = Math.min(winStart, Math.floor(t.startMin / 60) * 60)
-    winEnd = Math.max(winEnd, Math.ceil(t.endMin / 60) * 60)
-  }
-  winStart = Math.min(winStart, Math.floor(nowMin / 60) * 60)
-  winEnd = Math.max(winEnd, Math.ceil(nowMin / 60) * 60)
-  winStart = Math.max(0, winStart)
-  winEnd = Math.min(24 * 60, winEnd)
+  // 終日 0:00〜24:00 を描画し、パネル内スクロールで早朝・深夜にもアクセスできる（ユーザー要望）。
+  // 既定は現在時刻付近を表示する（下の useEffect で現在時刻の位置へスクロール）。
+  const winStart = 0
+  const winEnd = 24 * 60
 
   const placed = layout(timed)
   const axisHeight = ((winEnd - winStart) / 60) * HOUR_PX

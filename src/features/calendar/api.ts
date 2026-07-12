@@ -178,15 +178,18 @@ async function fetchEventsForCalendar(
   return events
 }
 
-// 今日から7日分の全カレンダーの予定を、開始時刻順にまとめて取得する。
+// 一覧に表示する期間（今日から何日先まで）。予定・タスクで揃える（ユーザー要望で 30 日）。
+export const UPCOMING_DAYS = 30
+
+// 今日から UPCOMING_DAYS 日分の全カレンダーの予定を、開始時刻順にまとめて取得する。
 export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
-  // 今日のローカル0時から7日後まで
+  // 今日のローカル0時から UPCOMING_DAYS 日後まで
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const sevenDaysLater = new Date(startOfToday.getTime())
-  sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+  const windowEnd = new Date(startOfToday.getTime())
+  windowEnd.setDate(windowEnd.getDate() + UPCOMING_DAYS)
   const timeMin = startOfToday.toISOString()
-  const timeMax = sevenDaysLater.toISOString()
+  const timeMax = windowEnd.toISOString()
 
   const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
 
@@ -316,11 +319,11 @@ export function draftToLocalEvent(
   }
 }
 
-// startMs が「今日0時〜7日後」の一覧ウィンドウ内かどうか（作成後に一覧へ出るかの判定）。
+// startMs が「今日0時〜UPCOMING_DAYS 日後」の一覧ウィンドウ内かどうか（作成後に一覧へ出るかの判定）。
 export function isWithinUpcomingWindow(startMs: number): boolean {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const end = startOfToday + 7 * 24 * 60 * 60 * 1000
+  const end = startOfToday + UPCOMING_DAYS * 24 * 60 * 60 * 1000
   return startMs >= startOfToday && startMs < end
 }
 

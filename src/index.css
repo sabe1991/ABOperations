@@ -455,6 +455,12 @@ body {
   color: #2563eb;
 }
 .month__cell {
+  /* ボタン既定の見た目を消す（クリックで予定パネルをその日へスクロールさせる）。 */
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -463,6 +469,9 @@ body {
   border-radius: 6px;
   font-size: 0.8rem;
   line-height: 1;
+}
+.month__cell:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 /* 当月以外（前後の月）の日は薄く。 */
 .month__cell--out {

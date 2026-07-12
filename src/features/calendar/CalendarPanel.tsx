@@ -13,9 +13,10 @@ import {
   useRestoreEvent,
   useUpdateEvent,
 } from './useCalendarMutations'
-import { isWithinUpcomingWindow } from './api'
+import { isWithinUpcomingWindow, UPCOMING_DAYS } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
 import { useShowSourceLabels } from '../settings/displayPrefs'
+import { useScrollToDateSignal } from './scrollTarget'
 
 // --- 日付・時刻の小ヘルパ（ローカル表記） ---
 function fmtLocalDate(d: Date): string {
@@ -82,6 +83,16 @@ export function CalendarPanel() {
   const [sheet, setSheet] = useState<'create' | CalendarEvent | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // 月カレンダーの日付クリックを受けて、その日の見出しへスクロールする。
+  const { date: scrollDate, seq: scrollSeq } = useScrollToDateSignal()
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!scrollDate) return
+    const el = rootRef.current?.querySelector(`[data-date="${scrollDate}"]`)
+    if (el) (el as HTMLElement).scrollIntoView({ block: 'start', behavior: 'smooth' })
+    // その日に予定が無い（見出しが無い）ときは何もしない。
+  }, [scrollSeq, scrollDate])
+
   const [snack, setSnack] = useState<Snack | null>(null)
   const snackTimer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(snackTimer.current), [])
@@ -107,7 +118,7 @@ export function CalendarPanel() {
     setSheet(null)
     // 7日以降に作った予定は一覧に出ないので、その旨を伝える
     if (!isWithinUpcomingWindow(startMsOfDraft(draft))) {
-      showSnack('予定を作成しました（7日以降のため一覧には表示されません）', null)
+      showSnack(`予定を作成しました（${UPCOMING_DAYS}日以降のため一覧には表示されません）`, null)
     }
   }
 
@@ -126,7 +137,7 @@ export function CalendarPanel() {
   }
 
   return (
-    <div className="calendar">
+    <div className="calendar" ref={rootRef}>
       <div className="calendar__toolbar">
         <button
           className="btn btn--small btn--primary"
@@ -211,13 +222,17 @@ function EventList({
     return <p className="panel__note panel__note--error">予定の取得に失敗しました: {String(error)}</p>
   }
   if (!events || events.length === 0) {
-    return <p className="panel__note">今後7日間は予定なし</p>
+    return <p className="panel__note">今後{UPCOMING_DAYS}日間は予定なし</p>
   }
 
   return (
     <>
       {groupByDay(events).map(([dayKey, dayEvents]) => (
-        <section key={dayKey} className="calendar__day">
+        <section
+          key={dayKey}
+          className="calendar__day"
+          data-date={fmtLocalDate(new Date(dayEvents[0].startMs))}
+        >
           <h3 className="calendar__day-header">{formatDayHeader(dayEvents[0])}</h3>
           <ul className="calendar__events">
             {dayEvents.map((ev) => {

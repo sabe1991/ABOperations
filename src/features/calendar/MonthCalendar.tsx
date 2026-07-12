@@ -3,6 +3,7 @@
 // 読み取り専用（v1 ではクリック遷移なし）。データは 7日リストとは別の月クエリから読む。
 import { useMonthEventDays } from './useCalendarEvents'
 import { useWeekStart } from '../settings/displayPrefs'
+import { requestScrollToDate } from './scrollTarget'
 
 // 実際の曜日番号（0=日〜6=土）で引くラベル。週の開始曜日に関わらずこの並びで参照する。
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
@@ -68,10 +69,16 @@ export function MonthCalendar() {
             .filter(Boolean)
             .join(' ')
           return (
-            <div key={ds} className={cls} role="gridcell">
+            <button
+              key={ds}
+              type="button"
+              className={cls}
+              onClick={() => requestScrollToDate(ds)}
+              title={`${d.getMonth() + 1}月${d.getDate()}日の予定へ`}
+            >
               <span className="month__num">{d.getDate()}</span>
               {has && <span className="month__dot" aria-label="予定あり" />}
-            </div>
+            </button>
           )
         })}
       </div>

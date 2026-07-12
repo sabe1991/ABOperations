@@ -25,12 +25,12 @@ import { useShowSourceLabels } from '../settings/displayPrefs'
 const GROUP_ORDER: { key: TaskGroup; label: string; variant: string }[] = [
   { key: 'overdue', label: '⚠ 期限切れ', variant: 'overdue' },
   { key: 'today', label: '今日', variant: 'today' },
-  { key: 'upcoming', label: '今後7日', variant: 'upcoming' },
+  { key: 'upcoming', label: '今後30日', variant: 'upcoming' },
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
 
-// 「今後」に表示する上限日数（予定パネルの「今後7日間」に合わせる）。
-const UPCOMING_DAYS = 7
+// 「今後」に表示する上限日数（予定パネルの「今後30日間」に合わせる・ユーザー要望）。
+const UPCOMING_DAYS = 30
 
 // 期限文字列を「M/D」の短い表示にする（今日/期限なしグループでは表示しない）。
 function formatDue(dueStr: string | null): string {
