@@ -37,15 +37,15 @@ export function MonthCalendar() {
 
   const { data: eventDays, isLoading, isError } = useMonthEventDays(gridStartStr, gridEndExclusiveStr)
 
-  // キャプションは表示範囲（M/D 〜 M/D）。月をまたぐことがあるため範囲で示す。
+  // 表示範囲（M/D 〜 M/D）。画面には出さず、スクリーンリーダー用の aria-label にだけ使う。
+  // 月は各セル（先頭セル・月初セル）の「M/D」表記で分かるようにしたため、範囲キャプションは省く。
   const first = cells[0]
   const last = cells[34]
-  const caption = `${first.getMonth() + 1}/${first.getDate()} 〜 ${last.getMonth() + 1}/${last.getDate()}`
+  const rangeLabel = `${first.getMonth() + 1}/${first.getDate()} 〜 ${last.getMonth() + 1}/${last.getDate()}`
 
   return (
     <div className="month">
-      <div className="month__caption">{caption}</div>
-      <div className="month__grid" role="grid" aria-label={`${caption} のカレンダー`}>
+      <div className="month__grid" role="grid" aria-label={`${rangeLabel} のカレンダー`}>
         {Array.from({ length: 7 }, (_, i) => {
           // 列 i が表す実際の曜日番号。週開始が月曜(1)なら列0=月, 列6=日 になる。
           const dow = (weekStart + i) % 7
@@ -58,14 +58,16 @@ export function MonthCalendar() {
             </div>
           )
         })}
-        {cells.map((d) => {
+        {cells.map((d, idx) => {
           const ds = fmt(d)
           const isToday = ds === todayStr
           const isPast = ds < todayStr
           const has = eventDays?.has(ds) ?? false
           const dow = d.getDay()
-          // 月初(1日)は月をまたいだ目印として「M/1」表記にする（今日は塗るので数字のみ）。
-          const numText = d.getDate() === 1 && !isToday ? `${d.getMonth() + 1}/1` : String(d.getDate())
+          // 先頭セル（表示の最初の日付）は、範囲キャプションを消した代わりに月が分かるよう「M/D」表記にする。
+          // 月初(1日)も月をまたいだ目印として「M/1」表記にする（今日は塗るので数字のみ）。
+          const showMonth = idx === 0 || (d.getDate() === 1 && !isToday)
+          const numText = showMonth ? `${d.getMonth() + 1}/${d.getDate()}` : String(d.getDate())
           const cls = [
             'month__cell',
             isToday ? 'month__cell--today' : '',
