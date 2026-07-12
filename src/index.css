@@ -9,8 +9,24 @@
   --text: light-dark(#1a1c20, #e6e8ec);
   --text-muted: light-dark(#6b7280, #9aa2b1);
   --primary: #2563eb;
+  /* 危険・注意を表す赤。バッジ(赤地に白文字)にも使うため明暗で同じ色にしておく
+     （明色にすると白文字とのコントラストが落ちるため）。色を直書きせずここ1箇所で管理する。 */
+  --danger: #dc2626;
   --warn-bg: light-dark(#fef3c7, #3a2f14);
   --warn-text: light-dark(#92400e, #fcd34d);
+
+  /* タイポグラフィ・スケール（文字サイズの段階）。
+     以前は 0.66〜2rem まで十数種類が場当たりに散らばっていたので、8段階に整理して
+     すべてこのトークンを参照させる。最小は 0.72rem（≒11.5px）とし、判読しづらい
+     0.7rem 未満は使わない。装飾用の記号（設定歯車・閉じる×）だけは例外的に実寸指定を残す。 */
+  --fs-2xs: 0.72rem;
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.9rem;
+  --fs-md: 0.95rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.1rem;
+  --fs-xl: 1.25rem;
+  --fs-2xl: 2rem;
 }
 
 * {
@@ -42,12 +58,12 @@ body {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
-  font-size: 1rem;
+  font-size: var(--fs-base);
   padding: 0.7rem 1.5rem;
 }
 .btn--small {
   padding: 0.3rem 0.8rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 /* --- ウェルカム画面 --- */
@@ -62,15 +78,15 @@ body {
 }
 .welcome__title {
   margin: 0;
-  font-size: 2rem;
+  font-size: var(--fs-2xl);
 }
 .welcome__lead {
   margin: 0;
   color: var(--text-muted);
 }
 .welcome__error {
-  color: #dc2626;
-  font-size: 0.9rem;
+  color: var(--danger);
+  font-size: var(--fs-sm);
 }
 
 /* --- アプリ本体 --- */
@@ -85,10 +101,10 @@ body {
 }
 .app__title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--fs-xl);
 }
 .app__status {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 .app__headerRight {
@@ -103,7 +119,7 @@ body {
   border-radius: 8px;
   width: 2.1rem;
   height: 2.1rem;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   line-height: 1;
   cursor: pointer;
 }
@@ -325,7 +341,7 @@ body {
   border: none;
   background: none;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -342,9 +358,9 @@ body {
   height: 1.15rem;
   padding: 0 0.3rem;
   border-radius: 999px;
-  background: #dc2626;
+  background: var(--danger);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   line-height: 1;
 }
@@ -380,7 +396,7 @@ body {
 }
 .panel__title {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
+  font-size: var(--fs-base);
 }
 /* 見出しの行に右寄せのアクション（例: メールの「この端末で非表示」）を並べるヘッダ行。 */
 .panel__head {
@@ -395,10 +411,10 @@ body {
 }
 .panel__note {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .panel__note--error {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 /* --- 今日の24hタイムライン（密度型の1列目） --- */
@@ -414,7 +430,7 @@ body {
   gap: 4px;
 }
 .timeline__chip {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   padding: 2px 6px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--text) 6%, transparent);
@@ -437,7 +453,7 @@ body {
   position: absolute;
   top: -0.55rem;
   left: 0;
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
   background: var(--surface);
   padding-right: 3px;
@@ -449,14 +465,14 @@ body {
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   border-radius: 4px;
   padding: 1px 4px;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   line-height: 1.15;
   display: flex;
   flex-direction: column;
 }
 .timeline__event-time {
   color: var(--text-muted);
-  font-size: 0.66rem;
+  font-size: var(--fs-2xs);
 }
 .timeline__event-title {
   overflow: hidden;
@@ -468,7 +484,7 @@ body {
   left: 0;
   right: 0;
   height: 0;
-  border-top: 2px solid #dc2626;
+  border-top: 2px solid var(--danger);
   z-index: 5;
 }
 .timeline__now::before {
@@ -479,7 +495,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #dc2626;
+  background: var(--danger);
 }
 
 /* --- 月ミニカレンダー（密度型の2列目・上段右） --- */
@@ -492,7 +508,7 @@ body {
 .month__caption {
   flex-shrink: 0;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   font-weight: 700;
 }
 .month__grid {
@@ -506,15 +522,15 @@ body {
 }
 .month__dow {
   text-align: center;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
   padding-bottom: 0.15rem;
 }
 .month__dow--sun {
-  color: #dc2626;
+  color: var(--danger);
 }
 .month__dow--sat {
-  color: #2563eb;
+  color: var(--primary);
 }
 .month__cell {
   /* ボタン既定の見た目を消す（クリックで予定パネルをその日へスクロールさせる）。 */
@@ -529,29 +545,33 @@ body {
   justify-content: center;
   gap: 2px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   line-height: 1;
 }
+/* ホバー時は下地に加えて薄い枠も出し、「押せる日付」だと分かりやすくする（操作の手がかり）。 */
 .month__cell:hover {
   background: color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
-/* 当月以外（前後の月）の日は薄く。 */
-.month__cell--out {
-  opacity: 0.4;
-}
-/* 過去の日（今日より前）は薄く・クリック不可（予定パネルは今日以降しか出さないため）。 */
+/* 過去の日（今日より前）はクリック不可（予定パネルは今日以降しか出さないため）。 */
 .month__cell--past {
-  opacity: 0.35;
   cursor: default;
 }
 .month__cell--past .month__dot {
   background: var(--text-muted);
 }
 .month__cell--sun .month__num {
-  color: #dc2626;
+  color: var(--danger);
 }
 .month__cell--sat .month__num {
-  color: #2563eb;
+  color: var(--primary);
+}
+/* 過去日・当月外の数字は「不透明度で薄くする」のではなく補助文字色で沈める。
+   opacity だとコントラストが落ちすぎて読めなくなるため、読ませない前提でも最低限の
+   判読性を保てる var(--text-muted) を使う。曜日色（上の sun/sat）より後に置いて上書きする。 */
+.month__cell--out .month__num,
+.month__cell--past .month__num {
+  color: var(--text-muted);
 }
 /* 予定のある日の点。 */
 .month__dot {
@@ -581,7 +601,7 @@ body {
 }
 .calendar__day-header {
   margin: 0 0 0.4rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.2rem;
@@ -621,13 +641,13 @@ body {
   cursor: default;
 }
 .calendar__recur-note {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   align-self: center;
   margin-right: 0.3rem;
 }
 .calendar__time {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -643,20 +663,20 @@ body {
   flex-direction: column;
 }
 .calendar__title {
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .calendar__location {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .calendar__cal-name {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
@@ -666,13 +686,13 @@ body {
 }
 .tasks__group-header {
   margin: 0 0 0.4rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.2rem;
   color: var(--text-muted);
 }
 .tasks__group-header--overdue {
-  color: #dc2626;
+  color: var(--danger);
 }
 .tasks__group-header--today {
   color: var(--primary);
@@ -681,7 +701,7 @@ body {
   color: #0891b2; /* 明日: 落ち着いた青緑 */
 }
 .tasks__count {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   opacity: 0.7;
 }
 .tasks__list {
@@ -722,6 +742,23 @@ body {
   cursor: default;
   opacity: 0.6;
 }
+/* 行末に淡い「›」を出し、「タップするとアクション（明日へ/編集/削除など）が開く」ことを
+   見た目で示す手がかり（アフォーダンス）にする。開いている行では下向き（90度回転）にする。 */
+.tasks__row::after {
+  content: '›';
+  flex-shrink: 0;
+  margin-left: 0.15rem;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.tasks__row[aria-expanded='true']::after {
+  transform: rotate(90deg);
+}
+.tasks__row:disabled::after {
+  content: none; /* 操作不可の行（完了処理中など）には手がかりを出さない */
+}
 
 /* 行ごとのアクションバー（明日へ/来週へ/編集/削除） */
 .tasks__actions {
@@ -744,8 +781,8 @@ body {
   border-color: var(--primary);
 }
 .tasks__action--danger {
-  color: #dc2626;
-  border-color: color-mix(in srgb, #dc2626 40%, var(--border));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
 }
 
 /* 完了チェック（丸ボタン） */
@@ -757,6 +794,19 @@ body {
   cursor: pointer;
   display: inline-flex;
   line-height: 0;
+  position: relative; /* 下の当たり判定用擬似要素の基準にする */
+}
+/* タップ判定を 44px 角に広げる（見た目の丸は 1.1rem のまま）。透明な擬似要素を
+   ボタン中央に重ねるだけなので、行の高さなどレイアウトは一切変えずに当たり判定だけ拡げる。
+   指での誤タップ（隣の行が開いてしまう）を防ぐため、Apple 推奨の 44pt 相当を確保する。 */
+.tasks__check::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 .tasks__check:disabled {
   opacity: 0.4;
@@ -791,7 +841,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
@@ -820,7 +870,7 @@ body {
 }
 .tasks__due {
   flex-shrink: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   min-width: 2.2rem; /* 期限のあるバケツ内で日付の左端をそろえる */
@@ -828,14 +878,14 @@ body {
 .tasks__title {
   flex: 1;
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .tasks__list-name {
   flex-shrink: 0;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
@@ -854,11 +904,11 @@ body {
   gap: 0.9rem;
 }
 .weather__now-emoji {
-  font-size: 2rem;
+  font-size: var(--fs-2xl);
   line-height: 1;
 }
 .weather__now-temp {
-  font-size: 2rem;
+  font-size: var(--fs-2xl);
   font-weight: 700;
   line-height: 1;
 }
@@ -866,7 +916,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   line-height: 1.35;
 }
 .weather__loc {
@@ -879,11 +929,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .weather__hi {
-  color: #dc2626; /* 最高気温は赤 */
+  color: var(--danger); /* 最高気温は赤 */
   font-weight: 600;
 }
 .weather__lo {
-  color: #2563eb; /* 最低気温は青 */
+  color: var(--primary); /* 最低気温は青 */
 }
 .weather__sep {
   color: var(--text-muted);
@@ -906,17 +956,17 @@ body {
   text-align: center;
 }
 .weather__day-label {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
 }
 .weather__day-emoji {
-  font-size: 1.2rem;
+  font-size: var(--fs-lg);
   line-height: 1;
 }
 .weather__day-temp {
   display: flex;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -951,7 +1001,7 @@ body {
   margin-top: 0.5rem;
   padding: 0.25rem 0;
   border-top: 1px solid var(--border);
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   color: var(--text-muted);
 }
@@ -967,7 +1017,7 @@ body {
   font: inherit;
 }
 .gmail__row:hover {
-  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 .gmail__line1 {
   display: flex;
@@ -978,7 +1028,7 @@ body {
 .gmail__from {
   flex: 1;
   min-width: 0; /* フレックス内で縮んで省略記号(…)が効くようにする */
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -986,18 +1036,18 @@ body {
 }
 .gmail__when {
   flex-shrink: 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .gmail__subject {
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .gmail__snippet {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1030,7 +1080,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface, #fafafa);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1055,7 +1105,7 @@ body {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
 }
 .snackbar__text {
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1066,7 +1116,10 @@ body {
   font-weight: 600;
   border: none;
   background: none;
-  color: #7da2ff;
+  /* スナックバーの地色は明暗で反転する（明: 暗い地／暗: 明るい地）。Undo 文字が
+     どちらの地でも読めるよう、文字色も反転させる。明るい地に薄い青だと読めないため
+     暗い地=薄い青(#7da2ff)、明るい地=濃い青(#2563eb) にしてコントラストを確保する。 */
+  color: light-dark(#7da2ff, #2563eb);
   cursor: pointer;
   padding: 0.2rem 0.3rem;
 }
@@ -1104,10 +1157,10 @@ body {
 }
 .sheet__title {
   margin: 0 0 0.25rem;
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
 }
 .sheet__label {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   margin-top: 0.4rem;
 }
@@ -1140,7 +1193,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .sheet__textarea {
   resize: vertical;
@@ -1176,7 +1229,7 @@ body {
 }
 .modal__title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
 }
 .modal__close {
   border: none;
@@ -1192,34 +1245,34 @@ body {
 }
 .settings__heading {
   margin: 0 0 0.4rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--text-muted);
 }
 .settings__value {
   margin: 0 0 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   word-break: break-all;
 }
 .settings__value--mono {
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
 }
 .settings__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .settings__note {
   margin: 0.4rem 0 0;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 .settings__note--error {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 /* 天気の地点設定（地名検索＋候補選択） */

@@ -10,10 +10,13 @@ import { connect, disconnect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from '../gmail/enabled'
 import {
   setShowSourceLabels,
+  setTheme,
   setWeekStart,
   useShowSourceLabels,
+  useTheme,
   useWeekStart,
 } from './displayPrefs'
+import type { Theme } from './displayPrefs'
 import { useAccountEmail } from './useAccountEmail'
 import { geocodeLocation } from '../weather/api'
 import type { GeocodeResult } from '../weather/api'
@@ -25,6 +28,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const gmailEnabled = useGmailEnabled()
   const showSourceLabels = useShowSourceLabels()
   const weekStart = useWeekStart()
+  const theme = useTheme()
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +116,14 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {/* 2. この端末の表示設定 */}
         <section className="settings__section">
           <h3 className="settings__heading">この端末の表示</h3>
+          <label className="settings__row">
+            <span>配色テーマ（明るさ）</span>
+            <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+              <option value="system">端末の設定に合わせる</option>
+              <option value="light">ライト（明るい）</option>
+              <option value="dark">ダーク（暗い）</option>
+            </select>
+          </label>
           <label className="settings__row">
             <span>メール（Gmail）を表示</span>
             <input

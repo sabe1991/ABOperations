@@ -83,3 +83,59 @@ function subscribeWeekStart(listener: () => void): () => void {
 export function useWeekStart(): WeekStart {
   return useSyncExternalStore(subscribeWeekStart, getWeekStart)
 }
+
+// theme: 画面の明暗（配色テーマ）。'system'=OS の設定に従う（既定）, 'light'=常に明るい, 'dark'=常に暗い。
+// 仕組み: CSS 側は色を light-dark() で定義しており、これは要素の color-scheme プロパティを見て
+// 明色/暗色のどちらを使うかを決める。そこで documentElement（<html>）の color-scheme を
+// JS で上書きすることで、OS 設定に関係なくアプリ全体の明暗を強制できる。
+// 'system' のときは上書きを外し、CSS の既定（:root の color-scheme: light dark＝OS 追従）に戻す。
+export type Theme = 'system' | 'light' | 'dark'
+const THEME_KEY = 'abops:theme'
+
+function readTheme(): Theme {
+  try {
+    const v = localStorage.getItem(THEME_KEY)
+    return v === 'light' || v === 'dark' ? v : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+// <html> の color-scheme を設定値に合わせて上書き/解除する。light-dark() の解決に影響する。
+function applyTheme(theme: Theme): void {
+  const root = document.documentElement
+  // 'system' は空文字で inline 指定を消し、CSS の :root（OS 追従）に委ねる。
+  root.style.colorScheme = theme === 'system' ? '' : theme
+}
+
+let theme: Theme = readTheme()
+const themeListeners = new Set<() => void>()
+
+export function getTheme(): Theme {
+  return theme
+}
+
+export function setTheme(value: Theme): void {
+  theme = value
+  try {
+    localStorage.setItem(THEME_KEY, value)
+  } catch {
+    // localStorage が使えなくてもメモリ上の値で動作継続
+  }
+  applyTheme(value)
+  for (const listener of themeListeners) listener()
+}
+
+function subscribeTheme(listener: () => void): () => void {
+  themeListeners.add(listener)
+  return () => themeListeners.delete(listener)
+}
+
+export function useTheme(): Theme {
+  return useSyncExternalStore(subscribeTheme, getTheme)
+}
+
+// 起動時に保存済みテーマを <html> へ適用する。main.tsx から描画前に呼び、初回の明暗のちらつきを防ぐ。
+export function initTheme(): void {
+  applyTheme(theme)
+}
