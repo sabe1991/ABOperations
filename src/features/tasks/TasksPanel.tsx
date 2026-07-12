@@ -306,8 +306,9 @@ function TaskList({
                         disabled={t.pending}
                         aria-expanded={expandedKey === rowKey}
                       >
-                        {/* 期限セルは常に描画して列の位置を揃える（期限なし/今日は空欄） */}
-                        <span className="tasks__due">{showDue ? formatDue(t.dueStr) : ''}</span>
+                        {/* 期限は日付が自明でないバケツ（期限切れ/今週/以降）でだけ表示。
+                            今日/明日/期限なしは日付欄ごと描画しない（余白を残さない）。 */}
+                        {showDue && <span className="tasks__due">{formatDue(t.dueStr)}</span>}
                         <span className="tasks__title">{t.title}</span>
                         {showLabels && <span className="tasks__list-name">{t.listName}</span>}
                       </button>
