@@ -196,7 +196,7 @@ export default function App() {
         <div className="panels">
           {isWide && (
             <section className="panel panel--timeline">
-              <h2 className="panel__title">今日</h2>
+              <h2 className="panel__title">今日の予定</h2>
               <div className="panel__body">
                 <TodayTimeline />
               </div>
@@ -231,7 +231,7 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">メール（受信トレイ・未読）</h2>
+            <h2 className="panel__title">メール</h2>
             <div className="panel__body">
               <GmailPanel />
             </div>
