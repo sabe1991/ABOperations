@@ -45,9 +45,10 @@ export function WeatherPanel() {
         </span>
       </div>
 
-      {/* 数日ぶんのミニ予報（今日・明日・明後日…）。絵文字と最高/最低だけ。 */}
+      {/* 明日・明後日のミニ予報（今日は左の現在表示に含まれるので省く）。絵文字と最高/最低だけ。 */}
       <div className="weather__days">
         {data.daily.map((d, i) => {
+          if (i === 0) return null
           const info = weatherCodeInfo(d.code)
           return (
             <div key={d.date} className="weather__day" title={info.label}>

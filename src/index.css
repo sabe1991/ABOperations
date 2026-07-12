@@ -773,8 +773,9 @@ body {
 /* --- 天気（密度型の3列目・上段。小さくコンパクトに） --- */
 .weather {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap; /* 幅が狭いときは折り返す（保険） */
+  align-items: center;
+  gap: 0.75rem 1rem;
 }
 /* 現在の天気: 絵文字・気温・（地点/状態/最高最低）を横並び。 */
 .weather__now {
@@ -816,15 +817,14 @@ body {
 .weather__sep {
   color: var(--text-muted);
 }
-/* 数日ぶんのミニ予報を横並び。各日は縦に ラベル/絵文字/最高・最低。 */
+/* 明日・明後日のミニ予報を現在の天気の右に横並び。各日は縦に ラベル/絵文字/最高・最低。 */
 .weather__days {
   display: flex;
-  gap: 0.25rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.6rem;
+  gap: 0.75rem;
+  border-left: 1px solid var(--border);
+  padding-left: 1rem;
 }
 .weather__day {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;

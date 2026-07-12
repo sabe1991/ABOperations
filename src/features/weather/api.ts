@@ -102,7 +102,7 @@ export async function fetchWeather(): Promise<Weather> {
     current: 'temperature_2m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min',
     timezone: 'auto',
-    forecast_days: '4', // 今日＋3日ぶん
+    forecast_days: '3', // 今日＋明日・明後日
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
   if (!res.ok) throw new Error(`天気の取得に失敗しました (HTTP ${res.status})`)
