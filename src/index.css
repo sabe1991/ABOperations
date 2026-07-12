@@ -210,11 +210,63 @@ body {
   padding: 0;
 }
 .tasks__item {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0;
+  padding: 0.2rem 0;
+}
+
+/* 行本体（タップでアクションバー開閉）。中は 期限/タイトル/リスト名 の3列。 */
+.tasks__row {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0.35rem 0.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tasks__row:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.tasks__row[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.tasks__row:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 行ごとのアクションバー（明日へ/来週へ/編集/削除） */
+.tasks__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.4rem 0 0.6rem 2rem;
+}
+.tasks__action {
+  font: inherit;
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.tasks__action:hover {
+  border-color: var(--primary);
+}
+.tasks__action--danger {
+  color: #dc2626;
+  border-color: color-mix(in srgb, #dc2626 40%, var(--border));
 }
 
 /* 完了チェック（丸ボタン） */
@@ -317,4 +369,59 @@ body {
   color: #7da2ff;
   cursor: pointer;
   padding: 0.2rem 0.3rem;
+}
+
+/* --- 編集ボトムシート（下から出る小モーダル） --- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  padding: 1rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.25);
+}
+@media (min-width: 560px) {
+  .sheet {
+    margin-bottom: 1.5rem;
+    border-radius: 14px;
+  }
+  .sheet-backdrop {
+    align-items: center;
+  }
+}
+.sheet__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+.sheet__label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+.sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.sheet__date {
+  margin-top: 0.2rem;
+}
+.sheet__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
 }

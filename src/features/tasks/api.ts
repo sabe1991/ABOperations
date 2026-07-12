@@ -7,7 +7,7 @@
 //   new Date() に変換すると端末のタイムゾーン次第で1日ズレるため、
 //   先頭10文字（YYYY-MM-DD）を文字列として比較する。
 
-import { fetchJson } from '../../google/fetchJson'
+import { ApiError, fetchJson } from '../../google/fetchJson'
 
 const TASKS_BASE = 'https://tasks.googleapis.com/tasks/v1'
 
@@ -40,13 +40,32 @@ export interface TaskItem {
   pending?: boolean
 }
 
-// 端末ローカルの今日を 'YYYY-MM-DD' 文字列で返す。
-function localTodayStr(): string {
-  const d = new Date()
+// Date を端末ローカルの 'YYYY-MM-DD' 文字列に整形する（toISOString を使わず TZ ズレを回避）。
+function formatLocalDate(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+// 端末ローカルの今日を 'YYYY-MM-DD' 文字列で返す。
+function localTodayStr(): string {
+  return formatLocalDate(new Date())
+}
+
+// 今日から n 日後（ローカル）の 'YYYY-MM-DD'。「明日へ」= n:1 に使う。
+export function localDateStrPlusDays(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return formatLocalDate(d)
+}
+
+// 「来週へ」用: 今日を基準にした翌週の月曜の 'YYYY-MM-DD'（現在の期限ではなく今日基準）。
+// 週明けに仕切り直す意味で月曜に寄せる（Fable 助言）。今日が月曜なら7日後の月曜。
+export function localNextMondayStr(): string {
+  const day = new Date().getDay() // 0=日,1=月,…,6=土
+  const daysToNextMonday = ((8 - day) % 7) || 7
+  return localDateStrPlusDays(daysToNextMonday)
 }
 
 // 期限文字列と今日から所属グループを決める。
@@ -132,6 +151,38 @@ export async function reopenTask(listId: string, taskId: string): Promise<void> 
     headers: JSON_HEADERS,
     body: JSON.stringify({ status: 'needsAction', completed: null }),
   })
+}
+
+// タスクのタイトル・期限を更新する。
+// dueDateStr に文字列を渡すとその日付に、null を渡すと期限をクリアする（未指定のキーは変更しない）。
+// ※ Google Tasks では期限クリアは due:null を送る（completed:null と同様、undefined だと
+//   JSON.stringify でキーごと消えてサーバー側に変更が届かないため明示的に null を送る）。
+export async function updateTask(
+  listId: string,
+  taskId: string,
+  patch: { title?: string; dueDateStr?: string | null },
+): Promise<void> {
+  const body: { title?: string; due?: string | null } = {}
+  if (patch.title !== undefined) body.title = patch.title
+  if (patch.dueDateStr !== undefined) {
+    body.due = patch.dueDateStr === null ? null : toDueValue(patch.dueDateStr)
+  }
+  await fetchJson(taskUrl(listId, taskId), {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  })
+}
+
+// タスクを削除する（Google Tasks は完全削除でゴミ箱・復元エンドポイントは無い）。
+// 既に消えている(404)場合も成功扱いにする（冪等=何度呼んでも結果が同じ。Fable 助言）。
+export async function deleteTask(listId: string, taskId: string): Promise<void> {
+  try {
+    await fetchJson(taskUrl(listId, taskId), { method: 'DELETE' })
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return
+    throw e
+  }
 }
 
 // タスクを新規追加する。追加後の正規化済みタスクを返す。
