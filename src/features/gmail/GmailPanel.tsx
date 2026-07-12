@@ -1,14 +1,16 @@
-// Gmail パネル（フェーズ5の最初のスライス: 受信トレイの未読一覧のみ）。
+// Gmail パネル（フェーズ5）。
 // - この端末で未有効 or 未同意なら「Gmail を有効にする」ボタンを出す（端末ごとの任意有効化）。
 // - 有効化時は union スコープ（既存 + gmail.modify）をまとめて要求し、1本のトークンに全部載せる。
-// - 有効なら未読メールを一覧表示（差出人・件名・日時・スニペット）。本文表示や既読化は次スライス。
+// - 有効なら未読メールを一覧表示（差出人・件名・日時・スニペット）。タップで本文プレビュー、
+//   各メールを既読化・アーカイブでき、いずれも「元に戻す」で取り消せる。
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, useAuth } from '../../auth/useAuth'
 import { isGmailEnabled, setGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
+import { useArchive, useMarkRead, useMarkUnread, useUnarchive } from './useGmailMutations'
 import {
   IS_ANDROID,
   buildSrcDoc,
@@ -17,6 +19,9 @@ import {
   toIntentUrl,
 } from './renderBody'
 import type { GmailMessage } from './api'
+
+// Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
+type Snack = { text: string; undo: () => void }
 
 // 受信時刻の短い表示（今日は時刻、それ以外は M/D）。
 function formatWhen(dateMs: number): string {
@@ -40,6 +45,21 @@ export function GmailPanel() {
 
   const active = enabled && hasScope
   const { data: messages, isLoading, isError, error: queryError } = useGmail(active)
+
+  // スナックバー（既読化/アーカイブの Undo）。行が消えても残るよう親（このパネル）で管理する。
+  const [snack, setSnack] = useState<Snack | null>(null)
+  const snackTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(snackTimer.current), [])
+  function notify(text: string, undo: () => void) {
+    window.clearTimeout(snackTimer.current)
+    setSnack({ text, undo })
+    snackTimer.current = window.setTimeout(() => setSnack(null), 5000)
+  }
+  function handleSnackUndo() {
+    if (snack) snack.undo()
+    window.clearTimeout(snackTimer.current)
+    setSnack(null)
+  }
 
   function handleEnable() {
     setError(null)
@@ -91,7 +111,18 @@ export function GmailPanel() {
         isError={isError}
         error={queryError}
         formatWhen={formatWhen}
+        notify={notify}
       />
+
+      {/* Undo スナックバー（画面下部固定・5秒） */}
+      {snack && (
+        <div className="snackbar" role="status">
+          <span className="snackbar__text">{snack.text}</span>
+          <button className="snackbar__action" onClick={handleSnackUndo}>
+            元に戻す
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -102,12 +133,14 @@ function GmailList({
   isError,
   error,
   formatWhen,
+  notify,
 }: {
   messages: GmailMessage[] | undefined
   isLoading: boolean
   isError: boolean
   error: unknown
   formatWhen: (ms: number) => string
+  notify: (text: string, undo: () => void) => void
 }) {
   if (isLoading) {
     return <p className="panel__note">メールを読み込み中…</p>
@@ -122,15 +155,37 @@ function GmailList({
   return (
     <ul className="gmail__list">
       {messages.map((m) => (
-        <GmailRow key={m.id} m={m} formatWhen={formatWhen} />
+        <GmailRow key={m.id} m={m} formatWhen={formatWhen} notify={notify} />
       ))}
     </ul>
   )
 }
 
-// 1件のメール行。タップで本文プレビューを開閉する（開いたときだけ本文を取得）。
-function GmailRow({ m, formatWhen }: { m: GmailMessage; formatWhen: (ms: number) => string }) {
+// 1件のメール行。タップで本文プレビューを開閉し、開いた行では既読化・アーカイブができる。
+function GmailRow({
+  m,
+  formatWhen,
+  notify,
+}: {
+  m: GmailMessage
+  formatWhen: (ms: number) => string
+  notify: (text: string, undo: () => void) => void
+}) {
   const [open, setOpen] = useState(false)
+  const markRead = useMarkRead()
+  const markUnread = useMarkUnread()
+  const archive = useArchive()
+  const unarchive = useUnarchive()
+
+  function handleMarkRead() {
+    markRead.mutate(m)
+    notify('既読にしました', () => markUnread.mutate(m))
+  }
+  function handleArchive() {
+    archive.mutate(m)
+    notify('アーカイブしました', () => unarchive.mutate(m))
+  }
+
   return (
     <li className="gmail__item">
       <button
@@ -146,7 +201,19 @@ function GmailRow({ m, formatWhen }: { m: GmailMessage; formatWhen: (ms: number)
         <div className="gmail__subject">{m.subject}</div>
         {!open && <div className="gmail__snippet">{m.snippet}</div>}
       </button>
-      {open && <MessageBody id={m.id} />}
+      {open && (
+        <>
+          <div className="gmail__actions">
+            <button className="btn btn--small" onClick={handleMarkRead}>
+              既読にする
+            </button>
+            <button className="btn btn--small" onClick={handleArchive}>
+              アーカイブ
+            </button>
+          </div>
+          <MessageBody id={m.id} />
+        </>
+      )}
     </li>
   )
 }

@@ -149,3 +149,38 @@ export async function fetchMessageBody(id: string): Promise<MessageBody> {
     text: findPart(m.payload, 'text/plain'),
   }
 }
+
+// ---- 既読化・アーカイブ（ラベル操作。gmail.modify スコープが必要） ----
+
+// メールのラベルを付け外しする（messages.modify）。
+// Gmail の「既読/未読」「受信トレイ/アーカイブ」はラベルの有無で表される:
+//   - UNREAD ラベルあり=未読、外す=既読
+//   - INBOX ラベルあり=受信トレイ、外す=アーカイブ（メール自体は消えない）
+async function modifyMessage(
+  id: string,
+  addLabelIds: string[],
+  removeLabelIds: string[],
+): Promise<void> {
+  await fetchJson<unknown>(`${GMAIL_BASE}/messages/${id}/modify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ addLabelIds, removeLabelIds }),
+  })
+}
+
+// 既読にする（UNREAD を外す）。Undo は markMessageUnread。
+export function markMessageRead(id: string): Promise<void> {
+  return modifyMessage(id, [], ['UNREAD'])
+}
+// 未読に戻す（UNREAD を付け直す＝既読化の Undo）。
+export function markMessageUnread(id: string): Promise<void> {
+  return modifyMessage(id, ['UNREAD'], [])
+}
+// アーカイブする（INBOX を外す＝受信トレイから外す）。Undo は unarchiveMessage。
+export function archiveMessage(id: string): Promise<void> {
+  return modifyMessage(id, [], ['INBOX'])
+}
+// アーカイブを取り消す（INBOX を付け直す＝受信トレイに戻す）。
+export function unarchiveMessage(id: string): Promise<void> {
+  return modifyMessage(id, ['INBOX'], [])
+}

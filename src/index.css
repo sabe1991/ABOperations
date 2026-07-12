@@ -448,6 +448,11 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.gmail__actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.1rem 0 0.5rem;
+}
 .gmail__body {
   padding: 0 0 0.6rem;
 }
