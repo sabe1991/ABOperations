@@ -100,11 +100,20 @@ async function fetchMessageMeta(id: string): Promise<GmailMessage> {
   }
 }
 
-// 受信トレイの未読メールを新しい順で返す。
-export async function fetchInboxUnread(maxResults = 20): Promise<GmailMessage[]> {
-  const ids = await fetchMessageIds('in:inbox is:unread', maxResults)
-  const msgs = await Promise.all(ids.map((x) => fetchMessageMeta(x.id)))
-  return msgs.sort((a, b) => b.dateMs - a.dateMs)
+// 受信トレイのメールを「未読を上・既読を下」でそれぞれ新しい順に返す（ユーザー要望）。
+// 未読と既読を別クエリで取り、それぞれ受信時刻の降順に並べて連結する
+// （in:inbox 一括だと件数上限内で未読が既読に押し出されうるため、枠を分けて取る）。
+export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMessage[]> {
+  const [unreadIds, readIds] = await Promise.all([
+    fetchMessageIds('in:inbox is:unread', maxUnread),
+    fetchMessageIds('in:inbox is:read', maxRead),
+  ])
+  const [unread, read] = await Promise.all([
+    Promise.all(unreadIds.map((x) => fetchMessageMeta(x.id))),
+    Promise.all(readIds.map((x) => fetchMessageMeta(x.id))),
+  ])
+  const desc = (a: GmailMessage, b: GmailMessage) => b.dateMs - a.dateMs
+  return [...unread.sort(desc), ...read.sort(desc)]
 }
 
 // ---- 本文プレビュー（本文表示スライス） ----

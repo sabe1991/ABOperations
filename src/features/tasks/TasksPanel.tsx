@@ -20,17 +20,16 @@ import {
 import { localDateStrPlusDays, localNextMondayStr, localTodayStr } from './api'
 import type { TaskItem } from './api'
 import { useAuth } from '../../auth/useAuth'
-import { useShowSourceLabels, useWeekStart } from '../settings/displayPrefs'
+import { useShowSourceLabels } from '../settings/displayPrefs'
 
 // 表示用のバケツ（api の TaskGroup とは別に、表示側で due から細かく分ける）。
-type Bucket = 'overdue' | 'today' | 'tomorrow' | 'thisWeek' | 'later' | 'noDue'
+type Bucket = 'overdue' | 'today' | 'tomorrow' | 'later' | 'noDue'
 
 // バケツの表示順とラベル・装飾。この順でカラム／セクションを並べる。
 const GROUP_ORDER: { key: Bucket; label: string; variant: string }[] = [
   { key: 'overdue', label: '⚠ 期限切れ', variant: 'overdue' },
   { key: 'today', label: '今日', variant: 'today' },
   { key: 'tomorrow', label: '明日', variant: 'tomorrow' },
-  { key: 'thisWeek', label: '今週', variant: 'thisWeek' },
   { key: 'later', label: '以降', variant: 'later' },
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
@@ -46,14 +45,10 @@ function formatDue(dueStr: string | null): string {
 }
 
 // バケツ分けは保存値ではなく due から毎回導出する（Fable 助言）。文字列比較で TZ ズレも回避。
-// weekStart（0=日曜/1=月曜）を尊重して「今週末」を求め、今日/明日の先を「今週」「以降」に分ける。
-function bucketTasks(tasks: TaskItem[], weekStart: 0 | 1): Record<Bucket, TaskItem[]> {
-  const now = new Date()
+// 今日・明日・以降（明後日〜30日）・期限切れ・期限なしに分ける。
+function bucketTasks(tasks: TaskItem[]): Record<Bucket, TaskItem[]> {
   const today = localTodayStr()
   const tomorrow = localDateStrPlusDays(1)
-  // 今週末（この端末の週開始設定に基づく最終日）。例: 月曜始まりなら今週末は日曜。
-  const daysFromWeekStart = (now.getDay() - weekStart + 7) % 7
-  const weekEnd = localDateStrPlusDays(6 - daysFromWeekStart)
   // 「以降」は今日から UPCOMING_DAYS 日先までに絞る（予定パネルの「今後30日間」と揃える）。
   // 期限切れ・期限なしは日数に関係なくすべて表示する（見落とし防止のため）。
   const upcomingLimit = localDateStrPlusDays(UPCOMING_DAYS)
@@ -62,7 +57,6 @@ function bucketTasks(tasks: TaskItem[], weekStart: 0 | 1): Record<Bucket, TaskIt
     overdue: [],
     today: [],
     tomorrow: [],
-    thisWeek: [],
     later: [],
     noDue: [],
   }
@@ -72,14 +66,12 @@ function bucketTasks(tasks: TaskItem[], weekStart: 0 | 1): Record<Bucket, TaskIt
     else if (d < today) groups.overdue.push(t)
     else if (d === today) groups.today.push(t)
     else if (d === tomorrow) groups.tomorrow.push(t)
-    else if (d <= weekEnd) groups.thisWeek.push(t)
     else if (d <= upcomingLimit) groups.later.push(t)
     // d > upcomingLimit（30日より先）は表示しない
   }
   // 期限のあるバケツは期限の早い順に並べる（today/tomorrow は同一日なので並べ替え不要）。
   const byDue = (a: TaskItem, b: TaskItem) => (a.dueStr ?? '').localeCompare(b.dueStr ?? '')
   groups.overdue.sort(byDue)
-  groups.thisWeek.sort(byDue)
   groups.later.sort(byDue)
   return groups
 }
@@ -257,7 +249,6 @@ function TaskList({
 }) {
   // 出典名（リスト名）を表示するかは端末ローカルの表示設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
-  const weekStart = useWeekStart()
   if (isLoading) {
     return <p className="panel__note">タスクを読み込み中…</p>
   }
@@ -268,7 +259,7 @@ function TaskList({
     return <p className="panel__note">タスクはありません。すべて順調</p>
   }
 
-  const groups = bucketTasks(tasks, weekStart)
+  const groups = bucketTasks(tasks)
 
   return (
     // 密度型（≥1200px）ではこのラッパを flex 多列にしてバケツを横並びにする（CSS 側で制御）。
@@ -284,9 +275,8 @@ function TaskList({
             <ul className="tasks__list">
               {items.map((t) => {
                 const rowKey = `${t.listId}:${t.id}`
-                // 日付が自明でないバケツ（期限切れ/今週/以降）でだけ期限を表示する。
-                const showDue =
-                  (key === 'overdue' || key === 'thisWeek' || key === 'later') && t.dueStr
+                // 日付が自明でないバケツ（期限切れ/以降）でだけ期限を表示する。
+                const showDue = (key === 'overdue' || key === 'later') && t.dueStr
                 return (
                   <li key={rowKey} className="tasks__item-wrap">
                     <div className="tasks__item">

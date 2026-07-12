@@ -4,7 +4,7 @@
 // - 有効なら未読メールを一覧表示（差出人・件名・日時・スニペット）。タップで本文プレビュー、
 //   各メールを既読化・アーカイブでき、いずれも「元に戻す」で取り消せる。
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from './enabled'
@@ -148,13 +148,23 @@ function GmailList({
     return <p className="panel__note panel__note--error">メールの取得に失敗しました: {String(error)}</p>
   }
   if (!messages || messages.length === 0) {
-    return <p className="panel__note">未読メールはありません</p>
+    return <p className="panel__note">受信トレイにメールはありません</p>
   }
 
+  // 未読を上・既読を下に並べたうえで、既読の先頭に区切り見出し「既読」を挿す。
+  // 未読が1件も無い（全部既読）の場合は見出しを出さない。
+  const firstReadIdx = messages.findIndex((m) => !m.unread)
   return (
     <ul className="gmail__list">
-      {messages.map((m) => (
-        <GmailRow key={m.id} m={m} formatWhen={formatWhen} notify={notify} />
+      {messages.map((m, i) => (
+        <Fragment key={m.id}>
+          {i === firstReadIdx && firstReadIdx > 0 && (
+            <li className="gmail__divider" aria-hidden="true">
+              既読
+            </li>
+          )}
+          <GmailRow m={m} formatWhen={formatWhen} notify={notify} />
+        </Fragment>
       ))}
     </ul>
   )
@@ -180,13 +190,17 @@ function GmailRow({
     markRead.mutate(m)
     notify('既読にしました', () => markUnread.mutate(m))
   }
+  function handleMarkUnread() {
+    markUnread.mutate(m)
+    notify('未読にしました', () => markRead.mutate(m))
+  }
   function handleArchive() {
     archive.mutate(m)
     notify('アーカイブしました', () => unarchive.mutate(m))
   }
 
   return (
-    <li className="gmail__item">
+    <li className={`gmail__item${m.unread ? '' : ' gmail__item--read'}`}>
       <button
         type="button"
         className="gmail__row"
@@ -203,9 +217,16 @@ function GmailRow({
       {open && (
         <>
           <div className="gmail__actions">
-            <button className="btn btn--small" onClick={handleMarkRead}>
-              既読にする
-            </button>
+            {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
+            {m.unread ? (
+              <button className="btn btn--small" onClick={handleMarkRead}>
+                既読にする
+              </button>
+            ) : (
+              <button className="btn btn--small" onClick={handleMarkUnread}>
+                未読にする
+              </button>
+            )}
             <button className="btn btn--small" onClick={handleArchive}>
               アーカイブ
             </button>

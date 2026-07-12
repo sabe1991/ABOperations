@@ -887,6 +887,23 @@ body {
 .gmail__item:first-child {
   border-top: none;
 }
+/* 既読メールは差出人・件名の強調を弱めて未読と区別する。 */
+.gmail__item--read .gmail__from {
+  font-weight: 400;
+}
+.gmail__item--read .gmail__from,
+.gmail__item--read .gmail__subject {
+  color: var(--text-muted);
+}
+/* 未読と既読の間の区切り見出し「既読」。 */
+.gmail__divider {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
 .gmail__row {
   display: block;
   width: 100%;
