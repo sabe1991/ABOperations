@@ -85,20 +85,60 @@ export async function prepareTokenClient(scopes: string[]): Promise<void> {
   getTokenClient(scopes)
 }
 
-// トークンを要求する。必ずクリックハンドラから呼ぶこと。
-// prepareTokenClient() 済みなら client 取得は同期的に完了し、
-// requestAccessToken() もクリックの同期フレーム内で実行される。
-export function requestToken(scopes: string[]): Promise<string> {
+// トークン要求の共通処理。resolver 退避パターン + タイムアウトのフォールバックを一元化する。
+// options に { prompt: '' } を渡すとサイレント（ポップアップ無し）要求になる。
+function doRequest(
+  scopes: string[],
+  options: { prompt?: string } | undefined,
+  timeoutMs: number | null,
+): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     if (!window.google?.accounts?.oauth2) {
       reject(new Error('GIS がまだ読み込まれていません。少し待ってから再試行してください。'))
       return
     }
-    // 直前の保留があれば破棄（多重要求の取りこぼし防止）
-    pendingResolve = resolve
-    pendingReject = reject
+    let settled = false
+    // サイレント要求では callback も error_callback も返らないことが稀にあるため、
+    // タイムアウトを設けて「認証中…」で固まるのを防ぐ（Fable 助言）。
+    const timer =
+      timeoutMs != null
+        ? setTimeout(() => {
+            if (settled) return
+            settled = true
+            pendingResolve = null
+            pendingReject = null
+            reject(new Error('認証がタイムアウトしました'))
+          }, timeoutMs)
+        : null
+    // GIS のコールバックはこの退避した resolver/rejecter を呼ぶ。
+    // settled ガードで二重解決・タイムアウト後の解決を無効化する。
+    pendingResolve = (token) => {
+      if (settled) return
+      settled = true
+      if (timer) clearTimeout(timer)
+      resolve(token)
+    }
+    pendingReject = (reason) => {
+      if (settled) return
+      settled = true
+      if (timer) clearTimeout(timer)
+      reject(reason)
+    }
     const client = getTokenClient(scopes)
     // ⚠ ここは同期実行（await を挟まない）。ポップアップブロック回避のため。
-    client.requestAccessToken()
+    client.requestAccessToken(options)
   })
+}
+
+// トークンを要求する（明示的なログイン）。必ずクリックハンドラから同期的に呼ぶこと。
+export function requestToken(scopes: string[]): Promise<string> {
+  return doRequest(scopes, undefined, null)
+}
+
+// サイレント（ポップアップ無し）でトークンを要求する。起動時の自動ログインに使う。
+// Googleセッションが生きていて同意済みなら UI 無しでトークンを取得できる。
+// セッション切れ・未同意なら error_callback（または タイムアウト）で reject し、
+// 呼び出し側は静かに通常のログインボタン表示にフォールバックする。
+export function requestTokenSilent(scopes: string[]): Promise<string> {
+  return doRequest(scopes, { prompt: '' }, 8000)
 }

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { CALENDAR_SCOPES, isClientIdConfigured } from './config'
-import { connect, prepareAuth, useAuth } from './auth/useAuth'
+import {
+  connect,
+  hasPreviousCalendarGrant,
+  prepareAuth,
+  trySilentConnect,
+  useAuth,
+} from './auth/useAuth'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
 
 // フェーズ2の画面。ウェルカム（未ログイン）→ ログイン → カレンダー7日分表示。
@@ -9,11 +15,18 @@ export default function App() {
   const { isConnected, needsReconnect, acquiredAt } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  // 起動直後にサイレント認証を試している間の状態（ログインボタンの一瞬の点滅を防ぐ）
+  const [initializing, setInitializing] = useState(isClientIdConfigured && hasPreviousCalendarGrant())
 
-  // 起動時に GIS スクリプトとトークンクライアントを事前準備しておく。
-  // これによりログインボタン押下時に同期的にトークン要求できる（ポップアップブロック回避）。
+  // 起動時: GIS を事前準備し、以前接続済みの端末ならサイレント認証を試みる。
+  // 成功すれば自動でログイン状態になり、毎回のログインクリックが不要になる。
   useEffect(() => {
-    if (isClientIdConfigured) {
+    if (!isClientIdConfigured) return
+    if (hasPreviousCalendarGrant()) {
+      // 以前同意済み → ポップアップ無しの自動ログインを試す
+      trySilentConnect(CALENDAR_SCOPES).finally(() => setInitializing(false))
+    } else {
+      // 初回端末 → クリックで即トークン要求できるよう事前準備だけしておく
       prepareAuth(CALENDAR_SCOPES).catch(() => {
         // 読み込み失敗はログイン試行時にエラー表示するのでここでは握りつぶす
       })
@@ -39,6 +52,16 @@ export default function App() {
           <br />
           <code>src/config.ts</code> の <code>GOOGLE_CLIENT_ID</code> に発行済みのIDを設定してください。
         </p>
+      </main>
+    )
+  }
+
+  // 起動時のサイレント認証を試行中: ログインボタンを点滅させず読み込み表示にする
+  if (initializing && !isConnected && !needsReconnect) {
+    return (
+      <main className="welcome">
+        <h1 className="welcome__title">AB Operations</h1>
+        <p className="welcome__lead">接続中…</p>
       </main>
     )
   }
