@@ -18,7 +18,7 @@ import { WeatherPanel } from './features/weather/WeatherPanel'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
-import { setGmailEnabled, useGmailEnabled } from './features/gmail/enabled'
+import { useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
@@ -230,18 +230,7 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
-            <div className="panel__head">
-              <h2 className="panel__title">メール</h2>
-              {gmailActive && (
-                <button
-                  className="btn btn--small"
-                  onClick={() => setGmailEnabled(false)}
-                  title="この端末で Gmail を隠す"
-                >
-                  この端末で非表示
-                </button>
-              )}
-            </div>
+            <h2 className="panel__title">メール</h2>
             <div className="panel__body">
               <GmailPanel />
             </div>

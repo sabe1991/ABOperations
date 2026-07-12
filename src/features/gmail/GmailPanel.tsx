@@ -65,6 +65,12 @@ export function GmailPanel() {
 
   function handleEnable() {
     setError(null)
+    // 既に gmail.modify に同意済みの端末なら、再ログイン（同意フロー）を挟まず即有効化する。
+    // 誤って非表示にしても、再度有効化するのに毎回ログインを求められないようにするため。
+    if (hasScope) {
+      setGmailEnabled(true)
+      return
+    }
     setConnecting(true)
     // ⚠ requestToken はこの同期フレームで走る必要がある（gisClient 実装）。
     connect(GMAIL_SCOPES)
