@@ -461,8 +461,8 @@ body {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  /* 曜日見出し行(auto) + 6週(残りを等分)。中身で押し広げないよう minmax(0, …)。 */
-  grid-template-rows: auto repeat(6, minmax(0, 1fr));
+  /* 曜日見出し行(auto) + 5週(残りを等分)。中身で押し広げないよう minmax(0, …)。 */
+  grid-template-rows: auto repeat(5, minmax(0, 1fr));
   gap: 1px;
 }
 .month__dow {
@@ -499,6 +499,14 @@ body {
 /* 当月以外（前後の月）の日は薄く。 */
 .month__cell--out {
   opacity: 0.4;
+}
+/* 過去の日（今日より前）は薄く・クリック不可（予定パネルは今日以降しか出さないため）。 */
+.month__cell--past {
+  opacity: 0.35;
+  cursor: default;
+}
+.month__cell--past .month__dot {
+  background: var(--text-muted);
 }
 .month__cell--sun .month__num {
   color: #dc2626;
@@ -1134,4 +1142,52 @@ body {
   margin: 0.4rem 0 0;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+.settings__note--error {
+  color: #dc2626;
+}
+
+/* 天気の地点設定（地名検索＋候補選択） */
+.settings__weather {
+  margin-top: 0.5rem;
+}
+.settings__geo-form {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.settings__geo-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+.settings__geo-results {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.settings__geo-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+}
+.settings__geo-result:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.settings__geo-results li + li .settings__geo-result {
+  border-top: 1px solid var(--border);
 }

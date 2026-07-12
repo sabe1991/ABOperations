@@ -15,6 +15,9 @@ import {
   useWeekStart,
 } from './displayPrefs'
 import { useAccountEmail } from './useAccountEmail'
+import { geocodeLocation } from '../weather/api'
+import type { GeocodeResult } from '../weather/api'
+import { setWeatherLocation, useWeatherLocation } from '../weather/location'
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { needsReconnect, acquiredAt, grantedScopes } = useAuth()
@@ -142,6 +145,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <p className="settings__note">
             これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
           </p>
+          <WeatherLocationSetting />
         </section>
 
         {/* 3. 接続状態 / 再接続 */}
@@ -163,6 +167,87 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </p>
         </section>
       </div>
+    </div>
+  )
+}
+
+// 天気の表示地点の設定。地名を検索（Open-Meteo のジオコーディング）して候補から選ぶ。
+// 選んだ地点は端末ローカルに保存し、天気パネルが即座にその地点で取得し直す。
+function WeatherLocationSetting() {
+  const current = useWeatherLocation()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<GeocodeResult[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const q = query.trim()
+    if (!q) return
+    setSearching(true)
+    setGeoError(null)
+    setResults(null)
+    try {
+      setResults(await geocodeLocation(q))
+    } catch (err) {
+      setGeoError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function handlePick(r: GeocodeResult) {
+    setWeatherLocation({ name: r.name, latitude: r.latitude, longitude: r.longitude })
+    setResults(null)
+    setQuery('')
+  }
+
+  // 候補の表示名（例: 渋谷区（東京都）, 日本）。
+  function resultLabel(r: GeocodeResult): string {
+    const admin = r.admin1 ? `（${r.admin1}）` : ''
+    const country = r.country ? `, ${r.country}` : ''
+    return `${r.name}${admin}${country}`
+  }
+
+  return (
+    <div className="settings__weather">
+      <div className="settings__row">
+        <span>天気の地点</span>
+        <span className="settings__value">{current.name}</span>
+      </div>
+      <form className="settings__geo-form" onSubmit={handleSearch}>
+        <input
+          className="settings__geo-input"
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="ローマ字で検索（例: Osaka, Kyoto）"
+          aria-label="天気の地点を地名で検索"
+        />
+        <button type="submit" className="btn btn--small" disabled={searching || !query.trim()}>
+          {searching ? '検索中…' : '検索'}
+        </button>
+      </form>
+      {geoError && <p className="settings__note settings__note--error">{geoError}</p>}
+      {results && results.length === 0 && (
+        <p className="settings__note">
+          見つかりませんでした。地名はローマ字（例: Osaka, Sapporo）でお試しください。
+        </p>
+      )}
+      {results && results.length > 0 && (
+        <ul className="settings__geo-results">
+          {results.map((r, i) => (
+            <li key={`${r.latitude},${r.longitude},${i}`}>
+              <button className="settings__geo-result" onClick={() => handlePick(r)}>
+                {resultLabel(r)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="settings__note">
+        地名をローマ字で検索して候補から選ぶと、天気パネルの地点が変わります（候補名は日本語で表示・この端末だけに保存）。
+      </p>
     </div>
   )
 }

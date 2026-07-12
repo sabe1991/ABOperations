@@ -2,15 +2,9 @@
 // Google API とは別サービスなので認証は不要。共通の fetchJson（Google トークンを付ける）は
 // 使わず、素の fetch で叩く。
 //
-// v1 は地点を東京に固定する（グリル時の決定「地名固定でv1に入れる」）。将来ここを設定値に
-// 差し替えられるよう、地点は定数 LOCATION にまとめておく。
-
-// 表示する地点（v1 は東京に固定）。緯度・経度と表示名だけ持つ。
-export const LOCATION = {
-  name: '東京',
-  latitude: 35.6785,
-  longitude: 139.6823,
-}
+// 地点は設定モーダルから変更できる（端末ローカル保存。既定は東京）。地点の型・既定値・ストアは
+// location.ts にまとめ、ここでは fetchWeather が地点を引数で受け取る。
+import type { WeatherLocation } from './location'
 
 // Open-Meteo のレスポンス（必要な部分だけ型付け）。
 interface OpenMeteoResponse {
@@ -95,10 +89,10 @@ export function weatherCodeInfo(code: number): { emoji: string; label: string } 
 }
 
 // 天気を取得して整形して返す。timezone=auto で地点の時刻に合わせた「今日」を返させる。
-export async function fetchWeather(): Promise<Weather> {
+export async function fetchWeather(loc: WeatherLocation): Promise<Weather> {
   const params = new URLSearchParams({
-    latitude: String(LOCATION.latitude),
-    longitude: String(LOCATION.longitude),
+    latitude: String(loc.latitude),
+    longitude: String(loc.longitude),
     current: 'temperature_2m,weather_code',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min',
     timezone: 'auto',
@@ -120,9 +114,48 @@ export async function fetchWeather(): Promise<Weather> {
   }))
 
   return {
-    locationName: LOCATION.name,
+    locationName: loc.name,
     currentTemp: json.current?.temperature_2m ?? daily[0]?.tempMax ?? 0,
     currentCode: json.current?.weather_code ?? daily[0]?.code ?? 0,
     daily,
   }
+}
+
+// ジオコーディング（地名 → 緯度経度）。Open-Meteo の Geocoding API（APIキー不要）で
+// 地名を検索し、候補を返す。設定モーダルで地点を選ぶのに使う。
+export interface GeocodeResult {
+  name: string // 都市名（例: 東京）
+  latitude: number
+  longitude: number
+  admin1?: string // 都道府県・州など（例: 東京都）
+  country?: string // 国（例: 日本）
+}
+
+export async function geocodeLocation(query: string): Promise<GeocodeResult[]> {
+  const q = query.trim()
+  if (!q) return []
+  const params = new URLSearchParams({
+    name: q,
+    count: '5',
+    language: 'ja',
+    format: 'json',
+  })
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`)
+  if (!res.ok) throw new Error(`地名の検索に失敗しました (HTTP ${res.status})`)
+  const json = (await res.json()) as {
+    results?: {
+      name: string
+      latitude: number
+      longitude: number
+      admin1?: string
+      country?: string
+    }[]
+  }
+  return (json.results ?? []).map((r) => ({
+    name: r.name,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    admin1: r.admin1,
+    country: r.country,
+  }))
 }

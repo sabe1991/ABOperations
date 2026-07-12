@@ -210,7 +210,7 @@ export default function App() {
           </section>
           {isWide && (
             <section className="panel panel--month">
-              <h2 className="panel__title">今月</h2>
+              <h2 className="panel__title">カレンダー</h2>
               <div className="panel__body">
                 <MonthCalendar />
               </div>
