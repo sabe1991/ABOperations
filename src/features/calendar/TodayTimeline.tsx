@@ -62,8 +62,20 @@ function layout(timed: { ev: CalendarEvent; startMin: number; endMin: number }[]
   return result
 }
 
+// 要素の「スクロールする祖先」（overflow-y が auto/scroll で実際にスクロール可能な親）を探す。
+function getScrollParent(el: HTMLElement): HTMLElement | null {
+  let p = el.parentElement
+  while (p) {
+    const oy = getComputedStyle(p).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p
+    p = p.parentElement
+  }
+  return null
+}
+
 export function TodayTimeline() {
   const { data: events, isLoading, isError } = useCalendarEvents()
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const nowRef = useRef<HTMLDivElement | null>(null)
   const scrolledRef = useRef(false)
 
@@ -87,7 +99,8 @@ export function TodayTimeline() {
     })
 
   // 終日 0:00〜24:00 を描画し、パネル内スクロールで早朝・深夜にもアクセスできる（ユーザー要望）。
-  // 既定は現在時刻付近を表示する（下の useEffect で現在時刻の位置へスクロール）。
+  // 既定は一番下（＝夜まで）までスクロールした状態にする。下端でも活動時間帯は視野に入るため
+  // （下の useEffect でスクロール領域を最下部へ移動）。
   const winStart = 0
   const winEnd = 24 * 60
 
@@ -97,11 +110,14 @@ export function TodayTimeline() {
   for (let h = winStart / 60; h <= winEnd / 60; h++) hours.push(h)
   const nowVisible = nowMin >= winStart && nowMin <= winEnd
 
-  // 初回に現在時刻が見える位置へスクロール（パネル内スクローラーを動かす）。
+  // 初回に一番下（夜）までスクロールした状態にする（ユーザー要望）。
   useEffect(() => {
     if (scrolledRef.current || !events) return
-    if (nowRef.current) {
-      nowRef.current.scrollIntoView({ block: 'center' })
+    const root = rootRef.current
+    if (!root) return
+    const scroller = getScrollParent(root)
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight
       scrolledRef.current = true
     }
   }, [events])
@@ -111,7 +127,7 @@ export function TodayTimeline() {
   if (todays.length === 0) return <p className="panel__note">今日の予定はありません。</p>
 
   return (
-    <div className="timeline">
+    <div className="timeline" ref={rootRef}>
       {allDay.length > 0 && (
         <div className="timeline__allday">
           {allDay.map((ev) => (
