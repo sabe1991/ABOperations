@@ -8,12 +8,21 @@
 //     → 各クエリは enabled:false で自動停止、再接続ボタン表示
 //     → 再接続成功で needsReconnect=false に戻ると enabled が復活して自動再取得
 
-import { QueryCache, QueryClient } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { AuthError } from './google/fetchJson'
 import { markExpired } from './auth/authStore'
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
+    onError: (error) => {
+      if (error instanceof AuthError) {
+        markExpired()
+      }
+    },
+  }),
+  // 書き込み(mutation)のエラーは QueryCache.onError を通らない。
+  // トークン失効中に完了/追加した場合も同じ再接続UXへ流すため、こちらにも 401 ハンドラを置く（Fable 助言）。
+  mutationCache: new MutationCache({
     onError: (error) => {
       if (error instanceof AuthError) {
         markExpired()

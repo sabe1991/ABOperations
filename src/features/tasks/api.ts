@@ -36,6 +36,8 @@ export interface TaskItem {
   listName: string
   dueStr: string | null // 'YYYY-MM-DD' or null
   group: TaskGroup
+  // 楽観的追加でまだサーバーにIDが無い仮の項目。true の間は完了操作を不可にする。
+  pending?: boolean
 }
 
 // 端末ローカルの今日を 'YYYY-MM-DD' 文字列で返す。
@@ -49,7 +51,7 @@ function localTodayStr(): string {
 
 // 期限文字列と今日から所属グループを決める。
 // YYYY-MM-DD 形式は辞書順比較がそのまま日付の前後比較になる。
-function classify(dueStr: string | null, todayStr: string): TaskGroup {
+export function classify(dueStr: string | null, todayStr: string): TaskGroup {
   if (!dueStr) return 'noDue'
   if (dueStr < todayStr) return 'overdue'
   if (dueStr === todayStr) return 'today'
@@ -96,4 +98,64 @@ export async function fetchAllTasks(): Promise<TaskItem[]> {
   // リストごとに並列取得（横断APIが無いため）
   const perList = await Promise.all(lists.map((list) => fetchTasksForList(list, todayStr)))
   return perList.flat()
+}
+
+// 端末ローカルの今日を書き戻し用の due（UTC0時のRFC3339）に変換する。
+export function toDueValue(dateStr: string): string {
+  return `${dateStr}T00:00:00.000Z`
+}
+
+export { localTodayStr }
+
+// ---- 書き込み系 ----
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' }
+
+function taskUrl(listId: string, taskId: string): string {
+  return `${TASKS_BASE}/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`
+}
+
+// タスクを完了にする。
+export async function completeTask(listId: string, taskId: string): Promise<void> {
+  await fetchJson(taskUrl(listId, taskId), {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ status: 'completed' }),
+  })
+}
+
+// 完了を取り消して未完了に戻す（Undo・再オープン）。
+// completed(完了時刻)を明示的に消さないと再オープン扱いにならないため null を送る。
+export async function reopenTask(listId: string, taskId: string): Promise<void> {
+  await fetchJson(taskUrl(listId, taskId), {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ status: 'needsAction', completed: null }),
+  })
+}
+
+// タスクを新規追加する。追加後の正規化済みタスクを返す。
+// listId 省略時はユーザーの既定リスト（Google Tasks の "@default" エイリアス）に追加する。
+export async function insertTask(input: {
+  title: string
+  dueDateStr?: string | null
+  listId?: string
+  listName?: string
+}): Promise<TaskItem> {
+  const listId = input.listId ?? '@default'
+  const body: { title: string; due?: string } = { title: input.title }
+  if (input.dueDateStr) body.due = toDueValue(input.dueDateStr)
+  const created = await fetchJson<GoogleTask>(
+    `${TASKS_BASE}/lists/${encodeURIComponent(listId)}/tasks`,
+    { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) },
+  )
+  const dueStr = created.due ? created.due.slice(0, 10) : (input.dueDateStr ?? null)
+  return {
+    id: created.id,
+    title: created.title?.trim() || input.title,
+    listId,
+    listName: input.listName ?? '',
+    dueStr,
+    group: classify(dueStr, localTodayStr()),
+  }
 }

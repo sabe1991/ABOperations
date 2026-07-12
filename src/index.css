@@ -211,10 +211,62 @@ body {
 }
 .tasks__item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0;
+}
+
+/* 完了チェック（丸ボタン） */
+.tasks__check {
+  border: none;
+  background: none;
+  padding: 0.2rem;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  line-height: 0;
+}
+.tasks__check:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tasks__check-box {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--text-muted);
+  border-radius: 50%;
+  display: inline-block;
+}
+.tasks__check:not(:disabled):hover .tasks__check-box {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* クイック追加フォーム */
+.tasks__add {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.tasks__add-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.tasks__add-input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+.tasks__add-today.is-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 .tasks__due {
   font-size: 0.8rem;
@@ -231,4 +283,38 @@ body {
 .tasks__list-name {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+/* --- スナックバー（画面下部の「元に戻す」通知） --- */
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.9rem 0.6rem 1.1rem;
+  border-radius: 10px;
+  background: light-dark(#1f2229, #e6e8ec);
+  color: light-dark(#f7f8fa, #16181d);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.snackbar__text {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snackbar__action {
+  flex-shrink: 0;
+  font: inherit;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: #7da2ff;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
 }

@@ -1,16 +1,19 @@
 // タスクを取得する TanStack Query フック。カレンダーと同じ方針
 // （接続済みかつ再接続不要なときだけ動く、5分ポーリング、401は共通ハンドラで処理）。
 
-import { useQuery } from '@tanstack/react-query'
+import { useIsMutating, useQuery } from '@tanstack/react-query'
 import { fetchAllTasks } from './api'
 import { useAuth } from '../../auth/useAuth'
 
 export function useTasks() {
   const { isConnected, needsReconnect } = useAuth()
+  // 書き込み(完了/追加/Undo)実行中はポーリングを止め、楽観的更新の一瞬を
+  // ポーリング結果が上書きしないようにする（Fable 助言）。
+  const mutating = useIsMutating() > 0
   return useQuery({
     queryKey: ['tasks', 'all'],
     queryFn: fetchAllTasks,
     enabled: isConnected && !needsReconnect,
-    refetchInterval: 5 * 60 * 1000,
+    refetchInterval: mutating ? false : 5 * 60 * 1000,
   })
 }
