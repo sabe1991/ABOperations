@@ -4,6 +4,7 @@
 import { useWeather } from './useWeather'
 import { weatherCodeInfo } from './api'
 import type { DailyForecast } from './api'
+import { WeatherSkeleton } from '../../Skeleton'
 
 // 予報の日付ラベル（今日/明日/明後日、それ以降は M/D）。
 function dayLabel(dateStr: string, index: number): string {
@@ -18,7 +19,7 @@ export function WeatherPanel() {
   const { data, isLoading, isError } = useWeather()
 
   if (isError) return <p className="panel__note panel__note--error">天気の取得に失敗しました。</p>
-  if (isLoading && !data) return <p className="panel__note">読み込み中…</p>
+  if (isLoading && !data) return <WeatherSkeleton />
   if (!data) return null
 
   const cur = weatherCodeInfo(data.currentCode)

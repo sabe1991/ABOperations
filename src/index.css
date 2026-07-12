@@ -738,8 +738,27 @@ body {
 /* クイック追加フォーム */
 .tasks__add {
   display: flex;
+  flex-direction: column;
   gap: 0.4rem;
   margin-bottom: 0.9rem;
+}
+.tasks__add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.tasks__add-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.tasks__add-check input {
+  cursor: pointer;
 }
 .tasks__add-input {
   flex: 1;
@@ -1214,4 +1233,94 @@ body {
 }
 .settings__geo-results li + li .settings__geo-result {
   border-top: 1px solid var(--border);
+}
+
+/* --- スケルトン（読み込み中のプレースホルダー） --- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text) 8%, transparent) 25%,
+    color-mix(in srgb, var(--text) 16%, transparent) 37%,
+    color-mix(in srgb, var(--text) 8%, transparent) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+/* 動きが苦手な人向け: シマーを止めて静的な灰色ブロックにする。 */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* リスト系（予定・タスク・メール）。1行＝見出し線＋補助線。 */
+.skel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.3rem 0;
+}
+.skel-list__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.skel-list__title {
+  height: 0.85rem;
+  width: 70%;
+}
+.skel-list__sub {
+  height: 0.7rem;
+  width: 45%;
+}
+
+/* 24hタイムライン。左に時刻軸ぶんの余白を空け、長さの違うバーを点在させる。 */
+.skel-timeline {
+  position: relative;
+  height: 100%;
+  min-height: 240px;
+}
+.skel-timeline__bar {
+  position: absolute;
+  left: 44px;
+  right: 4px;
+}
+
+/* 天気。大きめの四角＋数本の線。 */
+.skel-weather {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.3rem 0;
+}
+.skel-weather__icon {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.skel-weather__lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.skel-weather__line {
+  height: 0.8rem;
+  width: 60%;
+}
+.skel-weather__line--wide {
+  width: 80%;
+}
+.skel-weather__line--narrow {
+  width: 40%;
 }

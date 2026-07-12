@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react'
 import { useCalendarEvents } from './useCalendarEvents'
 import type { CalendarEvent } from './api'
+import { TimelineSkeleton } from '../../Skeleton'
 
 const HOUR_PX = 48 // 1時間あたりの高さ(px)
 const GUTTER = 40 // 左の時刻ラベル幅(px)
@@ -106,7 +107,7 @@ export function TodayTimeline() {
   }, [events])
 
   if (isError) return <p className="panel__note panel__note--error">今日の予定の取得に失敗しました。</p>
-  if (isLoading && !events) return <p className="panel__note">読み込み中…</p>
+  if (isLoading && !events) return <TimelineSkeleton />
   if (todays.length === 0) return <p className="panel__note">今日の予定はありません。</p>
 
   return (

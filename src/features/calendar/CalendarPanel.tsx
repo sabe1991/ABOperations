@@ -17,6 +17,7 @@ import { isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
+import { ListSkeleton } from '../../Skeleton'
 
 // --- 日付・時刻の小ヘルパ（ローカル表記） ---
 function fmtLocalDate(d: Date): string {
@@ -216,7 +217,7 @@ function EventList({
   // 出典名（カレンダー名 / 主カレンダーはメールアドレス）を表示するかは端末ローカルの設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
   if (isLoading) {
-    return <p className="panel__note">予定を読み込み中…</p>
+    return <ListSkeleton rows={5} />
   }
   if (isError) {
     return <p className="panel__note panel__note--error">予定の取得に失敗しました: {String(error)}</p>

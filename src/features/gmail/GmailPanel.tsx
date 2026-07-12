@@ -20,6 +20,7 @@ import {
   toIntentUrl,
 } from './renderBody'
 import type { GmailMessage } from './api'
+import { ListSkeleton } from '../../Skeleton'
 
 // Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
 type Snack = { text: string; undo: () => void }
@@ -142,7 +143,7 @@ function GmailList({
   notify: (text: string, undo: () => void) => void
 }) {
   if (isLoading) {
-    return <p className="panel__note">メールを読み込み中…</p>
+    return <ListSkeleton rows={6} />
   }
   if (isError) {
     return <p className="panel__note panel__note--error">メールの取得に失敗しました: {String(error)}</p>

@@ -21,6 +21,7 @@ import { localDateStrPlusDays, localNextMondayStr, localTodayStr } from './api'
 import type { TaskItem } from './api'
 import { useAuth } from '../../auth/useAuth'
 import { useShowSourceLabels } from '../settings/displayPrefs'
+import { ListSkeleton } from '../../Skeleton'
 
 // 表示用のバケツ（api の TaskGroup とは別に、表示側で due から細かく分ける）。
 type Bucket = 'overdue' | 'today' | 'tomorrow' | 'later' | 'noDue'
@@ -193,18 +194,19 @@ export function TasksPanel() {
           placeholder="タスクを追加…"
           aria-label="新しいタスクのタイトル"
         />
-        <button
-          type="button"
-          className={`btn btn--small tasks__add-today${dueToday ? ' is-on' : ''}`}
-          onClick={() => setDueToday((v) => !v)}
-          aria-pressed={dueToday}
-          title="期限を今日にする"
-        >
-          今日
-        </button>
-        <button type="submit" className="btn btn--small btn--primary" disabled={!newTitle.trim()}>
-          追加
-        </button>
+        <div className="tasks__add-row">
+          <label className="tasks__add-check">
+            <input
+              type="checkbox"
+              checked={dueToday}
+              onChange={(e) => setDueToday(e.target.checked)}
+            />
+            期限を今日にする
+          </label>
+          <button type="submit" className="btn btn--small btn--primary" disabled={!newTitle.trim()}>
+            追加
+          </button>
+        </div>
       </form>
 
       <TaskList
@@ -268,7 +270,7 @@ function TaskList({
   // 出典名（リスト名）を表示するかは端末ローカルの表示設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
   if (isLoading) {
-    return <p className="panel__note">タスクを読み込み中…</p>
+    return <ListSkeleton rows={5} />
   }
   if (isError) {
     return <p className="panel__note panel__note--error">タスクの取得に失敗しました: {String(error)}</p>
