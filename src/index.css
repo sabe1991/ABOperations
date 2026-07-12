@@ -209,25 +209,33 @@ body {
     min-height: 0;
     overflow-y: auto;
   }
-  /* パネル本体が内部スクロールする広い画面では、タスク追加フォームと「＋予定」ツールバーを
-     本体上部に貼り付けて（sticky）、下の一覧をスクロールしても常に操作できるようにする。
-     背景をパネル色で塗り、下の余白を padding にすることで、スクロールした中身が
-     貼り付き部分の透明な隙間から透けないようにする。 */
-  .panel__body .tasks__add {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--surface);
-    margin-bottom: 0;
-    padding-bottom: 0.9rem;
+  /* タスク・予定パネルは「上部の追加UIを固定＋下の一覧だけをスクロール」構成にする。
+     パネル本体自体はスクロールさせず（overflow:hidden）、本体を縦フレックスにして
+     内部を「固定ヘッダ（追加フォーム／＋予定）＋スクロール領域（一覧）」に分ける。
+     こうするとスクロールバーが一覧の高さぶんだけになり、固定ヘッダの横まで伸びない
+     （本体全体を sticky でスクロールさせる方式だと、バーが固定部の横まで伸びて違和感が出るため）。 */
+  .panel--tasks .panel__body,
+  .panel--events .panel__body {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
-  .panel__body .calendar__toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--surface);
-    margin-bottom: 0;
-    padding-bottom: 0.5rem;
+  .panel--tasks .tasks,
+  .panel--events .calendar {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel--tasks .tasks__add,
+  .panel--events .calendar__toolbar {
+    flex-shrink: 0; /* 上部の追加UIは縮まず固定 */
+  }
+  .tasks__scroll,
+  .calendar__scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto; /* 一覧だけをスクロール。スクロールバーはこの領域の高さぶんだけ */
   }
 }
 
@@ -246,23 +254,23 @@ body {
 }
 
 /* 密度型（段積み3カラム）。行を全列で共有するため、行スパンで「天気は小・Gmailは大」を両立する:
-   - 1列目（細）: 今日の24hタイムライン。全3行スパンで全高。
+   - 1列目（細）: 上段(auto)に天気を小さく、その下(row2+3)に今日の24hタイムライン。
    - 2列目・3列目（予定7日 / 今月・横幅は 1:1）: 上2行にまたがる。下段（タスク）は2列分スパン。
-   - 4列目（標準）: 天気は小さい auto 行（row1）、Gmail はそのすぐ下の row2+3 スパンで大きく。 */
+   - 4列目（広め）: Gmail を全3行スパンで大きく（メールは横幅を少し広めに取る）。 */
 @media (min-width: 1200px) {
   .app__main {
     /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。 */
     max-width: 1600px;
   }
   .panels {
-    /* 列幅: タイムライン(細) / 予定7日(やや広め) / 今月(やや狭め) / Gmail(標準)。 */
-    grid-template-columns: minmax(180px, 0.7fr) 1.2fr 0.85fr 1.3fr;
+    /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月(やや狭め) / Gmail(広め)。 */
+    grid-template-columns: minmax(190px, 0.7fr) 1.15fr 0.8fr 1.55fr;
     /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
        今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
-       （0.7 : 1.3）。min 0 で中身にページを膨らませない。 */
+       （0.6 : 1.4）。min 0 で中身にページを膨らませない。 */
     grid-template-rows: auto minmax(0, 0.6fr) minmax(0, 1.4fr);
     grid-template-areas:
-      'timeline events month  weather'
+      'weather  events month  gmail'
       'timeline events month  gmail'
       'timeline tasks  tasks  gmail';
   }
@@ -820,12 +828,11 @@ body {
   color: var(--text-muted);
 }
 
-/* --- 天気（密度型の3列目・上段。小さくコンパクトに） --- */
+/* --- 天気（密度型の1列目・上段。細い列に収めるため縦2段） --- */
 .weather {
   display: flex;
-  flex-wrap: wrap; /* 幅が狭いときは折り返す（保険） */
-  align-items: center;
-  gap: 1rem 1.5rem;
+  flex-direction: column; /* 上段=今日 / 下段=明日・明後日 の2段組み */
+  gap: 0.7rem;
 }
 /* 現在の天気: 絵文字・気温・（地点/状態/最高最低）を横並び。窮屈にならないよう間隔広め。 */
 .weather__now {
@@ -868,15 +875,14 @@ body {
 .weather__sep {
   color: var(--text-muted);
 }
-/* 明日・明後日のミニ予報を現在の天気の右に横並び。各日は縦に ラベル/絵文字/最高・最低。
-   残り幅いっぱいに広げ、2日を均等に配置して右側の余白を埋める。 */
+/* 明日・明後日のミニ予報を今日の下の段に横並び。各日は縦に ラベル/絵文字/最高・最低。
+   幅いっぱいに広げ、2日を均等に配置する。上段（今日）との境に上罫線を引く。 */
 .weather__days {
-  flex: 1;
   display: flex;
   justify-content: space-around;
   gap: 0.75rem;
-  border-left: 1px solid var(--border);
-  padding-left: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
 }
 .weather__day {
   min-width: 0;

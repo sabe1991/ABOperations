@@ -149,19 +149,21 @@ export function CalendarPanel() {
         </button>
       </div>
 
-      <EventList
-        events={events}
-        isLoading={isLoading}
-        isError={isError}
-        error={error}
-        expandedId={expandedId}
-        onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-        onEdit={(ev) => {
-          setSheet(ev)
-          setExpandedId(null)
-        }}
-        onDelete={handleDelete}
-      />
+      <div className="calendar__scroll">
+        <EventList
+          events={events}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          expandedId={expandedId}
+          onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+          onEdit={(ev) => {
+            setSheet(ev)
+            setExpandedId(null)
+          }}
+          onDelete={handleDelete}
+        />
+      </div>
 
       {sheet === 'create' && calendars && (
         <EventSheet

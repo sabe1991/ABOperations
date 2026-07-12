@@ -209,21 +209,23 @@ export function TasksPanel() {
         </div>
       </form>
 
-      <TaskList
-        tasks={tasks}
-        isLoading={isLoading}
-        isError={isError}
-        error={error}
-        expandedKey={expandedKey}
-        onToggleExpand={(key) => setExpandedKey((cur) => (cur === key ? null : key))}
-        onComplete={handleComplete}
-        onReschedule={handleReschedule}
-        onEdit={(t) => {
-          setEditing(t)
-          setExpandedKey(null)
-        }}
-        onDelete={handleDelete}
-      />
+      <div className="tasks__scroll">
+        <TaskList
+          tasks={tasks}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          expandedKey={expandedKey}
+          onToggleExpand={(key) => setExpandedKey((cur) => (cur === key ? null : key))}
+          onComplete={handleComplete}
+          onReschedule={handleReschedule}
+          onEdit={(t) => {
+            setEditing(t)
+            setExpandedKey(null)
+          }}
+          onDelete={handleDelete}
+        />
+      </div>
 
       {/* 編集ボトムシート */}
       {editing && (
