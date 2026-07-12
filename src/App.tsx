@@ -201,7 +201,7 @@ export default function App() {
         <div className="panels">
           {isWide && (
             <section className="panel panel--timeline">
-              <h2 className="panel__title">今日の予定</h2>
+              <h2 className="panel__title">タイムライン</h2>
               <div className="panel__body">
                 <TodayTimeline />
               </div>

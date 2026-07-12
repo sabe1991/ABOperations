@@ -6,6 +6,7 @@
 import { useMonthEventDays } from './useCalendarEvents'
 import { useWeekStart } from '../settings/displayPrefs'
 import { requestScrollToDate } from './scrollTarget'
+import { setSelectedDate, useSelectedDate } from './selectedDate'
 
 // 実際の曜日番号（0=日〜6=土）で引くラベル。週の開始曜日に関わらずこの並びで参照する。
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
@@ -25,6 +26,8 @@ export function MonthCalendar() {
   const month = now.getMonth()
   const date = now.getDate()
   const todayStr = fmt(now)
+  // タイムラインに表示中の選択日（未選択=null は「今日」扱い）。選択中セルの強調に使う。
+  const selectedStr = useSelectedDate() ?? todayStr
 
   // 今週の開始日（週開始設定ぶんだけ今日から戻した日）を左上にし、5週=35セル作る。
   // new Date(year, month, x) は x が月の範囲外でも自動で前後の月へ繰り上げ/繰り下げされる。
@@ -68,9 +71,11 @@ export function MonthCalendar() {
           // 月初(1日)も月をまたいだ目印として「M/1」表記にする（今日は塗るので数字のみ）。
           const showMonth = idx === 0 || (d.getDate() === 1 && !isToday)
           const numText = showMonth ? `${d.getMonth() + 1}/${d.getDate()}` : String(d.getDate())
+          const isSelected = ds === selectedStr
           const cls = [
             'month__cell',
             isToday ? 'month__cell--today' : '',
+            isSelected ? 'month__cell--selected' : '',
             isPast ? 'month__cell--past' : '',
             dow === 0 ? 'month__cell--sun' : '',
             dow === 6 ? 'month__cell--sat' : '',
@@ -92,8 +97,12 @@ export function MonthCalendar() {
               key={ds}
               type="button"
               className={cls}
-              onClick={() => requestScrollToDate(ds)}
-              title={`${d.getMonth() + 1}月${d.getDate()}日の予定へ`}
+              // クリックでタイムラインの表示日を切り替え、あわせて予定リストもその日へスクロールする。
+              onClick={() => {
+                setSelectedDate(ds)
+                requestScrollToDate(ds)
+              }}
+              title={`${d.getMonth() + 1}月${d.getDate()}日の予定を表示`}
             >
               <span className="month__num">{numText}</span>
               {has && <span className="month__dot" aria-label="予定あり" />}

@@ -524,11 +524,18 @@ body {
   color: var(--danger);
 }
 
-/* --- 今日の24hタイムライン（密度型の1列目） --- */
+/* --- 24hタイムライン（密度型の1列目。月カレンダーで選んだ日を表示） --- */
 .timeline {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+/* 表示中の日付の見出し（例: 「今日 ・ 7月13日 (月)」）。 */
+.timeline__date {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text);
 }
 .timeline__allday {
   flex-shrink: 0;
@@ -712,6 +719,12 @@ body {
 }
 .month__cell--today .month__dot {
   background: #fff;
+}
+/* タイムラインに表示中の「選択日」を枠で示す（今日=塗りとは別の手がかり。既定は今日が選択状態）。
+   outline を使い、ホバーの box-shadow と競合させない。 */
+.month__cell--selected {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 
 /* --- カレンダー --- */

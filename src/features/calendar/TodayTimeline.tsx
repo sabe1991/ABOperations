@@ -1,12 +1,14 @@
-// 今日の24時間タイムライン（密度型レイアウトの1列目）。
-// 既存の7日取得（useCalendarEvents）を再利用し、今日ぶんだけを時間軸に配置する。
-// 0:00〜24:00 を描画し、初回は現在時刻が画面の少し上に来る位置へスクロールする。
-// 現在時刻に赤い横線、終日予定は上部のチップ。
+// 24時間タイムライン（密度型レイアウトの1列目）。
+// 既存の予定取得（useCalendarEvents）を再利用し、月カレンダーで選択した日（既定は今日）ぶんを時間軸に配置する。
+// 選択できる日は月カレンダーの範囲（今日〜約+34日）で、これは useCalendarEvents の取得範囲（今日〜+35日）に
+// 収まるため、日付を切り替えても追加取得は不要（同じキャッシュをフィルタするだけ）。
+// 0:00〜24:00 を描画し、今日は現在時刻に赤い横線を引き、初回/日付切替時に見やすい位置へスクロールする。
 // 操作: 予定クリックで編集シートを開く（#18）、空き時間のドラッグで作成シートを開く（#17 Phase A）。
 // どちらも CalendarPanel の既存シート／ミューテーションへシグナル（calendarSheetSignal）で委譲する。
 import { useEffect, useRef, useState } from 'react'
 import { useCalendarEvents } from './useCalendarEvents'
 import { requestCreateEventAt, requestEditEvent } from './calendarSheetSignal'
+import { useSelectedDate } from './selectedDate'
 import type { CalendarEvent } from './api'
 import { TimelineSkeleton } from '../../Skeleton'
 
@@ -27,6 +29,26 @@ function fmtDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+// タイムラインの見出し用の日付ラベル。'YYYY-MM-DD' → 「7月13日 (月)」。
+// 今日・明日は先頭に付す。todayStr は今日の 'YYYY-MM-DD'。
+const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土']
+function dateCaption(dateStr: string, todayStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dow = WEEKDAY_JA[new Date(y, m - 1, d).getDay()]
+  const base = `${m}月${d}日 (${dow})`
+  const diff = daysBetween(todayStr, dateStr)
+  if (diff === 0) return `今日 ・ ${base}`
+  if (diff === 1) return `明日 ・ ${base}`
+  return base
+}
+
+// 2つの 'YYYY-MM-DD' の日数差（b - a）。ローカル日付の差をUTC基準で安全に求める。
+function daysBetween(aStr: string, bStr: string): number {
+  const [ay, am, ad] = aStr.split('-').map(Number)
+  const [by, bm, bd] = bStr.split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
 }
 
 function timeToMin(hhmm: string | null): number {
@@ -90,7 +112,9 @@ export function TodayTimeline() {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const axisRef = useRef<HTMLDivElement | null>(null)
   const nowRef = useRef<HTMLDivElement | null>(null)
-  const scrolledRef = useRef(false)
+  // 直近でスクロールを合わせた表示日。日付が変わったら再スクロールし、同じ日のポーリング再取得では
+  // スクロール位置を奪わないための番兵。
+  const scrolledForDateRef = useRef<string | null>(null)
   // 空き時間ドラッグ（#17 Phase A）の途中経過。startMin=押した位置, curMin=現在位置（ともに分・15分スナップ済み）。
   const [drag, setDrag] = useState<{ startMin: number; curMin: number } | null>(null)
   // クリック（微小移動）と本当のドラッグを弁別するための押下位置の生の clientY。
@@ -99,18 +123,21 @@ export function TodayTimeline() {
   const now = new Date()
   const todayStr = fmtDate(now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
+  // 表示対象の日（月カレンダーで選択した日。未選択=null は今日）。
+  const selectedDate = useSelectedDate() ?? todayStr
+  const isToday = selectedDate === todayStr
 
-  // 今日にかかる予定だけ抽出（終日/時刻ありとも start〜end が今日を含むもの）。
+  // 選択日にかかる予定だけ抽出（終日/時刻ありとも start〜end が選択日を含むもの）。
   const todays = (events ?? []).filter(
-    (ev) => ev.startDateStr <= todayStr && todayStr <= ev.endDateStr,
+    (ev) => ev.startDateStr <= selectedDate && selectedDate <= ev.endDateStr,
   )
   const allDay = todays.filter((ev) => ev.allDay)
   const timed = todays
     .filter((ev) => !ev.allDay)
     .map((ev) => {
       // 前日から続く予定は 0:00、翌日へ続く予定は 24:00 にクランプする。
-      const startMin = ev.startDateStr === todayStr ? timeToMin(ev.startTimeStr) : 0
-      let endMin = ev.endDateStr === todayStr ? timeToMin(ev.endTimeStr) : 24 * 60
+      const startMin = ev.startDateStr === selectedDate ? timeToMin(ev.startTimeStr) : 0
+      let endMin = ev.endDateStr === selectedDate ? timeToMin(ev.endTimeStr) : 24 * 60
       if (endMin <= startMin) endMin = startMin + 30 // 0分予定に最低高さ
       return { ev, startMin, endMin }
     })
@@ -124,30 +151,31 @@ export function TodayTimeline() {
   const axisHeight = ((winEnd - winStart) / 60) * HOUR_PX
   const hours: number[] = []
   for (let h = winStart / 60; h <= winEnd / 60; h++) hours.push(h)
-  const nowVisible = nowMin >= winStart && nowMin <= winEnd
+  // 赤い現在時刻線は「今日」を表示しているときだけ出す（他の日に「現在時刻」は無い）。
+  const nowVisible = isToday && nowMin >= winStart && nowMin <= winEnd
 
-  // 初回スクロール（#29）: 現在時刻の赤線が可視域の上から約4割の位置に来るように合わせる。
-  // 「朝イチで今日の予定を見る」用途なので、最下部（夜）ではなく現在時刻を中心やや上に置く。
-  // events の refetch のたびに再実行されるので scrolledRef で初回だけに限定する
+  // 初回・日付切替時のスクロール（#29）。基準の分を可視域の上から約4割の位置へ合わせる:
+  //   - 今日: 現在時刻。 - 他の日: その日の最初の予定（無ければ朝8時）。
+  // events の refetch のたびにも走るが、scrolledForDateRef で「表示日が変わったときだけ」に限定する
   // （ガードが無いと5分ポーリングごとにスクロール位置を奪ってしまう）。
   useEffect(() => {
-    if (scrolledRef.current || !events) return
+    if (!events) return
+    if (scrolledForDateRef.current === selectedDate) return
     const root = rootRef.current
-    if (!root) return
+    const axis = axisRef.current
+    if (!root || !axis) return
     const scroller = getScrollParent(root)
     if (!scroller) return
-    const nowEl = nowRef.current
-    if (nowEl) {
-      // rect 差分で算出（allday チップ行の高さ可変によるオフセットずれを避ける）。
-      const nowRect = nowEl.getBoundingClientRect()
-      const scRect = scroller.getBoundingClientRect()
-      const target = nowRect.top - scRect.top + scroller.scrollTop - scroller.clientHeight * 0.4
-      scroller.scrollTop = Math.max(0, target) // ブラウザが上限もクランプする
-    } else {
-      scroller.scrollTop = scroller.scrollHeight
-    }
-    scrolledRef.current = true
-  }, [events])
+    const firstTimedStart = timed.length ? Math.min(...timed.map((t) => t.startMin)) : null
+    const refMin = isToday ? nowMin : (firstTimedStart ?? 8 * 60)
+    // 軸の上端をスクロール座標に直し（allday チップ行の高さぶんのオフセットを吸収）、基準分の位置を出す。
+    const axisRect = axis.getBoundingClientRect()
+    const scRect = scroller.getBoundingClientRect()
+    const axisTopInScroll = axisRect.top - scRect.top + scroller.scrollTop
+    const refTop = axisTopInScroll + ((refMin - winStart) / 60) * HOUR_PX
+    scroller.scrollTop = Math.max(0, refTop - scroller.clientHeight * 0.4) // ブラウザが上限もクランプする
+    scrolledForDateRef.current = selectedDate
+  }, [events, selectedDate, isToday, nowMin, timed, winStart])
 
   // --- 空き時間ドラッグで作成シートを開く（#17 Phase A） ---
   // ポインタ位置(clientY)を軸上の分(0〜1440, 15分スナップ)に変換する。
@@ -197,7 +225,7 @@ export function TodayTimeline() {
     const hi = Math.max(drag.startMin, drag.curMin)
     const startMin = Math.min(lo, 23 * 60 + 30)
     const endMin = Math.min(Math.max(hi, startMin + SNAP_MIN), 23 * 60 + 45)
-    requestCreateEventAt(todayStr, minToHHmm(startMin), minToHHmm(endMin))
+    requestCreateEventAt(selectedDate, minToHHmm(startMin), minToHHmm(endMin))
   }
 
   if (isError) return <p className="panel__note panel__note--error">今日の予定の取得に失敗しました。</p>
@@ -206,6 +234,7 @@ export function TodayTimeline() {
 
   return (
     <div className="timeline" ref={rootRef}>
+      <div className="timeline__date">{dateCaption(selectedDate, todayStr)}</div>
       {allDay.length > 0 && (
         <div className="timeline__allday">
           {allDay.map((ev) => (
