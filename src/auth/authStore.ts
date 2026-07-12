@@ -84,6 +84,20 @@ export function markExpired(): void {
   emit()
 }
 
+// ログアウト（接続解除）時に呼ぶ。トークンも同意記録も破棄し、未接続の初期状態に戻す。
+// markExpired（401でトークンだけ失う＝再接続を促す）と違い、こちらは grantedScopes も消して
+// ウェルカム画面へ完全に戻す（再ログイン/別アカウント選択のため）。
+export function markDisconnected(): void {
+  snapshot = {
+    isConnected: false,
+    needsReconnect: false,
+    needsScope: false,
+    grantedScopes: [],
+    acquiredAt: null,
+  }
+  emit()
+}
+
 // 権限不足（403 insufficient_scope）検知時に呼ぶ。トークン自体は有効なので破棄せず、
 // 「追加の許可が必要」バナーだけを出す（カレンダー等の許可済み機能はそのまま使える）。
 // localStorage の同意記録が古い/欠落していても、実際の API 失敗を根拠に確実に検知できる。

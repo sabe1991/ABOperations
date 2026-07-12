@@ -6,9 +6,15 @@
 
 import { useSyncExternalStore } from 'react'
 import { SCOPES } from '../config'
-import { getAcquiredAt, getToken, loadGrantedScopes } from './tokenStore'
-import { getSnapshot, markConnected, subscribe, type AuthSnapshot } from './authStore'
-import { prepareTokenClient, requestToken, requestTokenSilent } from './gisClient'
+import { clearGrantedScopes, clearToken, getAcquiredAt, getToken, loadGrantedScopes } from './tokenStore'
+import {
+  getSnapshot,
+  markConnected,
+  markDisconnected,
+  subscribe,
+  type AuthSnapshot,
+} from './authStore'
+import { prepareTokenClient, requestToken, requestTokenSilent, revokeToken } from './gisClient'
 
 export function useAuth(): AuthSnapshot {
   return useSyncExternalStore(subscribe, getSnapshot)
@@ -67,4 +73,14 @@ export async function trySilentConnect(scopes: string[]): Promise<boolean> {
 // 現在有効なトークンを持っているか（レンダリング外からの簡易チェック用）。
 export function hasToken(): boolean {
   return getToken() !== null
+}
+
+// ログアウト（接続解除）。トークンをサーバー側で失効させ、ローカルのトークン・同意記録を
+// 破棄して未接続の初期状態（ウェルカム画面）へ戻す。別アカウントに切り替えたいときにも使う。
+export function disconnect(): void {
+  const token = getToken()
+  if (token) revokeToken(token) // best-effort（失敗してもローカルは確実に破棄する）
+  clearToken()
+  clearGrantedScopes()
+  markDisconnected()
 }

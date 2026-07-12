@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, useAuth } from '../../auth/useAuth'
-import { isGmailEnabled, setGmailEnabled } from './enabled'
+import { setGmailEnabled, useGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
 import { useArchive, useMarkRead, useMarkUnread, useUnarchive } from './useGmailMutations'
@@ -39,7 +39,7 @@ function formatWhen(dateMs: number): string {
 export function GmailPanel() {
   const { grantedScopes } = useAuth()
   const hasScope = grantedScopes.includes(SCOPES.gmailModify)
-  const [enabled, setEnabled] = useState(isGmailEnabled())
+  const enabled = useGmailEnabled()
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,7 +68,6 @@ export function GmailPanel() {
     connect(GMAIL_SCOPES)
       .then(() => {
         setGmailEnabled(true)
-        setEnabled(true)
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setConnecting(false))
@@ -76,7 +75,6 @@ export function GmailPanel() {
 
   function handleDisable() {
     setGmailEnabled(false)
-    setEnabled(false)
   }
 
   // 未有効 or 未同意: 有効化を促す

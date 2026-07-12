@@ -15,6 +15,7 @@ import { GmailPanel } from './features/gmail/GmailPanel'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { isGmailEnabled } from './features/gmail/enabled'
+import { SettingsModal } from './features/settings/SettingsModal'
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
 type PanelKey = 'calendar' | 'tasks' | 'gmail'
@@ -33,6 +34,8 @@ export default function App() {
   // スマホで表示中のタブ（初期は「予定」固定＝朝イチで今日の予定を最初に見る想定・Fable 助言）。
   // PC では3枚とも並列表示するのでこの状態は使わない（CSS 側で切替）。
   const [tab, setTab] = useState<PanelKey>('calendar')
+  // 設定モーダルの開閉。
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
@@ -129,12 +132,22 @@ export default function App() {
     <div className="app">
       <header className="app__header">
         <h1 className="app__title">AB Operations</h1>
-        <ConnectionStatus
-          acquiredAt={acquiredAt}
-          needsReconnect={needsReconnect}
-          connecting={connecting}
-          onReconnect={handleConnect}
-        />
+        <div className="app__headerRight">
+          <ConnectionStatus
+            acquiredAt={acquiredAt}
+            needsReconnect={needsReconnect}
+            connecting={connecting}
+            onReconnect={handleConnect}
+          />
+          <button
+            className="app__settings"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="設定を開く"
+            title="設定"
+          >
+            ⚙
+          </button>
+        </div>
       </header>
 
       {/* セッション切れバナー（画面上部に1本だけ） */}
@@ -203,6 +216,8 @@ export default function App() {
           )
         })}
       </nav>
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

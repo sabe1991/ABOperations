@@ -135,6 +135,16 @@ export function requestToken(scopes: string[]): Promise<string> {
   return doRequest(scopes, undefined, null)
 }
 
+// 現在のトークンをサーバー側で失効させる（ログアウト時）。best-effort。
+// revoke するとそのトークンは即無効になり、次回ログインでは同意/選択をやり直す。
+export function revokeToken(token: string): void {
+  try {
+    window.google?.accounts?.oauth2?.revoke(token, () => {})
+  } catch {
+    // 失効呼び出しに失敗してもローカルのトークン破棄は別途行うので致命的ではない
+  }
+}
+
 // サイレント（ポップアップ無し）でトークンを要求する。起動時の自動ログインに使う。
 // Googleセッションが生きていて同意済みなら UI 無しでトークンを取得できる。
 // セッション切れ・未同意なら error_callback（または タイムアウト）で reject し、

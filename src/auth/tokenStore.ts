@@ -92,3 +92,12 @@ export function addGrantedScopes(scopes: string[]): string[] {
   }
   return merged
 }
+
+// 同意済みスコープの記録を消す（ログアウト時）。次回は通常のログインからやり直す。
+export function clearGrantedScopes(): void {
+  try {
+    localStorage.removeItem(GRANTED_SCOPES_KEY)
+  } catch {
+    // ignore
+  }
+}
