@@ -18,7 +18,7 @@ import { WeatherPanel } from './features/weather/WeatherPanel'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
-import { isGmailEnabled } from './features/gmail/enabled'
+import { setGmailEnabled, useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
@@ -49,7 +49,7 @@ export default function App() {
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
   const overdueCount = useOverdueCount()
-  const gmailActive = isGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
+  const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
   const badges: Record<PanelKey, number> = { calendar: 0, tasks: overdueCount, gmail: unreadCount }
@@ -231,7 +231,18 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">メール</h2>
+            <div className="panel__head">
+              <h2 className="panel__title">メール</h2>
+              {gmailActive && (
+                <button
+                  className="btn btn--small"
+                  onClick={() => setGmailEnabled(false)}
+                  title="この端末で Gmail を隠す"
+                >
+                  この端末で非表示
+                </button>
+              )}
+            </div>
             <div className="panel__body">
               <GmailPanel />
             </div>

@@ -75,10 +75,6 @@ export function GmailPanel() {
       .finally(() => setConnecting(false))
   }
 
-  function handleDisable() {
-    setGmailEnabled(false)
-  }
-
   // 未有効 or 未同意: 有効化を促す
   if (!active) {
     return (
@@ -100,11 +96,6 @@ export function GmailPanel() {
 
   return (
     <div className="gmail">
-      <div className="gmail__toolbar">
-        <button className="btn btn--small" onClick={handleDisable} title="この端末で Gmail を隠す">
-          この端末で非表示
-        </button>
-      </div>
       <GmailList
         messages={messages}
         isLoading={isLoading}

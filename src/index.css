@@ -382,6 +382,17 @@ body {
   margin: 0 0 0.75rem;
   font-size: 1rem;
 }
+/* 見出しの行に右寄せのアクション（例: メールの「この端末で非表示」）を並べるヘッダ行。 */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.panel__head .panel__title {
+  margin-bottom: 0; /* 余白は .panel__head 側で確保するので見出しの下余白は消す */
+}
 .panel__note {
   color: var(--text-muted);
   font-size: 0.9rem;
@@ -915,13 +926,6 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.6rem;
-}
-.gmail__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
 }
 .gmail__list {
   list-style: none;
