@@ -188,38 +188,53 @@ export default function App() {
             - 1200px〜（密度型）: 段積み3カラム。ここでだけ新規の読み取り専用部品を追加描画する。
           密度型の新規部品（24hタイムライン・月カレンダー・天気）は読み取り専用で、幅の境界を
           またいで再マウントされても React Query のキャッシュから即復元されるため実害がない。
-          DOM は grid-template-areas が効くようフラットな6グリッドアイテムにする（入れ子を挟まない）。 */}
+          DOM は grid-template-areas が効くようフラットな6グリッドアイテムにする（入れ子を挟まない）。
+          広い画面（≥960px）では各パネルを「見出し（固定）＋中身（.panel__body で内部スクロール）」の
+          縦積みにし、パネルの高さを画面高で固定する（項目数で全体の縦がガタつかない）。.panel__body の
+          ラッパーは全幅で常に描画するので、コンポーネントの親は変わらず再マウントは起きない。 */}
       <main className="app__main">
         <div className="panels">
           {isWide && (
             <section className="panel panel--timeline">
               <h2 className="panel__title">今日</h2>
-              <TodayTimeline />
+              <div className="panel__body">
+                <TodayTimeline />
+              </div>
             </section>
           )}
           <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">予定（今後7日間）</h2>
-            <CalendarPanel />
+            <div className="panel__body">
+              <CalendarPanel />
+            </div>
           </section>
           {isWide && (
             <section className="panel panel--month">
               <h2 className="panel__title">今月</h2>
-              <MonthCalendar />
+              <div className="panel__body">
+                <MonthCalendar />
+              </div>
             </section>
           )}
           <section className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">タスク</h2>
-            <TasksPanel />
+            <div className="panel__body">
+              <TasksPanel />
+            </div>
           </section>
           {isWide && (
             <section className="panel panel--weather">
               <h2 className="panel__title">天気</h2>
-              <WeatherPanel />
+              <div className="panel__body">
+                <WeatherPanel />
+              </div>
             </section>
           )}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">メール（受信トレイ・未読）</h2>
-            <GmailPanel />
+            <div className="panel__body">
+              <GmailPanel />
+            </div>
           </section>
         </div>
       </main>
