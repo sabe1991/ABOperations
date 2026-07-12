@@ -10,7 +10,7 @@ import { isGmailEnabled, setGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
 import {
-  ANDROID_STANDALONE,
+  IS_ANDROID,
   buildSrcDoc,
   hasBlockedImages,
   sanitizeEmailHtml,
@@ -186,9 +186,9 @@ function HtmlBody({ html }: { html: string }) {
       const doc = f?.contentDocument
       if (!doc) return
       f!.style.height = `${doc.body.scrollHeight + 16}px`
-      // Android の PWA 本体では、外部リンクを本体側で intent:// 起動して Chrome 本体で開く。
+      // Android では、外部リンクを本体側で intent:// 起動して Chrome 本体で開く。
       // （iframe 内から直接 intent を投げると sandbox にブロックされうるため本体側で発行する）
-      if (ANDROID_STANDALONE) {
+      if (IS_ANDROID) {
         doc.addEventListener('click', handleIframeLinkClick, true)
       }
     } catch {
@@ -207,6 +207,10 @@ function HtmlBody({ html }: { html: string }) {
           画像を表示
         </button>
       )}
+      {/* Android 判定が効いているかの切り分け用の目印（後で外す）。
+          これが見える＝リンク横取りは有効。見えるのにリンクがアプリ内で開くなら
+          intent 起動側の問題。見えない＝Android 判定が false。 */}
+      {IS_ANDROID && <span className="gmail__androidmark">リンクは Chrome で開きます</span>}
       <iframe
         ref={frameRef}
         className="gmail__frame"

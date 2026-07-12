@@ -6,29 +6,35 @@
 
 import DOMPurify from 'dompurify'
 
-// Android のスタンドアロン起動(ホーム画面から開いた PWA 本体)かどうか。
-// この状態では外部リンクが既定で Custom Tab(アプリ内 Chrome)に流れるため、
-// intent:// に変換して Chrome 本体で開かせる（best-effort）。Mac 等では false。
-export const ANDROID_STANDALONE: boolean = (() => {
+// Android かどうか。Android では PWA 本体(スタンドアロン)のとき外部リンクが既定で
+// Custom Tab(アプリ内 Chrome)に流れるため、intent:// に変換して Chrome 本体で開かせる。
+// ※ WebAPK では display-mode: standalone が期待どおり返らないことがあるため、
+//   スタンドアロン判定はやめて「Android なら適用」に広げた（通常タブでも intent は
+//   Chrome を開くだけで害がない）。Mac/PC では false。
+export const IS_ANDROID: boolean = (() => {
   try {
-    const isAndroid = /Android/i.test(navigator.userAgent)
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-    return isAndroid && standalone
+    return /Android/i.test(navigator.userAgent)
   } catch {
     return false
   }
 })()
 
 // https/http のURLを Android の intent URI に変換する（Chrome 本体で開かせるため）。
-// intent 側の "#Intent;...;end" と衝突するため、URL のフラグメント(#以降)は落とす
-// （メール内リンクでの利用は稀）。http/https 以外(mailto: など)は変換せず null を返す。
+// - `package=com.android.chrome` で開き先を Chrome 本体に固定（Custom Tab 回避の要）。
+// - `S.browser_fallback_url` に元URLを入れ、Chrome 未解決時は通常遷移にフォールバック。
+// - intent 側の "#Intent;...;end" と衝突するため URL のフラグメント(#以降)は落とす
+//   （メール内リンクでの利用は稀）。http/https 以外(mailto: など)は変換せず null を返す。
 export function toIntentUrl(href: string): string | null {
   try {
     const u = new URL(href)
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
     const scheme = u.protocol.slice(0, -1) // "https" / "http"
     const hostPath = `${u.host}${u.pathname}${u.search}`
-    return `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;end`
+    const fallback = encodeURIComponent(href)
+    return (
+      `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;` +
+      `package=com.android.chrome;S.browser_fallback_url=${fallback};end`
+    )
   } catch {
     return null
   }

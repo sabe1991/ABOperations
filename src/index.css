@@ -455,6 +455,15 @@ body {
 .gmail__imgbtn {
   margin-bottom: 0.5rem;
 }
+.gmail__androidmark {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface, #f0f0f0);
+  border-radius: 4px;
+}
 .gmail__frame {
   width: 100%;
   min-height: 8rem;
