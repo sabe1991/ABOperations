@@ -203,7 +203,7 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">予定（今後30日間）</h2>
+            <h2 className="panel__title">今後の予定</h2>
             <div className="panel__body">
               <CalendarPanel />
             </div>

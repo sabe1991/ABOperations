@@ -13,7 +13,7 @@ import {
   useRestoreEvent,
   useUpdateEvent,
 } from './useCalendarMutations'
-import { isWithinUpcomingWindow, UPCOMING_DAYS } from './api'
+import { isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
@@ -118,7 +118,7 @@ export function CalendarPanel() {
     setSheet(null)
     // 7日以降に作った予定は一覧に出ないので、その旨を伝える
     if (!isWithinUpcomingWindow(startMsOfDraft(draft))) {
-      showSnack(`予定を作成しました（${UPCOMING_DAYS}日以降のため一覧には表示されません）`, null)
+      showSnack('予定を作成しました（5週間より先のため一覧には表示されません）', null)
     }
   }
 
@@ -222,7 +222,7 @@ function EventList({
     return <p className="panel__note panel__note--error">予定の取得に失敗しました: {String(error)}</p>
   }
   if (!events || events.length === 0) {
-    return <p className="panel__note">今後{UPCOMING_DAYS}日間は予定なし</p>
+    return <p className="panel__note">今後の予定はありません</p>
   }
 
   return (

@@ -178,8 +178,10 @@ async function fetchEventsForCalendar(
   return events
 }
 
-// 一覧に表示する期間（今日から何日先まで）。予定・タスクで揃える（ユーザー要望で 30 日）。
-export const UPCOMING_DAYS = 30
+// 一覧に表示する期間（今日から何日先まで）。ミニカレンダーの表示範囲（今週から5週間＝35日）に
+// 合わせ、カレンダー上でクリックできる日の予定が必ず一覧に載るようにする（ユーザー要望）。
+// 予定・タスクで同じ値を使う。
+export const UPCOMING_DAYS = 35
 
 // 今日から UPCOMING_DAYS 日分の全カレンダーの予定を、開始時刻順にまとめて取得する。
 export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {

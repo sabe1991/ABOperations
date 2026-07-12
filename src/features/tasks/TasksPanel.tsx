@@ -34,8 +34,8 @@ const GROUP_ORDER: { key: Bucket; label: string; variant: string }[] = [
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
 
-// 「今後」に表示する上限日数（予定パネルの「今後30日間」に合わせる・ユーザー要望）。
-const UPCOMING_DAYS = 30
+// 「以降」に含める上限日数（予定パネル・ミニカレンダーの先5週間＝35日に合わせる・ユーザー要望）。
+const UPCOMING_DAYS = 35
 
 // 期限文字列を「M/D」の短い表示にする（今日/期限なしグループでは表示しない）。
 function formatDue(dueStr: string | null): string {
@@ -45,11 +45,11 @@ function formatDue(dueStr: string | null): string {
 }
 
 // バケツ分けは保存値ではなく due から毎回導出する（Fable 助言）。文字列比較で TZ ズレも回避。
-// 今日・明日・以降（明後日〜30日）・期限切れ・期限なしに分ける。
+// 今日・明日・以降（明後日〜35日）・期限切れ・期限なしに分ける。
 function bucketTasks(tasks: TaskItem[]): Record<Bucket, TaskItem[]> {
   const today = localTodayStr()
   const tomorrow = localDateStrPlusDays(1)
-  // 「以降」は今日から UPCOMING_DAYS 日先までに絞る（予定パネルの「今後30日間」と揃える）。
+  // 「以降」は今日から UPCOMING_DAYS 日先までに絞る（予定パネル・カレンダーの先5週間と揃える）。
   // 期限切れ・期限なしは日数に関係なくすべて表示する（見落とし防止のため）。
   const upcomingLimit = localDateStrPlusDays(UPCOMING_DAYS)
 
@@ -67,7 +67,7 @@ function bucketTasks(tasks: TaskItem[]): Record<Bucket, TaskItem[]> {
     else if (d === today) groups.today.push(t)
     else if (d === tomorrow) groups.tomorrow.push(t)
     else if (d <= upcomingLimit) groups.later.push(t)
-    // d > upcomingLimit（30日より先）は表示しない
+    // d > upcomingLimit（35日より先）は表示しない
   }
   // 期限のあるバケツは期限の早い順に並べる（today/tomorrow は同一日なので並べ替え不要）。
   const byDue = (a: TaskItem, b: TaskItem) => (a.dueStr ?? '').localeCompare(b.dueStr ?? '')
