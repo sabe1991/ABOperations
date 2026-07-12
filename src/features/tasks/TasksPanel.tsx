@@ -34,6 +34,21 @@ const GROUP_ORDER: { key: Bucket; label: string; variant: string }[] = [
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
 
+// 期限の「移動先」ボタン。getDate はクリック時に評価して今日基準の日付を返す。
+type RescheduleTarget = { label: string; getDate: () => string }
+const TO_TODAY: RescheduleTarget = { label: '今日へ', getDate: () => localTodayStr() }
+const TO_TOMORROW: RescheduleTarget = { label: '明日へ', getDate: () => localDateStrPlusDays(1) }
+const TO_NEXT_WEEK: RescheduleTarget = { label: '来週へ', getDate: () => localNextMondayStr() }
+
+// バケツごとの移動先ボタン。自分と同じ日への無意味な移動は出さない（例: 明日タスクに「明日へ」）。
+const RESCHEDULE_BY_BUCKET: Record<Bucket, RescheduleTarget[]> = {
+  overdue: [TO_TODAY, TO_TOMORROW],
+  today: [TO_TOMORROW, TO_NEXT_WEEK],
+  tomorrow: [TO_TODAY, TO_NEXT_WEEK],
+  later: [TO_TODAY, TO_TOMORROW],
+  noDue: [TO_TODAY, TO_TOMORROW],
+}
+
 // 「以降」に含める上限日数（予定パネル・ミニカレンダーの先5週間＝35日に合わせる・ユーザー要望）。
 const UPCOMING_DAYS = 35
 
@@ -122,7 +137,10 @@ export function TasksPanel() {
   function handleReschedule(task: TaskItem, dueDateStr: string, label: string) {
     const oldDue = task.dueStr
     update.mutate({ task, patch: { dueDateStr } })
-    showSnack(`${label}に移動しました`, () => update.mutate({ task, patch: { dueDateStr: oldDue } }))
+    // label は「今日へ」等。文末の「へ」を落として「今日に移動しました」と自然にする。
+    showSnack(`${label.replace(/へ$/, '')}に移動しました`, () =>
+      update.mutate({ task, patch: { dueDateStr: oldDue } }),
+    )
     setExpandedKey(null)
   }
 
@@ -306,18 +324,15 @@ function TaskList({
 
                     {expandedKey === rowKey && (
                       <div className="tasks__actions">
-                        <button
-                          className="tasks__action"
-                          onClick={() => onReschedule(t, localDateStrPlusDays(1), '明日へ')}
-                        >
-                          明日へ
-                        </button>
-                        <button
-                          className="tasks__action"
-                          onClick={() => onReschedule(t, localNextMondayStr(), '来週へ')}
-                        >
-                          来週へ
-                        </button>
+                        {RESCHEDULE_BY_BUCKET[key].map((r) => (
+                          <button
+                            key={r.label}
+                            className="tasks__action"
+                            onClick={() => onReschedule(t, r.getDate(), r.label)}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
                         <button className="tasks__action" onClick={() => onEdit(t)}>
                           編集
                         </button>
