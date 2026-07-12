@@ -338,6 +338,82 @@ body {
   color: #dc2626;
 }
 
+/* --- 月ミニカレンダー（密度型の2列目・上段右） --- */
+.month {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0.4rem;
+}
+.month__caption {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.month__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* 曜日見出し行(auto) + 6週(残りを等分)。中身で押し広げないよう minmax(0, …)。 */
+  grid-template-rows: auto repeat(6, minmax(0, 1fr));
+  gap: 1px;
+}
+.month__dow {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding-bottom: 0.15rem;
+}
+.month__dow--sun {
+  color: #dc2626;
+}
+.month__dow--sat {
+  color: #2563eb;
+}
+.month__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+/* 当月以外（前後の月）の日は薄く。 */
+.month__cell--out {
+  opacity: 0.4;
+}
+.month__cell--sun .month__num {
+  color: #dc2626;
+}
+.month__cell--sat .month__num {
+  color: #2563eb;
+}
+/* 予定のある日の点。 */
+.month__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.month__cell--out .month__dot {
+  background: var(--text-muted);
+}
+/* 今日は塗りで強調（曜日色より優先させるため後に置く）。 */
+.month__cell--today {
+  background: var(--primary);
+}
+.month__cell--today .month__num {
+  color: #fff;
+  font-weight: 700;
+}
+.month__cell--today .month__dot {
+  background: #fff;
+}
+
 /* --- カレンダー --- */
 .calendar__day + .calendar__day {
   margin-top: 1rem;

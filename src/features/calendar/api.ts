@@ -198,6 +198,32 @@ export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
   return perCalendar.flat().sort((a, b) => a.startMs - b.startMs)
 }
 
+// 月ミニカレンダーのドット用: 指定期間（グリッドの開始〜終了、終了は排他的）に予定が
+// 1件以上ある日の集合（'YYYY-MM-DD'）を返す。7日リストとは別クエリだが取得経路は共通。
+// 複数日・終日にまたがる予定は、またぐ各日にドットが付くよう start〜end（含む）を全て入れる。
+export async function fetchEventDaysInRange(
+  gridStartStr: string,
+  gridEndExclusiveStr: string,
+): Promise<Set<string>> {
+  const timeMin = new Date(`${gridStartStr}T00:00:00`).toISOString()
+  const timeMax = new Date(`${gridEndExclusiveStr}T00:00:00`).toISOString()
+  const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
+  const perCalendar = await Promise.all(
+    calendars.map((cal) => fetchEventsForCalendar(cal, timeMin, timeMax)),
+  )
+  const days = new Set<string>()
+  for (const ev of perCalendar.flat()) {
+    let d = ev.startDateStr
+    // start から end（含む）まで1日ずつ。guard は暴走防止（同一予定が400日を超えることは無い想定）。
+    for (let guard = 0; guard < 400; guard++) {
+      days.add(d)
+      if (d >= ev.endDateStr) break
+      d = addDaysToDateStr(d, 1)
+    }
+  }
+  return days
+}
+
 // --- 書き込み系 ---
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' }

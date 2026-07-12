@@ -7,7 +7,7 @@
 //   401検知時は authStore が needsReconnect=true にするため enabled が false になり自動停止する。
 
 import { useIsMutating, useQuery } from '@tanstack/react-query'
-import { fetchUpcomingEvents, fetchWritableCalendars } from './api'
+import { fetchEventDaysInRange, fetchUpcomingEvents, fetchWritableCalendars } from './api'
 import { useAuth } from '../../auth/useAuth'
 
 export function useCalendarEvents() {
@@ -20,6 +20,19 @@ export function useCalendarEvents() {
     // ログイン済みで、かつ認証切れでないときだけ動かす
     enabled: isConnected && !needsReconnect,
     // 前面にいる間の定期更新（5分間隔）
+    refetchInterval: mutating ? false : 5 * 60 * 1000,
+  })
+}
+
+// 月ミニカレンダーのドット用。グリッドの開始〜終了（排他的）の日付文字列でキャッシュを分ける。
+// 7日リストとは別クエリだが同じ取得経路。予定作成/編集/削除の実行中はポーリングを止める。
+export function useMonthEventDays(gridStartStr: string, gridEndExclusiveStr: string) {
+  const { isConnected, needsReconnect } = useAuth()
+  const mutating = useIsMutating() > 0
+  return useQuery({
+    queryKey: ['calendar', 'monthDays', gridStartStr, gridEndExclusiveStr],
+    queryFn: () => fetchEventDaysInRange(gridStartStr, gridEndExclusiveStr),
+    enabled: isConnected && !needsReconnect,
     refetchInterval: mutating ? false : 5 * 60 * 1000,
   })
 }
