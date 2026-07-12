@@ -209,6 +209,26 @@ body {
     min-height: 0;
     overflow-y: auto;
   }
+  /* パネル本体が内部スクロールする広い画面では、タスク追加フォームと「＋予定」ツールバーを
+     本体上部に貼り付けて（sticky）、下の一覧をスクロールしても常に操作できるようにする。
+     背景をパネル色で塗り、下の余白を padding にすることで、スクロールした中身が
+     貼り付き部分の透明な隙間から透けないようにする。 */
+  .panel__body .tasks__add {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+    margin-bottom: 0;
+    padding-bottom: 0.9rem;
+  }
+  .panel__body .calendar__toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+    margin-bottom: 0;
+    padding-bottom: 0.5rem;
+  }
 }
 
 /* 中間幅: 予定・タスク・Gmail の3カラムリスト。タブ状態は無視して全て表示。
