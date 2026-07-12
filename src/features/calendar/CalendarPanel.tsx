@@ -246,8 +246,10 @@ function EventList({
                 <li key={`${ev.calendarId}:${ev.id}`} className="calendar__event-wrap">
                   <button
                     className="calendar__event"
-                    onClick={() => canEdit && onToggleExpand(ev.id)}
-                    disabled={!canEdit}
+                    // 読み取り専用の予定もタップで展開し、長いタイトルを全文表示できるようにする
+                    // （編集・削除は下の canEdit のときだけ出す）。追加直後(pending)は操作不可。
+                    onClick={() => !ev.pending && onToggleExpand(ev.id)}
+                    disabled={ev.pending}
                     aria-expanded={expandedId === ev.id}
                   >
                     <span className="calendar__time">{formatTime(ev)}</span>
@@ -265,7 +267,7 @@ function EventList({
                     {showLabels && <span className="calendar__cal-name">{ev.calendarName}</span>}
                   </button>
 
-                  {expandedId === ev.id && (
+                  {expandedId === ev.id && canEdit && (
                     <div className="tasks__actions">
                       {ev.isRecurringInstance && (
                         <span className="calendar__recur-note">繰り返し予定（この回のみ）</span>

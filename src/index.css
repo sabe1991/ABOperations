@@ -781,6 +781,13 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 予定をタップして展開中は、タイトル・場所を折り返して全文を表示する（編集画面を開かずに読めるように）。 */
+.calendar__event[aria-expanded='true'] .calendar__title,
+.calendar__event[aria-expanded='true'] .calendar__location {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .calendar__cal-name {
   font-size: var(--fs-xs);
   color: var(--text-muted);
@@ -1008,6 +1015,12 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 行をタップして展開中は、タイトルを折り返して全文を表示する（編集画面を開かずに読めるように）。 */
+.tasks__row[aria-expanded='true'] .tasks__title {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .tasks__list-name {
   flex-shrink: 0;
