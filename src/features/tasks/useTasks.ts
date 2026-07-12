@@ -18,3 +18,18 @@ export function useTasks() {
     refetchInterval: mutating ? false : 5 * 60 * 1000,
   })
 }
+
+// タブのバッジ用: 期限切れタスクの件数だけを返す（Fable 助言）。
+// useTasks と同じ queryKey なので取得は重複せず（TanStack Query の dedupe）、
+// select で件数だけ取り出すため、件数が変わらない限り呼び出し側は再描画されない。
+export function useOverdueCount(): number {
+  const { isConnected, needsReconnect, needsScope } = useAuth()
+  return (
+    useQuery({
+      queryKey: ['tasks', 'all'],
+      queryFn: fetchAllTasks,
+      enabled: isConnected && !needsReconnect && !needsScope,
+      select: (tasks) => tasks.filter((t) => t.group === 'overdue').length,
+    }).data ?? 0
+  )
+}

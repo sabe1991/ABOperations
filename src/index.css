@@ -141,6 +141,10 @@ body {
 }
 .tabbar__tab {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   padding: 0.7rem 0.25rem;
   border: none;
   background: none;
@@ -152,6 +156,21 @@ body {
 .tabbar__tab--active {
   color: var(--primary);
   box-shadow: inset 0 2px 0 var(--primary);
+}
+/* 件数バッジ（未読・期限切れ）。赤い丸に白文字。 */
+.tabbar__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
 }
 /* PC ではタブバーを隠す（3カラム並列表示のため不要） */
 @media (min-width: 960px) {

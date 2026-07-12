@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { INITIAL_SCOPES, isClientIdConfigured } from './config'
+import { INITIAL_SCOPES, SCOPES, isClientIdConfigured } from './config'
 import {
   connect,
   hasPreviousCalendarGrant,
@@ -12,6 +12,9 @@ import {
 import { CalendarPanel } from './features/calendar/CalendarPanel'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
+import { useOverdueCount } from './features/tasks/useTasks'
+import { useUnreadCount } from './features/gmail/useGmail'
+import { isGmailEnabled } from './features/gmail/enabled'
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
 type PanelKey = 'calendar' | 'tasks' | 'gmail'
@@ -21,15 +24,23 @@ const TABS: { key: PanelKey; label: string }[] = [
   { key: 'gmail', label: 'メール' },
 ]
 
-// メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスクの2パネル表示。
-// レイアウトの作り込み（3カラム化・スマホタブ）は後のフェーズ。今は素朴な2カラム。
+// メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスク・メールの3パネル表示。
+// レイアウトは PC=3カラム並列 / スマホ=下端タブで1枚ずつ切替。タブには未読・期限切れの件数バッジ。
 export default function App() {
-  const { isConnected, needsReconnect, needsScope, acquiredAt } = useAuth()
+  const { isConnected, needsReconnect, needsScope, acquiredAt, grantedScopes } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   // スマホで表示中のタブ（初期は「予定」固定＝朝イチで今日の予定を最初に見る想定・Fable 助言）。
   // PC では3枚とも並列表示するのでこの状態は使わない（CSS 側で切替）。
   const [tab, setTab] = useState<PanelKey>('calendar')
+
+  // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
+  // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
+  const overdueCount = useOverdueCount()
+  const gmailActive = isGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
+  const unreadCount = useUnreadCount(gmailActive)
+  // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
+  const badges: Record<PanelKey, number> = { calendar: 0, tasks: overdueCount, gmail: unreadCount }
 
   // タブ切替時は先頭までスクロールを戻す（ページ全体スクロール方式のため、
   // 前のタブの途中位置が次のタブに引き継がれるのを防ぐ）。
@@ -167,19 +178,30 @@ export default function App() {
         </div>
       </main>
 
-      {/* スマホ用タブバー（画面下端固定）。PC では CSS で非表示。 */}
+      {/* スマホ用タブバー（画面下端固定）。PC では CSS で非表示。
+          未読・期限切れ件数をバッジ表示（0 のタブには付けない）。 */}
       <nav className="tabbar" role="tablist" aria-label="表示切替">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            className={`tabbar__tab${tab === t.key ? ' tabbar__tab--active' : ''}`}
-            onClick={() => selectTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
+        {TABS.map((t) => {
+          const count = badges[t.key]
+          // メールは最大20件取得なので、20件なら「以上かもしれない」意味で 20+ と表示する。
+          const label = t.key === 'gmail' && count >= 20 ? '20+' : String(count)
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`tabbar__tab${tab === t.key ? ' tabbar__tab--active' : ''}`}
+              onClick={() => selectTab(t.key)}
+            >
+              {t.label}
+              {count > 0 && (
+                <span className="tabbar__badge" aria-label={`${count}件`}>
+                  {label}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </nav>
     </div>
   )

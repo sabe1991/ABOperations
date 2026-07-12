@@ -20,3 +20,19 @@ export function useGmail(deviceEnabled: boolean) {
     refetchInterval: mutating ? false : 5 * 60 * 1000,
   })
 }
+
+// タブのバッジ用: 未読メールの件数だけを返す（Fable 助言）。
+// useGmail と同じ queryKey なので取得は重複しない。一覧は最大20件取得なので、
+// 20件以上あるときは "20+" 相当（呼び出し側で表示を丸める）。
+export function useUnreadCount(deviceEnabled: boolean): number {
+  const { isConnected, needsReconnect, grantedScopes } = useAuth()
+  const hasScope = grantedScopes.includes(SCOPES.gmailModify)
+  return (
+    useQuery({
+      queryKey: ['gmail', 'inboxUnread'],
+      queryFn: () => fetchInboxUnread(20),
+      enabled: isConnected && !needsReconnect && deviceEnabled && hasScope,
+      select: (messages) => messages.length,
+    }).data ?? 0
+  )
+}
