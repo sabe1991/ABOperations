@@ -339,6 +339,87 @@ body {
   color: #dc2626;
 }
 
+/* --- 今日の24hタイムライン（密度型の1列目） --- */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.timeline__allday {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.timeline__chip {
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-left: 3px solid var(--primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timeline__axis {
+  position: relative;
+}
+.timeline__hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+}
+.timeline__hour-label {
+  position: absolute;
+  top: -0.55rem;
+  left: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding-right: 3px;
+}
+.timeline__event {
+  position: absolute;
+  overflow: hidden;
+  border-left: 3px solid var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  display: flex;
+  flex-direction: column;
+}
+.timeline__event-time {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+.timeline__event-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timeline__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #dc2626;
+  z-index: 5;
+}
+.timeline__now::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+}
+
 /* --- 月ミニカレンダー（密度型の2列目・上段右） --- */
 .month {
   display: flex;
