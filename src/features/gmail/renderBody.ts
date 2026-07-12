@@ -6,6 +6,34 @@
 
 import DOMPurify from 'dompurify'
 
+// Android のスタンドアロン起動(ホーム画面から開いた PWA 本体)かどうか。
+// この状態では外部リンクが既定で Custom Tab(アプリ内 Chrome)に流れるため、
+// intent:// に変換して Chrome 本体で開かせる（best-effort）。Mac 等では false。
+export const ANDROID_STANDALONE: boolean = (() => {
+  try {
+    const isAndroid = /Android/i.test(navigator.userAgent)
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+    return isAndroid && standalone
+  } catch {
+    return false
+  }
+})()
+
+// https/http のURLを Android の intent URI に変換する（Chrome 本体で開かせるため）。
+// intent 側の "#Intent;...;end" と衝突するため、URL のフラグメント(#以降)は落とす
+// （メール内リンクでの利用は稀）。http/https 以外(mailto: など)は変換せず null を返す。
+export function toIntentUrl(href: string): string | null {
+  try {
+    const u = new URL(href)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
+    const scheme = u.protocol.slice(0, -1) // "https" / "http"
+    const hostPath = `${u.host}${u.pathname}${u.search}`
+    return `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;end`
+  } catch {
+    return null
+  }
+}
+
 // メールHTMLをサニタイズする。
 // - script/form/style タグ等を除去。style「属性」は iframe で隔離するので残す（表示品質のため）。
 // - <a> には target="_blank" + rel を強制（PWA内でリンクを踏んで戻れなくなるのを防ぐ）。

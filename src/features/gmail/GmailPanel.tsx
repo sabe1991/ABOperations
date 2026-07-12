@@ -9,7 +9,13 @@ import { connect, useAuth } from '../../auth/useAuth'
 import { isGmailEnabled, setGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
-import { buildSrcDoc, hasBlockedImages, sanitizeEmailHtml } from './renderBody'
+import {
+  ANDROID_STANDALONE,
+  buildSrcDoc,
+  hasBlockedImages,
+  sanitizeEmailHtml,
+  toIntentUrl,
+} from './renderBody'
 import type { GmailMessage } from './api'
 
 // 受信時刻の短い表示（今日は時刻、それ以外は M/D）。
@@ -173,11 +179,18 @@ function HtmlBody({ html }: { html: string }) {
 
   // iframe の中身の高さに合わせて iframe 自体の高さを調整（スクロールバー二重化を防ぐ）。
   // sandbox に allow-scripts は付けないので、中身のJSは実行されない（allow-same-origin のみ）。
+  // allow-same-origin なので、隔離されていない本体側からリンククリックを横取りできる。
   function handleLoad() {
     const f = frameRef.current
     try {
       const doc = f?.contentDocument
-      if (doc) f!.style.height = `${doc.body.scrollHeight + 16}px`
+      if (!doc) return
+      f!.style.height = `${doc.body.scrollHeight + 16}px`
+      // Android の PWA 本体では、外部リンクを本体側で intent:// 起動して Chrome 本体で開く。
+      // （iframe 内から直接 intent を投げると sandbox にブロックされうるため本体側で発行する）
+      if (ANDROID_STANDALONE) {
+        doc.addEventListener('click', handleIframeLinkClick, true)
+      }
     } catch {
       // 高さ取得に失敗しても致命的ではない（既定の高さのまま）
     }
@@ -204,4 +217,22 @@ function HtmlBody({ html }: { html: string }) {
       />
     </div>
   )
+}
+
+// iframe 内のリンククリックを本体側で受け、Android では intent:// で Chrome 本体を起動する。
+function handleIframeLinkClick(e: Event): void {
+  const target = e.target as Element | null
+  const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (!anchor) return
+  const intentUrl = toIntentUrl(anchor.getAttribute('href') ?? '')
+  if (!intentUrl) return // mailto: 等は既定動作に任せる
+  e.preventDefault()
+  // 本体(非sandbox)側に一時的な <a> を作ってクリック＝intent を発行する。
+  // これで Custom Tab ではなく Chrome 本体が起動する（PWA 自体は開いたまま）。
+  const launcher = document.createElement('a')
+  launcher.href = intentUrl
+  launcher.style.display = 'none'
+  document.body.appendChild(launcher)
+  launcher.click()
+  document.body.removeChild(launcher)
 }
