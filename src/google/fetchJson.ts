@@ -24,6 +24,17 @@ export class ApiError extends Error {
   }
 }
 
+// 権限不足（403 insufficient_scope）を表す専用エラー。
+// トークンは有効だが、その機能に必要なスコープ（権限）が同意されていない状態。
+// 例: カレンダーだけ同意済みのトークンで Tasks API を叩いたとき。
+// 認証切れ(401)とは別物なので、再ログインではなく「不足スコープの追加同意」へ誘導する。
+export class ScopeError extends Error {
+  constructor(message = 'この機能に必要な権限が許可されていません') {
+    super(message)
+    this.name = 'ScopeError'
+  }
+}
+
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const token = getToken()
   if (!token) {
@@ -44,14 +55,27 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
   }
 
   if (!response.ok) {
-    // エラー本文を可能な範囲で読み取ってメッセージに含める
+    // エラー本文を可能な範囲で読み取ってメッセージに含める（本文は一度しか読めないので text で受ける）
     let detail = ''
+    let raw = ''
     try {
-      const body = await response.json()
+      raw = await response.text()
+      const body = JSON.parse(raw)
       detail = body?.error?.message ?? ''
     } catch {
       // JSON でない場合は無視
     }
+
+    // 403 のうち「権限不足」だけは ScopeError として区別する。
+    // Google API は不足時にレスポンスヘッダ WWW-Authenticate に error="insufficient_scope" を、
+    // 本文に ACCESS_TOKEN_SCOPE_INSUFFICIENT を返す。どちらかを検出したら追加同意へ誘導。
+    if (response.status === 403) {
+      const wwwAuth = response.headers.get('WWW-Authenticate') ?? ''
+      if (/insufficient_scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(`${wwwAuth} ${raw}`)) {
+        throw new ScopeError()
+      }
+    }
+
     throw new ApiError(response.status, detail || `APIエラー (${response.status})`)
   }
 

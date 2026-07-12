@@ -15,7 +15,7 @@ import { TasksPanel } from './features/tasks/TasksPanel'
 // メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスクの2パネル表示。
 // レイアウトの作り込み（3カラム化・スマホタブ）は後のフェーズ。今は素朴な2カラム。
 export default function App() {
-  const { isConnected, needsReconnect, acquiredAt } = useAuth()
+  const { isConnected, needsReconnect, needsScope, acquiredAt } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   // 起動直後に接続を復元/試行している間の状態（ログインボタンの一瞬の点滅を防ぐ）
@@ -32,6 +32,11 @@ export default function App() {
       setInitializing(false)
       return
     }
+    // どの経路でも GIS を先読みしておく。復元済みでも「再接続」「許可する」ボタンを
+    // 押した瞬間に同期的にトークン要求できるようにするため（未読込だと要求が失敗する）。
+    prepareAuth(INITIAL_SCOPES).catch(() => {
+      // 読み込み失敗はログイン/再接続の試行時にエラー表示するのでここでは握りつぶす
+    })
     if (restoreSession()) {
       setInitializing(false)
       return
@@ -40,9 +45,6 @@ export default function App() {
       trySilentConnect(INITIAL_SCOPES).finally(() => setInitializing(false))
     } else {
       setInitializing(false)
-      prepareAuth(INITIAL_SCOPES).catch(() => {
-        // 読み込み失敗はログイン試行時にエラー表示するのでここでは握りつぶす
-      })
     }
   }, [])
 
@@ -111,6 +113,17 @@ export default function App() {
           <span>接続が切れました。</span>
           <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
             {connecting ? '再接続中…' : '再接続'}
+          </button>
+        </div>
+      )}
+
+      {/* 権限不足バナー（例: タスク追加前の古い許可のまま使っている端末）。
+          再ログインではなく不足スコープの追加同意を促す。 */}
+      {!needsReconnect && needsScope && (
+        <div className="banner banner--warn" role="alert">
+          <span>タスクを表示するには追加の許可が必要です。</span>
+          <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
+            {connecting ? '許可を取得中…' : '許可する'}
           </button>
         </div>
       )}

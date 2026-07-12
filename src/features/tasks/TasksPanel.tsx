@@ -9,6 +9,7 @@ import { useTasks } from './useTasks'
 import { useAddTask, useCompleteTask, useReopenTask } from './useTaskMutations'
 import { localTodayStr } from './api'
 import type { TaskGroup, TaskItem } from './api'
+import { useAuth } from '../../auth/useAuth'
 
 // グループの表示順とラベル・装飾。
 const GROUP_ORDER: { key: TaskGroup; label: string; variant: string }[] = [
@@ -40,6 +41,7 @@ function groupTasks(tasks: TaskItem[]): Record<TaskGroup, TaskItem[]> {
 }
 
 export function TasksPanel() {
+  const { needsScope } = useAuth()
   const { data: tasks, isLoading, isError, error } = useTasks()
   const complete = useCompleteTask()
   const reopen = useReopenTask()
@@ -78,6 +80,16 @@ export function TasksPanel() {
     add.mutate({ title, dueDateStr: dueToday ? localTodayStr() : null })
     setNewTitle('')
     setDueToday(false)
+  }
+
+  // 権限不足のときは操作UIを出さず、追加同意を促すメッセージだけ表示する
+  // （追加・完了も Tasks 権限が要るため）。同意は画面上部の「許可する」バナーから。
+  if (needsScope) {
+    return (
+      <p className="panel__note">
+        タスクを表示・操作するには追加の許可が必要です。画面上部の「許可する」を押してください。
+      </p>
+    )
   }
 
   return (

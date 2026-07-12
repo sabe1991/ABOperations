@@ -9,32 +9,33 @@
 //     → 再接続成功で needsReconnect=false に戻ると enabled が復活して自動再取得
 
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
-import { AuthError } from './google/fetchJson'
-import { markExpired } from './auth/authStore'
+import { AuthError, ScopeError } from './google/fetchJson'
+import { markExpired, markNeedsScope } from './auth/authStore'
+
+// 認証系エラーを一元処理する。401=再接続、403権限不足=追加同意へ振り分ける。
+function handleAuthError(error: unknown): void {
+  if (error instanceof AuthError) {
+    markExpired()
+  } else if (error instanceof ScopeError) {
+    markNeedsScope()
+  }
+}
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => {
-      if (error instanceof AuthError) {
-        markExpired()
-      }
-    },
+    onError: handleAuthError,
   }),
   // 書き込み(mutation)のエラーは QueryCache.onError を通らない。
-  // トークン失効中に完了/追加した場合も同じ再接続UXへ流すため、こちらにも 401 ハンドラを置く（Fable 助言）。
+  // トークン失効/権限不足で完了・追加した場合も同じUXへ流すため、こちらにも同じハンドラを置く（Fable 助言）。
   mutationCache: new MutationCache({
-    onError: (error) => {
-      if (error instanceof AuthError) {
-        markExpired()
-      }
-    },
+    onError: handleAuthError,
   }),
   defaultOptions: {
     queries: {
-      // 認証切れ(AuthError)はリトライしても無駄なので再試行しない。
+      // 認証切れ(AuthError)・権限不足(ScopeError)はリトライしても無駄なので再試行しない。
       // それ以外（ネットワーク等）は最大2回まで再試行する。
       retry: (failureCount, error) => {
-        if (error instanceof AuthError) return false
+        if (error instanceof AuthError || error instanceof ScopeError) return false
         return failureCount < 2
       },
       // 画面復帰時の再取得は既定で有効（visibilitychange 相当）。明示しておく。
