@@ -81,11 +81,6 @@ export function GmailPanel() {
   return (
     <div className="gmail">
       <div className="gmail__toolbar">
-        {/* 切り分け用の診断表示（後で外す）: 動いているビルドの版と Android 判定。
-            版が最新でなければキャッシュ問題、Android と出なければ判定が false。 */}
-        <span className="gmail__diag">
-          {__COMMIT_HASH__} · {IS_ANDROID ? 'Android' : 'PC'}
-        </span>
         <button className="btn btn--small" onClick={handleDisable} title="この端末で Gmail を隠す">
           この端末で非表示
         </button>
@@ -212,10 +207,6 @@ function HtmlBody({ html }: { html: string }) {
           画像を表示
         </button>
       )}
-      {/* Android 判定が効いているかの切り分け用の目印（後で外す）。
-          これが見える＝リンク横取りは有効。見えるのにリンクがアプリ内で開くなら
-          intent 起動側の問題。見えない＝Android 判定が false。 */}
-      {IS_ANDROID && <span className="gmail__androidmark">リンクは Chrome で開きます</span>}
       <iframe
         ref={frameRef}
         className="gmail__frame"

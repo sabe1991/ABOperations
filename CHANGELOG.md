@@ -24,6 +24,7 @@
 
 ## Fixed
 
+- Android のリンク intent 対応の切り分け用に一時追加していた診断表示(本文上の「リンクは Chrome で開きます」目印、Gmail ツールバーのビルド版・Android 判定の表示)を撤去した。Android 実機では新コードが反映されず診断表示自体が出なかった＝PWA(WebAPK)のキャッシュで旧版が動き続ける問題(`TODO.md` #15)が原因と判明したため、リンク intent の実機検証は #14 として保留し、UI を元に戻した。intent 起動のコード自体は Mac では無効(`IS_ANDROID` が false)で無害なため残す (2026-07-12)
 - Android の PWA でメール本文のリンクがまだアプリ内(Custom Tab)で開く問題への対処。(1)適用条件を「Android かつスタンドアロン起動」から「Android なら適用」に広げた。WebAPK では `display-mode: standalone` が期待どおり返らずリンク横取り自体が発動していなかったため(`ANDROID_STANDALONE`→`IS_ANDROID`)。(2)intent URI に `package=com.android.chrome`(開き先を Chrome 本体に固定=Custom Tab 回避の要)と `S.browser_fallback_url`(未解決時のフォールバック)を追加。(3)切り分け用に、Android のときだけ本文上に「リンクは Chrome で開きます」の目印を一時表示(判定が効いているか実機で確認するため。動作確定後に外す) (2026-07-12)
 
 - 権限不足（403 insufficient_scope）を認証切れ（401）と区別して扱うようにし、タスク機能を追加する前の「カレンダーだけの許可」で使い続けている端末（主に Android アプリ版。プロセスが生き続けて再ログインが起きないため古い許可のまま更新されない）で「タスクの取得に失敗しました」と一般エラーになっていたのを修正。(1)`fetchJson` が 403 の `WWW-Authenticate: insufficient_scope`／本文の `ACCESS_TOKEN_SCOPE_INSUFFICIENT` を検出して専用の `ScopeError` を投げる。(2)`authStore` に `needsScope` 状態と `markNeedsScope()` を追加し、`QueryCache`/`MutationCache` の onError で `ScopeError` を拾って追加同意を促す状態に切り替える。(3)ログイン成功時にも、必要なスコープ(`INITIAL_SCOPES`)に不足があれば API 失敗を待たず先回りで `needsScope` を立てる。(4)画面上部に「タスクを表示するには追加の許可が必要です」バナー＋「許可する」ボタンを出し、押すと段階的認可で不足スコープだけを追加同意する（再ログイン不要）。同意後は `needsScope` が解けてタスク取得が自動復活。(5)権限不足中はタスク取得を止め(`enabled` に `!needsScope`)403 の叩き続けを防止。(6)復元経路でも起動時に必ず GIS を先読みし、「許可する」クリックで同期的にトークン要求できるようにした (2026-07-12)
