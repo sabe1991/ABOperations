@@ -221,8 +221,8 @@ body {
 
 /* レイアウトは3状態（Fable 助言）:
    - 〜959px（スマホ）: 1カラム。タブで選んだ1枚だけ表示（他は display:none）。ページ全体スクロール（据え置き）。
-   - 960〜1199px（中間幅）: 予定・タスク・Gmail の3カラムリスト。密度型の新規部品は未描画。
-   - 1200px〜（密度型）: 段積み3カラム。grid-template-areas で6セルを配置する。
+   - 960〜1339px（中間幅）: 予定・タスク・Gmail の3カラムリスト。密度型の新規部品は未描画。
+   - 1340px〜（密度型）: 段積み3カラム。grid-template-areas で6セルを配置する。
    配置は grid-template-areas に任せるので、DOM の並び順ではなくエリア名で位置が決まる。 */
 .panels {
   display: grid;
@@ -344,7 +344,7 @@ body {
 
 /* 中間幅: 予定・タスク・Gmail の3カラムリスト。タブ状態は無視して全て表示。
    密度型の新規部品（timeline / month / weather）はこの幅では描画されない。 */
-@media (min-width: 960px) and (max-width: 1199px) {
+@media (min-width: 960px) and (max-width: 1339px) {
   .app__main {
     max-width: 1100px;
   }
@@ -360,14 +360,14 @@ body {
    - 1列目（細）: 上段(auto)に天気を小さく、その下(row2+3)に今日の24hタイムライン。
    - 2列目・3列目（予定7日 / 今月・横幅は 1:1）: 上2行にまたがる。下段（タスク）は2列分スパン。
    - 4列目（広め）: Gmail を全3行スパンで大きく（メールは横幅を少し広めに取る）。 */
-@media (min-width: 1200px) {
+@media (min-width: 1340px) {
   .app__main {
     /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。 */
     max-width: 1600px;
   }
   .panels {
     /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月(やや狭め) / Gmail(広め)。 */
-    grid-template-columns: minmax(180px, 0.62fr) 1.05fr 0.72fr 1.9fr;
+    grid-template-columns: minmax(185px, 0.66fr) 1.1fr 0.76fr 1.7fr;
     /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
        今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
        （0.6 : 1.4）。min 0 で中身にページを膨らませない。 */
