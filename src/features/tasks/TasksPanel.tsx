@@ -19,14 +19,18 @@ import {
 import { classify, localDateStrPlusDays, localNextMondayStr, localTodayStr } from './api'
 import type { TaskGroup, TaskItem } from './api'
 import { useAuth } from '../../auth/useAuth'
+import { useShowSourceLabels } from '../settings/displayPrefs'
 
 // グループの表示順とラベル・装飾。
 const GROUP_ORDER: { key: TaskGroup; label: string; variant: string }[] = [
   { key: 'overdue', label: '⚠ 期限切れ', variant: 'overdue' },
   { key: 'today', label: '今日', variant: 'today' },
-  { key: 'upcoming', label: '今後', variant: 'upcoming' },
+  { key: 'upcoming', label: '今後7日', variant: 'upcoming' },
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
+
+// 「今後」に表示する上限日数（予定パネルの「今後7日間」に合わせる）。
+const UPCOMING_DAYS = 7
 
 // 期限文字列を「M/D」の短い表示にする（今日/期限なしグループでは表示しない）。
 function formatDue(dueStr: string | null): string {
@@ -44,7 +48,14 @@ function groupTasks(tasks: TaskItem[]): Record<TaskGroup, TaskItem[]> {
     upcoming: [],
     noDue: [],
   }
-  for (const t of tasks) groups[classify(t.dueStr, today)].push(t)
+  // 「今後」は今日から UPCOMING_DAYS 日先までに絞る（予定パネルの「今後7日間」と揃える）。
+  // 期限切れ・期限なしは日数に関係なくすべて表示する（見落とし防止のため）。
+  const upcomingLimit = localDateStrPlusDays(UPCOMING_DAYS)
+  for (const t of tasks) {
+    const group = classify(t.dueStr, today)
+    if (group === 'upcoming' && t.dueStr && t.dueStr > upcomingLimit) continue
+    groups[group].push(t)
+  }
   // 期限のあるグループは期限の早い順に並べる
   groups.overdue.sort((a, b) => (a.dueStr ?? '').localeCompare(b.dueStr ?? ''))
   groups.upcoming.sort((a, b) => (a.dueStr ?? '').localeCompare(b.dueStr ?? ''))
@@ -222,6 +233,8 @@ function TaskList({
   onEdit: (task: TaskItem) => void
   onDelete: (task: TaskItem) => void
 }) {
+  // 出典名（リスト名）を表示するかは端末ローカルの表示設定に従う（既定は非表示）。
+  const showLabels = useShowSourceLabels()
   if (isLoading) {
     return <p className="panel__note">タスクを読み込み中…</p>
   }
@@ -270,7 +283,7 @@ function TaskList({
                         {/* 期限セルは常に描画して列の位置を揃える（期限なし/今日は空欄） */}
                         <span className="tasks__due">{showDue ? formatDue(t.dueStr) : ''}</span>
                         <span className="tasks__title">{t.title}</span>
-                        <span className="tasks__list-name">{t.listName}</span>
+                        {showLabels && <span className="tasks__list-name">{t.listName}</span>}
                       </button>
                     </div>
 

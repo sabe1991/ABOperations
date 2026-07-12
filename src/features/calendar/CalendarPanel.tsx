@@ -15,6 +15,7 @@ import {
 } from './useCalendarMutations'
 import { isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
+import { useShowSourceLabels } from '../settings/displayPrefs'
 
 // --- 日付・時刻の小ヘルパ（ローカル表記） ---
 function fmtLocalDate(d: Date): string {
@@ -201,6 +202,8 @@ function EventList({
   onEdit: (ev: CalendarEvent) => void
   onDelete: (ev: CalendarEvent) => void
 }) {
+  // 出典名（カレンダー名 / 主カレンダーはメールアドレス）を表示するかは端末ローカルの設定に従う（既定は非表示）。
+  const showLabels = useShowSourceLabels()
   if (isLoading) {
     return <p className="panel__note">予定を読み込み中…</p>
   }
@@ -239,7 +242,7 @@ function EventList({
                         <span className="calendar__location">📍 {ev.location}</span>
                       )}
                     </span>
-                    <span className="calendar__cal-name">{ev.calendarName}</span>
+                    {showLabels && <span className="calendar__cal-name">{ev.calendarName}</span>}
                   </button>
 
                   {expandedId === ev.id && (

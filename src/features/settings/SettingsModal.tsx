@@ -8,12 +8,14 @@ import { useState } from 'react'
 import { GMAIL_SCOPES, INITIAL_SCOPES, SCOPES } from '../../config'
 import { connect, disconnect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from '../gmail/enabled'
+import { setShowSourceLabels, useShowSourceLabels } from './displayPrefs'
 import { useAccountEmail } from './useAccountEmail'
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { needsReconnect, acquiredAt, grantedScopes } = useAuth()
   const { data: email, isLoading: emailLoading } = useAccountEmail()
   const gmailEnabled = useGmailEnabled()
+  const showSourceLabels = useShowSourceLabels()
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,8 +112,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChange={handleToggleGmail}
             />
           </label>
+          <label className="settings__row">
+            <span>予定・タスクの出典名を表示</span>
+            <input
+              type="checkbox"
+              checked={showSourceLabels}
+              onChange={(e) => setShowSourceLabels(e.target.checked)}
+            />
+          </label>
           <p className="settings__note">
-            この設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
+            ON にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
+          </p>
+          <p className="settings__note">
+            これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
           </p>
         </section>
 

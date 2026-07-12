@@ -141,7 +141,8 @@ body {
 /* PC: 3カラム。タブ状態は無視して全て表示（.panel--active は効かせない）。 */
 @media (min-width: 960px) {
   .panels {
-    grid-template-columns: 1fr 1fr 1fr;
+    /* メール列は本文プレビューがあり情報量が多いので他より広くする（予定1 : タスク1 : メール1.4） */
+    grid-template-columns: 1fr 1fr 1.4fr;
     align-items: start;
   }
 }
