@@ -45,18 +45,85 @@ export function toIntentUrl(href: string): string | null {
 // - <a> には target="_blank" + rel を強制（PWA内でリンクを踏んで戻れなくなるのを防ぐ）。
 // - src を持つ要素（<img> 等）は src を data-blocked-src に退避し、画像を既定でブロックする
 //   （壊れ画像アイコンやコンソールの CSP エラーを避けつつ、CSP と二重で止める）。
+// - 最後に、<a> で囲まれていない生の URL を自動でリンク化する（HTMLメールでも URL が
+//   ただの文字列で押せないことがあるため・ユーザー要望）。
 export function sanitizeEmailHtml(html: string): string {
   DOMPurify.addHook('afterSanitizeAttributes', afterSanitizeAttributes)
   try {
-    return DOMPurify.sanitize(html, {
+    const sanitized = DOMPurify.sanitize(html, {
       // フォームはフィッシングの温床なので丸ごと除去。style/link/meta/base も落とす。
       FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta', 'base'],
       // srcset も画像読み込み経路なので除去（個人利用では割り切り。復元はしない）。
       FORBID_ATTR: ['srcset'],
     })
+    return linkifyBareUrls(sanitized)
   } finally {
     DOMPurify.removeHook('afterSanitizeAttributes')
   }
+}
+
+// URL 1個ぶんのトークン。href が null ならただのテキスト、非 null ならリンク。
+export interface LinkToken {
+  text: string
+  href: string | null
+}
+
+// テキストを「URL部分」と「それ以外」に分割する。プレーンテキスト本文のリンク化にも使う。
+// http(s):// または www. で始まる連続文字を URL とみなし、末尾の句読点・閉じ括弧は URL に含めない。
+export function tokenizeLinks(input: string): LinkToken[] {
+  const tokens: LinkToken[] = []
+  // URL に使う ASCII 文字だけを本体とみなす（日本語の句読点や全角文字は URL に含めない）。
+  const re = /(?:https?:\/\/|www\.)[A-Za-z0-9\-._~:/?#@!$&*+,;=%]+/gi
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(input)) !== null) {
+    let url = m[0]
+    // 文末の「. , ; : ! ?」は URL ではなく後続テキスト扱いにする。
+    const trailMatch = url.match(/[.,;:!?]+$/)
+    const trail = trailMatch ? trailMatch[0] : ''
+    if (trail) url = url.slice(0, url.length - trail.length)
+    const start = m.index
+    if (start > last) tokens.push({ text: input.slice(last, start), href: null })
+    const href = /^www\./i.test(url) ? `https://${url}` : url
+    tokens.push({ text: url, href })
+    if (trail) tokens.push({ text: trail, href: null })
+    last = start + m[0].length
+  }
+  if (last < input.length) tokens.push({ text: input.slice(last), href: null })
+  return tokens
+}
+
+// サニタイズ済みHTML内の、<a> に囲まれていない生 URL をリンク化する。
+// DOMParser の不活性ドキュメント上でテキストノードを走査し、URL部分だけ <a> に置き換える。
+function linkifyBareUrls(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
+  let node: Node | null
+  while ((node = walker.nextNode()) !== null) textNodes.push(node as Text)
+  for (const t of textNodes) {
+    // 既にリンク内、または <style>/<script> 内のテキストは触らない。
+    if (t.parentElement?.closest('a, style, script')) continue
+    const value = t.nodeValue ?? ''
+    if (!/(?:https?:\/\/|www\.)/i.test(value)) continue
+    const tokens = tokenizeLinks(value)
+    if (!tokens.some((tk) => tk.href)) continue
+    const frag = doc.createDocumentFragment()
+    for (const tk of tokens) {
+      if (tk.href) {
+        const a = doc.createElement('a')
+        a.setAttribute('href', tk.href)
+        a.setAttribute('target', '_blank')
+        a.setAttribute('rel', 'noopener noreferrer')
+        a.textContent = tk.text
+        frag.appendChild(a)
+      } else {
+        frag.appendChild(doc.createTextNode(tk.text))
+      }
+    }
+    t.parentNode?.replaceChild(frag, t)
+  }
+  return doc.body.innerHTML
 }
 
 function afterSanitizeAttributes(node: Element): void {

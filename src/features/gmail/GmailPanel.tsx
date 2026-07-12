@@ -16,6 +16,7 @@ import {
   buildSrcDoc,
   hasBlockedImages,
   sanitizeEmailHtml,
+  tokenizeLinks,
   toIntentUrl,
 } from './renderBody'
 import type { GmailMessage } from './api'
@@ -229,8 +230,27 @@ function MessageBody({ id }: { id: string }) {
     )
   if (!data) return null
   if (data.html) return <HtmlBody html={data.html} />
-  if (data.text) return <pre className="gmail__text">{data.text}</pre>
+  if (data.text) return <PlainTextBody text={data.text} />
   return <p className="panel__note gmail__bodynote">本文を表示できません</p>
+}
+
+// プレーンテキスト本文。改行・空白は <pre> で保ちつつ、生の URL はリンク化して押せるようにする
+// （メール本文に貼られた URL がただの文字列で押せない、というユーザー要望への対応）。
+function PlainTextBody({ text }: { text: string }) {
+  const tokens = tokenizeLinks(text)
+  return (
+    <pre className="gmail__text">
+      {tokens.map((t, i) =>
+        t.href ? (
+          <a key={i} href={t.href} target="_blank" rel="noopener noreferrer">
+            {t.text}
+          </a>
+        ) : (
+          t.text
+        ),
+      )}
+    </pre>
+  )
 }
 
 // サニタイズ済みHTMLを sandbox iframe で表示。外部画像は既定でブロックし、
