@@ -143,7 +143,9 @@ function GmailList({
     return <ListSkeleton rows={6} />
   }
   if (isError) {
-    return <p className="panel__note panel__note--error">メールの取得に失敗しました: {String(error)}</p>
+    return (
+      <p className="panel__note panel__note--error">メールの取得に失敗しました: {String(error)}</p>
+    )
   }
   if (!messages || messages.length === 0) {
     return <p className="panel__note">受信トレイにメールはありません</p>
@@ -198,7 +200,9 @@ function GmailRow({
   }
 
   return (
-    <li className={`gmail__item${m.unread ? '' : ' gmail__item--read'}${open ? ' gmail__item--open' : ''}`}>
+    <li
+      className={`gmail__item${m.unread ? '' : ' gmail__item--read'}${open ? ' gmail__item--open' : ''}`}
+    >
       <button
         type="button"
         className="gmail__row"
@@ -277,19 +281,38 @@ function PlainTextBody({ text }: { text: string }) {
 function HtmlBody({ html }: { html: string }) {
   const [showImages, setShowImages] = useState(false)
   const frameRef = useRef<HTMLIFrameElement>(null)
+  // 中身の高さを監視するオブザーバ。srcDoc 差し替え時に前の監視を止めて張り直す。
+  const observerRef = useRef<ResizeObserver | null>(null)
   const sanitized = useMemo(() => sanitizeEmailHtml(html), [html])
   const imagesBlocked = useMemo(() => hasBlockedImages(sanitized), [sanitized])
   const srcDoc = useMemo(() => buildSrcDoc(sanitized, showImages), [sanitized, showImages])
 
-  // iframe の中身の高さに合わせて iframe 自体の高さを調整（スクロールバー二重化を防ぐ）。
-  // sandbox に allow-scripts は付けないので、中身のJSは実行されない（allow-same-origin のみ）。
-  // allow-same-origin なので、隔離されていない本体側からリンククリックを横取りできる。
+  // アンマウント時に高さ監視を止める（監視が残るとメモリリークになる）。
+  useEffect(() => () => observerRef.current?.disconnect(), [])
+
+  // iframe の中身の高さに合わせて iframe 自体の高さを「常時」追従させる。
+  // 一度きりの測定だと、画像や Web フォントが後から読み込まれて中身が伸びたとき iframe が
+  // 短いままになり、iframe の内部に縦スクロールが生まれる。その内部スクロールがマウス/指の
+  // スクロールを奪うため、親パネルのスクロールがひっかかる（HTML メール特有の症状）。
+  // ResizeObserver で中身の高さへ常に合わせておけば iframe 内部はスクロール不要になり、
+  // スクロールは親パネル側へそのまま流れる（iframe には scrolling="no" も付けて二重に防ぐ）。
+  // sandbox に allow-scripts は付けないので中身の JS は実行されない（allow-same-origin のみ）。
+  // allow-same-origin なので、隔離されていない本体側から中身の高さを測りリンククリックを横取りできる。
   function handleLoad() {
     const f = frameRef.current
     try {
       const doc = f?.contentDocument
-      if (!doc) return
-      f!.style.height = `${doc.body.scrollHeight + 16}px`
+      if (!doc || !doc.body) return
+      const syncHeight = () => {
+        const h = doc.body.scrollHeight
+        if (h > 0) f!.style.height = `${h + 16}px`
+      }
+      syncHeight()
+      // 前の本文の監視を止めてから、現在の本文を監視する（画像読み込み・折返しで再計測）。
+      observerRef.current?.disconnect()
+      const ro = new ResizeObserver(syncHeight)
+      ro.observe(doc.body)
+      observerRef.current = ro
       // Android では、外部リンクを本体側で intent:// 起動して Chrome 本体で開く。
       // （iframe 内から直接 intent を投げると sandbox にブロックされうるため本体側で発行する）
       if (IS_ANDROID) {
@@ -316,6 +339,9 @@ function HtmlBody({ html }: { html: string }) {
         className="gmail__frame"
         title="メール本文"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        // iframe 自身のスクロールを無効化し、スクロールを親パネルへ流す（ひっかかり防止）。
+        // 高さは handleLoad の ResizeObserver で中身に追従させるので内部スクロールは不要。
+        scrolling="no"
         srcDoc={srcDoc}
         onLoad={handleLoad}
       />

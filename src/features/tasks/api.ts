@@ -8,8 +8,12 @@
 //   先頭10文字（YYYY-MM-DD）を文字列として比較する。
 
 import { ApiError, fetchJson } from '../../google/fetchJson'
+import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
 
 const TASKS_BASE = 'https://tasks.googleapis.com/tasks/v1'
+
+// リストごとのタスク取得の同時実行数の上限。
+const TASKS_FETCH_CONCURRENCY = 6
 
 interface TaskListResponse {
   items?: { id: string; title: string }[]
@@ -64,7 +68,7 @@ export function localDateStrPlusDays(n: number): string {
 // 週明けに仕切り直す意味で月曜に寄せる（Fable 助言）。今日が月曜なら7日後の月曜。
 export function localNextMondayStr(): string {
   const day = new Date().getDay() // 0=日,1=月,…,6=土
-  const daysToNextMonday = ((8 - day) % 7) || 7
+  const daysToNextMonday = (8 - day) % 7 || 7
   return localDateStrPlusDays(daysToNextMonday)
 }
 
@@ -114,9 +118,13 @@ async function fetchTasksForList(
 export async function fetchAllTasks(): Promise<TaskItem[]> {
   const todayStr = localTodayStr()
   const lists = await fetchTaskLists()
-  // リストごとに並列取得（横断APIが無いため）
-  const perList = await Promise.all(lists.map((list) => fetchTasksForList(list, todayStr)))
-  return perList.flat()
+  // リストごとに並列取得（横断APIが無いため）。1つのリストが一時的に失敗しても
+  // 他リストのタスクは表示できるよう、成功分だけ採用する（部分失敗を許容）。
+  const settled = await mapPool(lists, TASKS_FETCH_CONCURRENCY, (list) =>
+    fetchTasksForList(list, todayStr),
+  )
+  throwIfAllRejected(settled)
+  return fulfilledValues(settled).flat()
 }
 
 // 端末ローカルの今日を書き戻し用の due（UTC0時のRFC3339）に変換する。

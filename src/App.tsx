@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { INITIAL_SCOPES, SCOPES, isClientIdConfigured } from './config'
+import { SCOPES, isClientIdConfigured } from './config'
 import {
   connect,
   hasPreviousCalendarGrant,
@@ -9,6 +9,7 @@ import {
   trySilentConnect,
   useAuth,
 } from './auth/useAuth'
+import { desiredScopes } from './auth/scopes'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
 import { TodayTimeline } from './features/calendar/TodayTimeline'
 import { MonthCalendar } from './features/calendar/MonthCalendar'
@@ -76,7 +77,8 @@ export default function App() {
     }
     // どの経路でも GIS を先読みしておく。復元済みでも「再接続」「許可する」ボタンを
     // 押した瞬間に同期的にトークン要求できるようにするため（未読込だと要求が失敗する）。
-    prepareAuth(INITIAL_SCOPES).catch(() => {
+    // Gmail 有効端末では Gmail 込みのスコープで準備・サイレント認証する（desiredScopes）。
+    prepareAuth(desiredScopes()).catch(() => {
       // 読み込み失敗はログイン/再接続の試行時にエラー表示するのでここでは握りつぶす
     })
     if (restoreSession()) {
@@ -84,7 +86,7 @@ export default function App() {
       return
     }
     if (hasPreviousCalendarGrant()) {
-      trySilentConnect(INITIAL_SCOPES).finally(() => setInitializing(false))
+      trySilentConnect(desiredScopes()).finally(() => setInitializing(false))
     } else {
       setInitializing(false)
     }
@@ -94,7 +96,10 @@ export default function App() {
     setConnectError(null)
     setConnecting(true)
     // ⚠ requestToken 自体はこの同期フレーム内で走る（gisClient 実装）。
-    connect(INITIAL_SCOPES)
+    // 再接続・追加同意・初回ログインの全入口でここを通る。Gmail 有効端末では Gmail 込みの
+    // スコープを要求する（desiredScopes）。INITIAL_SCOPES 固定にすると Gmail 権限が抜けて
+    // 403→needsScope で Tasks まで巻き添えに停止するため（既知の不具合の修正）。
+    connect(desiredScopes())
       .catch((e: unknown) => setConnectError(e instanceof Error ? e.message : String(e)))
       .finally(() => setConnecting(false))
   }
@@ -107,7 +112,8 @@ export default function App() {
         <p className="welcome__lead">
           Google の OAuth クライアントID が未設定です。
           <br />
-          <code>src/config.ts</code> の <code>GOOGLE_CLIENT_ID</code> に発行済みのIDを設定してください。
+          <code>src/config.ts</code> の <code>GOOGLE_CLIENT_ID</code>{' '}
+          に発行済みのIDを設定してください。
         </p>
       </main>
     )

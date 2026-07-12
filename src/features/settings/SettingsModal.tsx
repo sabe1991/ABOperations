@@ -5,8 +5,9 @@
 //  4. アプリ情報（ビルド版＝コミットハッシュ・ビルド日時）
 
 import { useState } from 'react'
-import { GMAIL_SCOPES, INITIAL_SCOPES, SCOPES } from '../../config'
+import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, disconnect, useAuth } from '../../auth/useAuth'
+import { desiredScopes } from '../../auth/scopes'
 import { setGmailEnabled, useGmailEnabled } from '../gmail/enabled'
 import {
   setShowSourceLabels,
@@ -43,8 +44,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   function handleReconnect() {
     setError(null)
     setBusy(true)
-    // Gmail 有効端末では Gmail 込みのスコープで、それ以外は初期スコープで再接続する。
-    connect(gmailEnabled && gmailHasScope ? GMAIL_SCOPES : INITIAL_SCOPES)
+    // 要求スコープの判断は全接続入口で共通の desiredScopes に集約している
+    // （Gmail 有効端末では Gmail 込み、それ以外は初期スコープ）。
+    connect(desiredScopes())
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setBusy(false))
   }
@@ -105,9 +107,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {/* 1. アカウント / ログアウト */}
         <section className="settings__section">
           <h3 className="settings__heading">アカウント</h3>
-          <p className="settings__value">
-            {emailLoading ? '取得中…' : email || '（不明）'}
-          </p>
+          <p className="settings__value">{emailLoading ? '取得中…' : email || '（不明）'}</p>
           <button className="btn btn--small" onClick={handleLogout} disabled={busy}>
             ログアウト
           </button>
@@ -142,7 +142,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             />
           </label>
           <p className="settings__note">
-            ON にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
+            ON
+            にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
           </p>
           <label className="settings__row">
             <span>週の開始曜日（今月カレンダー）</span>
@@ -164,7 +165,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         <section className="settings__section">
           <h3 className="settings__heading">接続状態</h3>
           <p className="settings__value">
-            {needsReconnect ? '接続が切れています' : `トークン取得: ${acquiredText}（約1時間で失効）`}
+            {needsReconnect
+              ? '接続が切れています'
+              : `トークン取得: ${acquiredText}（約1時間で失効）`}
           </p>
           <button className="btn btn--small" onClick={handleReconnect} disabled={busy}>
             {busy ? '接続中…' : '再接続'}

@@ -3,8 +3,12 @@
 // 色分け・詳細表示・厳密なタイムゾーン対応はフェーズ3以降（ここでは素朴な表示に留める）。
 
 import { ApiError, fetchJson } from '../../google/fetchJson'
+import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
 
 const CAL_BASE = 'https://www.googleapis.com/calendar/v3'
+
+// カレンダーごとの予定取得の同時実行数の上限。
+const CAL_FETCH_CONCURRENCY = 8
 
 // 端末のタイムゾーン（例 "Asia/Tokyo"）。events.insert/patch の dateTime に添えて送る。
 function getTimeZone(): string {
@@ -195,12 +199,15 @@ export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
 
   const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
 
-  // カレンダーごとに並列取得（Tasks と違いカレンダーは並列で問題ない）
-  const perCalendar = await Promise.all(
-    calendars.map((cal) => fetchEventsForCalendar(cal, timeMin, timeMax)),
+  // カレンダーごとに並列取得（同時実行数は上限を設ける）。1つのカレンダーが一時的に
+  // 5xx/429 を返しても他の予定は表示できるよう、成功分だけ採用する（部分失敗を許容）。
+  const settled = await mapPool(calendars, CAL_FETCH_CONCURRENCY, (cal) =>
+    fetchEventsForCalendar(cal, timeMin, timeMax),
   )
-
-  return perCalendar.flat().sort((a, b) => a.startMs - b.startMs)
+  throwIfAllRejected(settled)
+  return fulfilledValues(settled)
+    .flat()
+    .sort((a, b) => a.startMs - b.startMs)
 }
 
 // 月ミニカレンダーのドット用: 指定期間（グリッドの開始〜終了、終了は排他的）に予定が
@@ -213,11 +220,12 @@ export async function fetchEventDaysInRange(
   const timeMin = new Date(`${gridStartStr}T00:00:00`).toISOString()
   const timeMax = new Date(`${gridEndExclusiveStr}T00:00:00`).toISOString()
   const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
-  const perCalendar = await Promise.all(
-    calendars.map((cal) => fetchEventsForCalendar(cal, timeMin, timeMax)),
+  const settled = await mapPool(calendars, CAL_FETCH_CONCURRENCY, (cal) =>
+    fetchEventsForCalendar(cal, timeMin, timeMax),
   )
+  throwIfAllRejected(settled)
   const days = new Set<string>()
-  for (const ev of perCalendar.flat()) {
+  for (const ev of fulfilledValues(settled).flat()) {
     let d = ev.startDateStr
     // start から end（含む）まで1日ずつ。guard は暴走防止（同一予定が400日を超えることは無い想定）。
     for (let guard = 0; guard < 400; guard++) {
@@ -383,14 +391,16 @@ export async function restoreEvent(calendarId: string, eventId: string): Promise
 export async function fetchWritableCalendars(): Promise<WritableCalendar[]> {
   const res = await fetchJson<CalendarListResponse>(`${CAL_BASE}/users/me/calendarList`)
   const items = res.items ?? []
-  return items
-    .filter((c) => c.accessRole === 'owner' || c.accessRole === 'writer')
-    .map((c) => ({
-      id: c.id,
-      name: c.summary,
-      color: c.backgroundColor ?? '#5484ed',
-      primary: Boolean(c.primary),
-    }))
-    // primary を先頭に
-    .sort((a, b) => Number(b.primary) - Number(a.primary))
+  return (
+    items
+      .filter((c) => c.accessRole === 'owner' || c.accessRole === 'writer')
+      .map((c) => ({
+        id: c.id,
+        name: c.summary,
+        color: c.backgroundColor ?? '#5484ed',
+        primary: Boolean(c.primary),
+      }))
+      // primary を先頭に
+      .sort((a, b) => Number(b.primary) - Number(a.primary))
+  )
 }

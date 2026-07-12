@@ -8,8 +8,14 @@
 //   サニタイズが要るのは本文表示スライスから。
 
 import { fetchJson } from '../../google/fetchJson'
+import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
+import { decodeMimeWords } from './decodeHeader'
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me'
+
+// messages.get の同時実行数の上限。最大50件を一斉に投げるとユーザー毎秒クォータに
+// 触れやすいため、少数ずつ流してレート制限(429)を避ける。
+const GMAIL_FETCH_CONCURRENCY = 6
 
 interface ListResponse {
   messages?: { id: string; threadId: string }[]
@@ -87,13 +93,16 @@ async function fetchMessageMeta(id: string): Promise<GmailMessage> {
   params.append('metadataHeaders', 'Date')
   const m = await fetchJson<MessageResponse>(`${GMAIL_BASE}/messages/${id}?${params.toString()}`)
   const headers = m.payload?.headers
-  const from = parseFrom(headerValue(headers, 'From'))
+  // From/Subject は RFC 2047 の MIME エンコードワード（=?UTF-8?B?...?= 等）で来るのが
+  // 日本語メールでは普通なので、表示前に復号する（しないと件名・差出人が化ける）。
+  const from = parseFrom(decodeMimeWords(headerValue(headers, 'From')))
+  const subject = decodeMimeWords(headerValue(headers, 'Subject'))
   return {
     id: m.id,
     threadId: m.threadId,
     fromName: from.name,
     fromEmail: from.email,
-    subject: headerValue(headers, 'Subject') || '(件名なし)',
+    subject: subject || '(件名なし)',
     snippet: decodeHtmlEntities(m.snippet ?? ''),
     dateMs: m.internalDate ? Number(m.internalDate) : 0,
     unread: (m.labelIds ?? []).includes('UNREAD'),
@@ -108,12 +117,19 @@ export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMes
     fetchMessageIds('in:inbox is:unread', maxUnread),
     fetchMessageIds('in:inbox is:read', maxRead),
   ])
-  const [unread, read] = await Promise.all([
-    Promise.all(unreadIds.map((x) => fetchMessageMeta(x.id))),
-    Promise.all(readIds.map((x) => fetchMessageMeta(x.id))),
-  ])
+  // 未読・既読の id をまとめ、同時実行数を絞って各メタデータを取得する。
+  // 1通の取得失敗（取得直後に削除されて 404 等）で受信トレイ全体を落とさないよう
+  // 成功分だけ採用する。並び順は取得後に unread フラグで振り分けるので id の由来は問わない。
+  const ids = [...unreadIds, ...readIds]
+  const settled = await mapPool(ids, GMAIL_FETCH_CONCURRENCY, (x) => fetchMessageMeta(x.id))
+  // 全件失敗（例: 401 認証切れ・403 権限不足）のときだけ、その理由を投げ直して
+  // 再接続/追加同意の共通UXへ流す（部分失敗は握って成功分を表示する）。
+  throwIfAllRejected(settled)
+  const metas = fulfilledValues(settled)
   const desc = (a: GmailMessage, b: GmailMessage) => b.dateMs - a.dateMs
-  return [...unread.sort(desc), ...read.sort(desc)]
+  const unread = metas.filter((m) => m.unread).sort(desc)
+  const read = metas.filter((m) => !m.unread).sort(desc)
+  return [...unread, ...read]
 }
 
 // ---- 本文プレビュー（本文表示スライス） ----

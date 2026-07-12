@@ -29,9 +29,13 @@ export class ApiError extends Error {
 // 例: カレンダーだけ同意済みのトークンで Tasks API を叩いたとき。
 // 認証切れ(401)とは別物なので、再ログインではなく「不足スコープの追加同意」へ誘導する。
 export class ScopeError extends Error {
-  constructor(message = 'この機能に必要な権限が許可されていません') {
+  // どのエンドポイントで権限不足になったか（呼び出し先の URL）。
+  // どの機能(Tasks/Gmail 等)の 403 かを呼び出し側で見分けるために持つ。
+  url?: string
+  constructor(message = 'この機能に必要な権限が許可されていません', url?: string) {
     super(message)
     this.name = 'ScopeError'
+    this.url = url
   }
 }
 
@@ -72,7 +76,7 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
     if (response.status === 403) {
       const wwwAuth = response.headers.get('WWW-Authenticate') ?? ''
       if (/insufficient_scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(`${wwwAuth} ${raw}`)) {
-        throw new ScopeError()
+        throw new ScopeError(undefined, url)
       }
     }
 

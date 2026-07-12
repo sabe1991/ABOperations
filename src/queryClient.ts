@@ -17,8 +17,17 @@ function handleAuthError(error: unknown): void {
   if (error instanceof AuthError) {
     markExpired()
   } else if (error instanceof ScopeError) {
-    markNeedsScope()
+    // needsScope は「追加の許可」バナー＋Tasks/カレンダーの停止を意味するグローバル状態。
+    // Gmail は端末ごとに enabled かつ gmail.modify 同意済みのときだけ取得するよう別途
+    // ゲートしているので、Gmail の 403 でこのフラグを立てると Tasks まで巻き添えで止まる。
+    // よって Gmail エンドポイント由来の 403 では needsScope を立てない（Gmail 側の
+    // クエリエラー表示に委ねる）。Tasks/カレンダー由来の 403 のみ追加同意へ誘導する。
+    if (!isGmailUrl(error.url)) markNeedsScope()
   }
+}
+
+function isGmailUrl(url: string | undefined): boolean {
+  return !!url && url.includes('gmail.googleapis.com')
 }
 
 export const queryClient = new QueryClient({
