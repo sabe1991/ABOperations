@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CALENDAR_SCOPES, isClientIdConfigured } from './config'
+import { INITIAL_SCOPES, isClientIdConfigured } from './config'
 import {
   connect,
   hasPreviousCalendarGrant,
@@ -10,9 +10,10 @@ import {
   useAuth,
 } from './auth/useAuth'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
+import { TasksPanel } from './features/tasks/TasksPanel'
 
-// フェーズ2の画面。ウェルカム（未ログイン）→ ログイン → カレンダー7日分表示。
-// 主目的は iPhone PWA ログイン検証と再ログイン頻度検証のため、UI は最小限に留める。
+// メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスクの2パネル表示。
+// レイアウトの作り込み（3カラム化・スマホタブ）は後のフェーズ。今は素朴な2カラム。
 export default function App() {
   const { isConnected, needsReconnect, acquiredAt } = useAuth()
   const [connecting, setConnecting] = useState(false)
@@ -36,10 +37,10 @@ export default function App() {
       return
     }
     if (hasPreviousCalendarGrant()) {
-      trySilentConnect(CALENDAR_SCOPES).finally(() => setInitializing(false))
+      trySilentConnect(INITIAL_SCOPES).finally(() => setInitializing(false))
     } else {
       setInitializing(false)
-      prepareAuth(CALENDAR_SCOPES).catch(() => {
+      prepareAuth(INITIAL_SCOPES).catch(() => {
         // 読み込み失敗はログイン試行時にエラー表示するのでここでは握りつぶす
       })
     }
@@ -49,7 +50,7 @@ export default function App() {
     setConnectError(null)
     setConnecting(true)
     // ⚠ requestToken 自体はこの同期フレーム内で走る（gisClient 実装）。
-    connect(CALENDAR_SCOPES)
+    connect(INITIAL_SCOPES)
       .catch((e: unknown) => setConnectError(e instanceof Error ? e.message : String(e)))
       .finally(() => setConnecting(false))
   }
@@ -115,10 +116,16 @@ export default function App() {
       )}
 
       <main className="app__main">
-        <section className="panel">
-          <h2 className="panel__title">予定（今後7日間）</h2>
-          <CalendarPanel />
-        </section>
+        <div className="panels">
+          <section className="panel">
+            <h2 className="panel__title">予定（今後7日間）</h2>
+            <CalendarPanel />
+          </section>
+          <section className="panel">
+            <h2 className="panel__title">タスク</h2>
+            <TasksPanel />
+          </section>
+        </div>
       </main>
     </div>
   )

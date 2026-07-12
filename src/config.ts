@@ -25,5 +25,6 @@ export const SCOPES = {
   gmailModify: 'https://www.googleapis.com/auth/gmail.modify',
 } as const
 
-// フェーズ2の初回ログインで要求するスコープ（カレンダー関連のみ）。
-export const CALENDAR_SCOPES = [SCOPES.calendarEvents, SCOPES.calendarList]
+// 初回ログインで要求するスコープ。段階的認可により、カレンダー + Tasks をまとめて同意する
+// （PLAN: 初回は カレンダー+Tasks のみ。Gmail は後のフェーズで端末ごとに追加同意）。
+export const INITIAL_SCOPES = [SCOPES.calendarEvents, SCOPES.calendarList, SCOPES.tasks]

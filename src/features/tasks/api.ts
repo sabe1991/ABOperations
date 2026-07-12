@@ -1,0 +1,99 @@
+// Google Tasks API の呼び出し。
+// 全リストの未完了タスクを取得し、「期限切れ/今日/今後/期限なし」の4グループに分類して返す。
+//
+// PLAN の重要な実装メモ:
+// - Tasks はリスト横断の一括取得APIが無く、リストごとに N 回呼ぶ。
+// - 期限 `due` は日付のみで時刻を持たず、常に UTC 0時で返る（例 "2026-07-15T00:00:00.000Z"）。
+//   new Date() に変換すると端末のタイムゾーン次第で1日ズレるため、
+//   先頭10文字（YYYY-MM-DD）を文字列として比較する。
+
+import { fetchJson } from '../../google/fetchJson'
+
+const TASKS_BASE = 'https://tasks.googleapis.com/tasks/v1'
+
+interface TaskListResponse {
+  items?: { id: string; title: string }[]
+}
+
+interface TasksResponse {
+  items?: GoogleTask[]
+}
+
+interface GoogleTask {
+  id: string
+  title?: string
+  status?: string // 'needsAction' | 'completed'
+  due?: string // 日付のみ（UTC0時）。時刻情報は持たない
+}
+
+// タスクの分類グループ。表示順もこの順。
+export type TaskGroup = 'overdue' | 'today' | 'upcoming' | 'noDue'
+
+export interface TaskItem {
+  id: string
+  title: string
+  listId: string
+  listName: string
+  dueStr: string | null // 'YYYY-MM-DD' or null
+  group: TaskGroup
+}
+
+// 端末ローカルの今日を 'YYYY-MM-DD' 文字列で返す。
+function localTodayStr(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// 期限文字列と今日から所属グループを決める。
+// YYYY-MM-DD 形式は辞書順比較がそのまま日付の前後比較になる。
+function classify(dueStr: string | null, todayStr: string): TaskGroup {
+  if (!dueStr) return 'noDue'
+  if (dueStr < todayStr) return 'overdue'
+  if (dueStr === todayStr) return 'today'
+  return 'upcoming'
+}
+
+async function fetchTaskLists(): Promise<{ id: string; title: string }[]> {
+  const res = await fetchJson<TaskListResponse>(`${TASKS_BASE}/users/@me/lists`)
+  return res.items ?? []
+}
+
+async function fetchTasksForList(
+  list: { id: string; title: string },
+  todayStr: string,
+): Promise<TaskItem[]> {
+  const params = new URLSearchParams({
+    showCompleted: 'false', // 未完了のみ（完了済みは非表示）
+    showHidden: 'false',
+    maxResults: '100',
+  })
+  const res = await fetchJson<TasksResponse>(
+    `${TASKS_BASE}/lists/${encodeURIComponent(list.id)}/tasks?${params.toString()}`,
+  )
+  const items: TaskItem[] = []
+  for (const t of res.items ?? []) {
+    if (t.status === 'completed') continue
+    const dueStr = t.due ? t.due.slice(0, 10) : null
+    items.push({
+      id: t.id,
+      title: t.title?.trim() || '(タイトルなし)',
+      listId: list.id,
+      listName: list.title,
+      dueStr,
+      group: classify(dueStr, todayStr),
+    })
+  }
+  return items
+}
+
+// 全リストの未完了タスクをまとめて取得する。
+export async function fetchAllTasks(): Promise<TaskItem[]> {
+  const todayStr = localTodayStr()
+  const lists = await fetchTaskLists()
+  // リストごとに並列取得（横断APIが無いため）
+  const perList = await Promise.all(lists.map((list) => fetchTasksForList(list, todayStr)))
+  return perList.flat()
+}

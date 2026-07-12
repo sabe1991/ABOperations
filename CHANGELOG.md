@@ -2,6 +2,7 @@
 
 ## Added
 
+- フェーズ3: Google Tasks の読み取り表示を実装。全リストの未完了タスクをリストごとに並列取得し(`fetchAllTasks`)、「⚠期限切れ(赤)/今日/今後/期限なし」の4グループに分類して表示する(`TasksPanel`)。期限 `due` は日付のみ・UTC0時で返るため、`new Date()` に変換せず先頭10文字(YYYY-MM-DD)を文字列比較して分類し、タイムゾーン起因の1日ズレを回避。各タスクにリスト名の小ラベルを表示。カレンダーと同じ構成(feature フォルダ+`fetchJson`+TanStack Query、5分ポーリング、401共通ハンドラ)。初回ログインのスコープに Tasks を追加(`INITIAL_SCOPES`、段階的認可)。画面はカレンダーとタスクの2パネルを広い画面で2カラム・狭い画面で1カラム表示にした (2026-07-12)
 - `vite-plugin-pwa` を導入し、最小の Service Worker を追加した。Android で `chrome://webapks` にアプリが登録されず「ホーム画面に追加(ショートカット)」しか出ずスタンドアロン起動にならなかった原因が、Chrome の PWA インストール判定に Service Worker が事実上必要だったことと判明したため(PLAN の TODO #6「初期はSW入れない」を見直し)。SW はアプリシェル(HTML/JS/CSS/アイコン)のプリキャッシュのみで、Google API/GISスクリプト(別オリジン)は一切キャッシュせず常にネットワーク直行。マニフェストはプラグインに一本化し(手書きの `public/manifest.webmanifest` を削除)、start_url/scope は base(`/ABOperations/`)から自動設定 (2026-07-12)
 - 起動時のサイレント再認証を実装。以前この端末でカレンダーに同意済み(`grantedScopes` に記録)なら、起動時に `requestAccessToken({ prompt: '' })` でポップアップ無し・クリック無しの自動ログインを試みる(`requestTokenSilent`/`trySilentConnect`)。成功すれば毎回のログイン操作が不要になる。失敗(セッション切れ・未同意・タイムアウト8秒)時は静かに通常のウェルカム画面へフォールバックする。トークンは従来どおりメモリ保持のみで永続化しない(セキュリティ方針は不変、UXのみ改善)。試行中は「接続中…」表示でログインボタンの点滅を防ぐ (2026-07-12)
 - PWA マニフェスト(`public/manifest.webmanifest`)とアイコン(192/512/マスカブル512/apple-touch-icon 180)を追加し、Android の「ホーム画面に追加」でスタンドアロン起動(ブラウザのバー無しのアプリ風表示)できるようにした。iPhone 用の `apple-touch-icon`・`apple-mobile-web-app` メタも設定。start_url/scope/アイコンsrc は base path 配下で解決されるよう相対パスにした。Service Worker(オフライン対応)は初期スコープ外のまま (2026-07-12)
