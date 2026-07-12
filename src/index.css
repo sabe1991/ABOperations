@@ -834,10 +834,12 @@ body {
   flex-direction: column; /* 上段=今日 / 下段=明日・明後日 の2段組み */
   gap: 0.7rem;
 }
-/* 現在の天気: 絵文字・気温・（地点/状態/最高最低）を横並び。窮屈にならないよう間隔広め。 */
+/* 現在の天気: 絵文字・気温・（地点/状態/最高最低）を横並び。窮屈にならないよう間隔広め。
+   段内では中央寄せにする（左寄りに見えるのを防ぐ・ユーザー要望）。 */
 .weather__now {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.9rem;
 }
 .weather__now-emoji {
