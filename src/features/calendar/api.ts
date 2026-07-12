@@ -108,7 +108,7 @@ async function fetchCalendarList(): Promise<CalendarListEntry[]> {
 }
 
 // 1つのカレンダーから、指定期間の予定を取得する。
-// singleEvents=true で繰り返し予定を各回に展開して受け取る（PLAN の実装メモ参照）。
+// singleEvents=true で繰り返し予定を各回に展開して受け取る。
 async function fetchEventsForCalendar(
   cal: CalendarListEntry,
   timeMin: string,

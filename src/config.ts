@@ -26,7 +26,7 @@ export const SCOPES = {
 } as const
 
 // 初回ログインで要求するスコープ。段階的認可により、カレンダー + Tasks をまとめて同意する
-// （PLAN: 初回は カレンダー+Tasks のみ。Gmail は後のフェーズで端末ごとに追加同意）。
+// （初回は カレンダー+Tasks のみ。Gmail はパネルを有効化した端末でだけ追加同意する）。
 export const INITIAL_SCOPES = [SCOPES.calendarEvents, SCOPES.calendarList, SCOPES.tasks]
 
 // Gmail を有効化するときに要求するスコープ。既存の同意分もまとめて要求し（union）、
