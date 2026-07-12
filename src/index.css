@@ -2,6 +2,15 @@
   color-scheme: light dark;
   font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   line-height: 1.6;
+
+  --bg: light-dark(#f7f8fa, #16181d);
+  --surface: light-dark(#ffffff, #1f2229);
+  --border: light-dark(#e3e6ea, #2c303a);
+  --text: light-dark(#1a1c20, #e6e8ec);
+  --text-muted: light-dark(#6b7280, #9aa2b1);
+  --primary: #2563eb;
+  --warn-bg: light-dark(#fef3c7, #3a2f14);
+  --warn-text: light-dark(#92400e, #fcd34d);
 }
 
 * {
@@ -11,59 +20,155 @@
 body {
   margin: 0;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: light-dark(#f7f8fa, #16181d);
-  color: light-dark(#1a1c20, #e6e8ec);
+  background: var(--bg);
+  color: var(--text);
 }
 
-.hello {
-  text-align: center;
-  padding: 2rem;
+/* --- ボタン --- */
+.btn {
+  font: inherit;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
 }
-
-.hello__logo {
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
-
-.hello__title {
-  margin: 0.75rem 0 0.25rem;
-  font-size: 2rem;
-  letter-spacing: 0.02em;
+.btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  padding: 0.7rem 1.5rem;
 }
-
-.hello__lead {
-  margin: 0 0 1.5rem;
-  color: light-dark(#5a5f68, #a2a8b4);
-  font-size: 0.95rem;
-}
-
-.hello__build {
-  display: inline-grid;
-  gap: 0.4rem 1rem;
-  margin: 0;
-  padding: 1rem 1.25rem;
-  border-radius: 12px;
-  background: light-dark(#ffffff, #1f2229);
-  border: 1px solid light-dark(#e3e6ea, #2c303a);
+.btn--small {
+  padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
 }
 
-.hello__build > div {
+/* --- ウェルカム画面 --- */
+.welcome {
+  min-height: 100vh;
   display: grid;
-  grid-template-columns: 6rem 1fr;
+  place-content: center;
+  justify-items: center;
   gap: 1rem;
-  text-align: left;
+  text-align: center;
+  padding: 2rem;
 }
-
-.hello__build dt {
-  color: light-dark(#7b818c, #8b93a1);
-}
-
-.hello__build dd {
+.welcome__title {
   margin: 0;
+  font-size: 2rem;
+}
+.welcome__lead {
+  margin: 0;
+  color: var(--text-muted);
+}
+.welcome__error {
+  color: #dc2626;
+  font-size: 0.9rem;
 }
 
-.hello__build code {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+/* --- アプリ本体 --- */
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.app__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.app__status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.app__main {
+  padding: 1.25rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* --- バナー --- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1.25rem;
+}
+.banner--warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+/* --- パネル --- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+.panel__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+.panel__note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.panel__note--error {
+  color: #dc2626;
+}
+
+/* --- カレンダー --- */
+.calendar__day + .calendar__day {
+  margin-top: 1rem;
+}
+.calendar__day-header {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2rem;
+}
+.calendar__events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.calendar__event {
+  display: grid;
+  grid-template-columns: 3.5rem auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+.calendar__time {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.calendar__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+.calendar__title {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar__cal-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
