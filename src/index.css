@@ -395,11 +395,24 @@ body {
   padding: 0;
 }
 .gmail__item {
-  padding: 0.5rem 0;
   border-top: 1px solid var(--border);
 }
 .gmail__item:first-child {
   border-top: none;
+}
+.gmail__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.gmail__row:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
 }
 .gmail__line1 {
   display: flex;
@@ -432,6 +445,34 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.gmail__body {
+  padding: 0 0 0.6rem;
+}
+.gmail__bodynote {
+  padding: 0.4rem 0;
+}
+.gmail__imgbtn {
+  margin-bottom: 0.5rem;
+}
+.gmail__frame {
+  width: 100%;
+  min-height: 8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.gmail__text {
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface, #fafafa);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* --- スナックバー（画面下部の「元に戻す」通知） --- */

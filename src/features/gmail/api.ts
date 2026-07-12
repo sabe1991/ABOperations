@@ -16,13 +16,21 @@ interface ListResponse {
   resultSizeEstimate?: number
 }
 
+// メール本文の1パーツ（multipart の枝）。part は入れ子になりうる。
+interface MessagePart {
+  mimeType?: string
+  headers?: { name: string; value: string }[]
+  body?: { data?: string; size?: number; attachmentId?: string }
+  parts?: MessagePart[]
+}
+
 interface MessageResponse {
   id: string
   threadId: string
   snippet?: string
   labelIds?: string[]
   internalDate?: string // 受信時刻（エポックミリ秒の文字列）
-  payload?: { headers?: { name: string; value: string }[] }
+  payload?: MessagePart & { headers?: { name: string; value: string }[] }
 }
 
 export interface GmailMessage {
@@ -97,4 +105,47 @@ export async function fetchInboxUnread(maxResults = 20): Promise<GmailMessage[]>
   const ids = await fetchMessageIds('in:inbox is:unread', maxResults)
   const msgs = await Promise.all(ids.map((x) => fetchMessageMeta(x.id)))
   return msgs.sort((a, b) => b.dateMs - a.dateMs)
+}
+
+// ---- 本文プレビュー（本文表示スライス） ----
+
+// base64url（Gmail の body.data は URL-safe base64）を UTF-8 文字列にデコードする。
+// atob は「Latin-1 のバイト列」を返すので、そのバイト列を TextDecoder で UTF-8 として
+// 読み直す（この2段を踏まないと日本語が化ける。ここが一番の文字化けポイント）。
+// 文字コードは実用上 UTF-8 決め打ち。ISO-2022-JP 等は後で対応（TODO）。
+function decodeBase64Url(data: string): string {
+  const b64 = data.replace(/-/g, '+').replace(/_/g, '/')
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
+// payload の木を再帰的に辿り、指定 MIME タイプの最初のパーツ本文を取り出す。
+function findPart(part: MessagePart | undefined, mimeType: string): string | null {
+  if (!part) return null
+  if (part.mimeType === mimeType && part.body?.data) {
+    return decodeBase64Url(part.body.data)
+  }
+  for (const child of part.parts ?? []) {
+    const found = findPart(child, mimeType)
+    if (found != null) return found
+  }
+  return null
+}
+
+// 取り出した本文。html があれば html を、無ければ plain（プレーンテキスト）を使う。
+export interface MessageBody {
+  html: string | null
+  text: string | null
+}
+
+// 1通の本文を取得する（format=full で全パーツを取得し、text/html 優先で抜き出す）。
+export async function fetchMessageBody(id: string): Promise<MessageBody> {
+  const params = new URLSearchParams({ format: 'full' })
+  const m = await fetchJson<MessageResponse>(`${GMAIL_BASE}/messages/${id}?${params.toString()}`)
+  return {
+    html: findPart(m.payload, 'text/html'),
+    text: findPart(m.payload, 'text/plain'),
+  }
 }
