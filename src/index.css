@@ -257,13 +257,21 @@ body {
   .panel--tasks .tasks__groups {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: stretch; /* 各カラムを同じ高さに伸ばし、仕切り線を下まで通す */
     gap: 0.5rem 1rem;
   }
   .panel--tasks .tasks__groups .tasks__group {
     flex: 1 1 170px;
     min-width: 0;
     margin-top: 0; /* 縦積み時の段間マージンを打ち消す（カラム間は gap で確保） */
+    /* カラム間の縦仕切り線。どのチェックボックスがどのバケツかを分かりやすくする（ユーザー要望）。 */
+    border-left: 1px solid var(--border);
+    padding-left: 1rem;
+  }
+  /* 先頭カラムはパネル左端に揃えるため線と余白を付けない。 */
+  .panel--tasks .tasks__groups .tasks__group:first-child {
+    border-left: none;
+    padding-left: 0;
   }
 }
 
