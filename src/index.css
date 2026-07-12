@@ -178,6 +178,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem 1.25rem;
+  /* CSS グリッドの列は既定で「中身の最小幅」より狭くなれない。メール本文(iframe や
+     幅広の表・折り返さないテキスト)がある列だけ押し広げられて等幅(1fr)が崩れるため、
+     min-width:0 で「中身より狭くなってよい」ことを明示する。 */
+  min-width: 0;
 }
 .panel__title {
   margin: 0 0 0.75rem;
@@ -473,6 +477,8 @@ body {
   align-items: baseline;
 }
 .gmail__from {
+  flex: 1;
+  min-width: 0; /* フレックス内で縮んで省略記号(…)が効くようにする */
   font-size: 0.9rem;
   font-weight: 600;
   overflow: hidden;

@@ -26,6 +26,7 @@
 
 ## Fixed
 
+- PC の3カラム表示でメールの列だけ横に広がりすぎ、等幅(1fr)が崩れる問題を修正した。CSS グリッドの列は既定で「中身の最小幅」より狭くなれず、メール本文(iframe や幅広の表・折り返さないテキスト)がある列だけ中身に押し広げられていた。各パネル(`.panel`)に `min-width: 0` を付けて中身より狭くなれるようにし、3列を等幅に揃えた。あわせて差出人(`.gmail__from`)にも `min-width: 0`+`flex: 1` を付け、フレックス内で省略記号(…)が正しく効くようにした (2026-07-12)
 - Android のリンク intent 対応の切り分け用に一時追加していた診断表示(本文上の「リンクは Chrome で開きます」目印、Gmail ツールバーのビルド版・Android 判定の表示)を撤去した。Android 実機では新コードが反映されず診断表示自体が出なかった＝PWA(WebAPK)のキャッシュで旧版が動き続ける問題(`TODO.md` #15)が原因と判明したため、リンク intent の実機検証は #14 として保留し、UI を元に戻した。intent 起動のコード自体は Mac では無効(`IS_ANDROID` が false)で無害なため残す (2026-07-12)
 - Android の PWA でメール本文のリンクがまだアプリ内(Custom Tab)で開く問題への対処。(1)適用条件を「Android かつスタンドアロン起動」から「Android なら適用」に広げた。WebAPK では `display-mode: standalone` が期待どおり返らずリンク横取り自体が発動していなかったため(`ANDROID_STANDALONE`→`IS_ANDROID`)。(2)intent URI に `package=com.android.chrome`(開き先を Chrome 本体に固定=Custom Tab 回避の要)と `S.browser_fallback_url`(未解決時のフォールバック)を追加。(3)切り分け用に、Android のときだけ本文上に「リンクは Chrome で開きます」の目印を一時表示(判定が効いているか実機で確認するため。動作確定後に外す) (2026-07-12)
 
