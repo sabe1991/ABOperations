@@ -8,7 +8,12 @@ import { useState } from 'react'
 import { GMAIL_SCOPES, INITIAL_SCOPES, SCOPES } from '../../config'
 import { connect, disconnect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from '../gmail/enabled'
-import { setShowSourceLabels, useShowSourceLabels } from './displayPrefs'
+import {
+  setShowSourceLabels,
+  setWeekStart,
+  useShowSourceLabels,
+  useWeekStart,
+} from './displayPrefs'
 import { useAccountEmail } from './useAccountEmail'
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -16,6 +21,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { data: email, isLoading: emailLoading } = useAccountEmail()
   const gmailEnabled = useGmailEnabled()
   const showSourceLabels = useShowSourceLabels()
+  const weekStart = useWeekStart()
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -123,6 +129,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <p className="settings__note">
             ON にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
           </p>
+          <label className="settings__row">
+            <span>週の開始曜日（今月カレンダー）</span>
+            <select
+              value={weekStart}
+              onChange={(e) => setWeekStart(e.target.value === '1' ? 1 : 0)}
+            >
+              <option value={0}>日曜始まり</option>
+              <option value={1}>月曜始まり</option>
+            </select>
+          </label>
           <p className="settings__note">
             これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
           </p>

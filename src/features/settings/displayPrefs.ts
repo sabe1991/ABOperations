@@ -45,3 +45,41 @@ function subscribe(listener: () => void): () => void {
 export function useShowSourceLabels(): boolean {
   return useSyncExternalStore(subscribe, getShowSourceLabels)
 }
+
+// weekStart: 月ミニカレンダーの週の開始曜日。0=日曜始まり（既定）, 1=月曜始まり。
+export type WeekStart = 0 | 1
+const WEEK_START_KEY = 'abops:weekStart'
+
+function readWeekStart(): WeekStart {
+  try {
+    return localStorage.getItem(WEEK_START_KEY) === '1' ? 1 : 0
+  } catch {
+    return 0
+  }
+}
+
+let weekStart: WeekStart = readWeekStart()
+const weekStartListeners = new Set<() => void>()
+
+export function getWeekStart(): WeekStart {
+  return weekStart
+}
+
+export function setWeekStart(value: WeekStart): void {
+  weekStart = value
+  try {
+    localStorage.setItem(WEEK_START_KEY, String(value))
+  } catch {
+    // localStorage が使えなくてもメモリ上の値で動作継続
+  }
+  for (const listener of weekStartListeners) listener()
+}
+
+function subscribeWeekStart(listener: () => void): () => void {
+  weekStartListeners.add(listener)
+  return () => weekStartListeners.delete(listener)
+}
+
+export function useWeekStart(): WeekStart {
+  return useSyncExternalStore(subscribeWeekStart, getWeekStart)
+}

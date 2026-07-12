@@ -235,7 +235,8 @@ body {
     max-width: 1600px;
   }
   .panels {
-    grid-template-columns: minmax(180px, 0.7fr) 1fr 1fr 1.3fr;
+    /* 列幅: タイムライン(細) / 予定7日(やや広め) / 今月(やや狭め) / Gmail(標準)。 */
+    grid-template-columns: minmax(180px, 0.7fr) 1.2fr 0.85fr 1.3fr;
     /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
        今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
        （0.7 : 1.3）。min 0 で中身にページを膨らませない。 */
