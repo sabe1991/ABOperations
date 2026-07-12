@@ -377,6 +377,63 @@ body {
   color: var(--text-muted);
 }
 
+/* --- Gmail --- */
+.gmail__enable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.gmail__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
+}
+.gmail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gmail__item {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+.gmail__item:first-child {
+  border-top: none;
+}
+.gmail__line1 {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.gmail__from {
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gmail__when {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.gmail__subject {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gmail__snippet {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- スナックバー（画面下部の「元に戻す」通知） --- */
 .snackbar {
   position: fixed;

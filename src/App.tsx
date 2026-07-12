@@ -11,6 +11,7 @@ import {
 } from './auth/useAuth'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
 import { TasksPanel } from './features/tasks/TasksPanel'
+import { GmailPanel } from './features/gmail/GmailPanel'
 
 // メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスクの2パネル表示。
 // レイアウトの作り込み（3カラム化・スマホタブ）は後のフェーズ。今は素朴な2カラム。
@@ -137,6 +138,10 @@ export default function App() {
           <section className="panel">
             <h2 className="panel__title">タスク</h2>
             <TasksPanel />
+          </section>
+          <section className="panel">
+            <h2 className="panel__title">メール（受信トレイ・未読）</h2>
+            <GmailPanel />
           </section>
         </div>
       </main>
