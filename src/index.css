@@ -770,6 +770,83 @@ body {
   color: var(--text-muted);
 }
 
+/* --- 天気（密度型の3列目・上段。小さくコンパクトに） --- */
+.weather {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+/* 現在の天気: 絵文字・気温・（地点/状態/最高最低）を横並び。 */
+.weather__now {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.weather__now-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+.weather__now-temp {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.weather__now-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.8rem;
+}
+.weather__loc {
+  font-weight: 600;
+}
+.weather__cond {
+  color: var(--text-muted);
+}
+.weather__hilo {
+  font-variant-numeric: tabular-nums;
+}
+.weather__hi {
+  color: #dc2626; /* 最高気温は赤 */
+  font-weight: 600;
+}
+.weather__lo {
+  color: #2563eb; /* 最低気温は青 */
+}
+.weather__sep {
+  color: var(--text-muted);
+}
+/* 数日ぶんのミニ予報を横並び。各日は縦に ラベル/絵文字/最高・最低。 */
+.weather__days {
+  display: flex;
+  gap: 0.25rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.weather__day {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+}
+.weather__day-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.weather__day-emoji {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.weather__day-temp {
+  display: flex;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- Gmail --- */
 .gmail__enable {
   display: flex;
