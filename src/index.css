@@ -548,6 +548,8 @@ body {
 }
 .timeline__axis {
   position: relative;
+  /* マウスドラッグでの空き時間作成中に時刻ラベル・予定タイトルが選択されないようにする。 */
+  user-select: none;
 }
 .timeline__hour {
   position: absolute;
@@ -575,6 +577,22 @@ body {
   line-height: 1.15;
   display: flex;
   flex-direction: column;
+}
+.timeline__event--editable {
+  cursor: pointer;
+}
+.timeline__event--editable:hover {
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+}
+/* 空き時間ドラッグ（#17 Phase A）の選択範囲プレビュー。 */
+.timeline__drag-sel {
+  position: absolute;
+  right: 0;
+  border: 1px dashed var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 4;
 }
 .timeline__event-time {
   color: var(--text-muted);

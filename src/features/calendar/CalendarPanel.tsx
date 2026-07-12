@@ -17,7 +17,11 @@ import { isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
+import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
+
+// 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
+type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
 
 // --- 日付・時刻の小ヘルパ（ローカル表記） ---
 function fmtLocalDate(d: Date): string {
@@ -82,7 +86,26 @@ export function CalendarPanel() {
 
   // シート: 'create'（新規） / 編集対象の予定 / null（閉じる）
   const [sheet, setSheet] = useState<'create' | CalendarEvent | null>(null)
+  // 作成シートの時刻プリフィル（タイムラインのドラッグ作成時のみ設定。＋予定ボタンでは null）。
+  const [createPrefill, setCreatePrefill] = useState<CreatePrefill>(null)
+  // シートを開くたびに増やす通し番号。EventSheet の key に使い、開き直し・対象差し替え時に
+  // 必ず再マウントさせる（フォーム state が前の対象のまま残って別予定に保存されるのを防ぐ）。
+  const [sheetSerial, setSheetSerial] = useState(0)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // 作成シートを開く（prefill 無し=既定、有り=タイムラインのドラッグ作成）。
+  function openCreate(prefill: CreatePrefill) {
+    setCreatePrefill(prefill)
+    setSheet('create')
+    setSheetSerial((n) => n + 1)
+  }
+  // 編集シートを開く。
+  function openEdit(event: CalendarEvent) {
+    setCreatePrefill(null)
+    setSheet(event)
+    setExpandedId(null)
+    setSheetSerial((n) => n + 1)
+  }
 
   // 月カレンダーの日付クリックを受けて、その日の見出しへスクロールする。
   const { date: scrollDate, seq: scrollSeq } = useScrollToDateSignal()
@@ -93,6 +116,23 @@ export function CalendarPanel() {
     if (el) (el as HTMLElement).scrollIntoView({ block: 'start', behavior: 'smooth' })
     // その日に予定が無い（見出しが無い）ときは何もしない。
   }, [scrollSeq, scrollDate])
+
+  // 密度型タイムラインからの「編集シートを開く」「時刻プリフィルで作成シートを開く」シグナルを受ける（#18/#17）。
+  const { request: sheetRequest, seq: sheetSeq } = useCalendarSheetSignal()
+  useEffect(() => {
+    if (!sheetRequest) return
+    if (sheetRequest.kind === 'edit') {
+      openEdit(sheetRequest.event)
+    } else {
+      openCreate({
+        startDate: sheetRequest.startDate,
+        startTime: sheetRequest.startTime,
+        endTime: sheetRequest.endTime,
+      })
+    }
+    // seq のみを依存にする（同じ内容の要求を連続で出しても発火させるため）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetSeq])
 
   const [snack, setSnack] = useState<Snack | null>(null)
   const snackTimer = useRef<number | undefined>(undefined)
@@ -144,7 +184,7 @@ export function CalendarPanel() {
         <h2 className="panel__title">今後の予定</h2>
         <button
           className="btn btn--small btn--primary"
-          onClick={() => setSheet('create')}
+          onClick={() => openCreate(null)}
           disabled={!calendars || calendars.length === 0}
         >
           ＋ 予定
@@ -159,24 +199,24 @@ export function CalendarPanel() {
           error={error}
           expandedId={expandedId}
           onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-          onEdit={(ev) => {
-            setSheet(ev)
-            setExpandedId(null)
-          }}
+          onEdit={openEdit}
           onDelete={handleDelete}
         />
       </div>
 
       {sheet === 'create' && calendars && (
         <EventSheet
+          key={sheetSerial}
           mode="create"
           calendars={calendars}
+          createPrefill={createPrefill}
           onClose={() => setSheet(null)}
           onSubmit={handleCreate}
         />
       )}
       {sheet && sheet !== 'create' && (
         <EventSheet
+          key={sheetSerial}
           mode="edit"
           event={sheet}
           calendars={calendars ?? []}
@@ -298,16 +338,19 @@ function EventSheet({
   mode,
   event,
   calendars,
+  createPrefill,
   onClose,
   onSubmit,
 }: {
   mode: 'create' | 'edit'
   event?: CalendarEvent
   calendars: WritableCalendar[]
+  createPrefill?: CreatePrefill
   onClose: () => void
   onSubmit: (draft: EventDraft) => void
 }) {
-  // 初期値。作成は「次の正時から1時間」、編集は既存予定から。
+  // 初期値。編集は既存予定から。作成は既定「次の正時から1時間」だが、
+  // タイムラインのドラッグ作成（createPrefill）があればその日付・時刻で上書きする（#17 Phase A）。
   const initial: EventDraft =
     event !== undefined
       ? {
@@ -321,7 +364,7 @@ function EventSheet({
           startTime: event.startTimeStr ?? '09:00',
           endTime: event.endTimeStr ?? '10:00',
         }
-      : defaultCreateDraft(calendars[0]?.id ?? 'primary')
+      : applyPrefill(defaultCreateDraft(calendars[0]?.id ?? 'primary'), createPrefill)
 
   // 既存予定の日数スパン（複数日予定を編集で潰さないよう保持）。
   const spanDays = daysBetweenStr(initial.startDate, initial.endDate)
@@ -477,6 +520,20 @@ function EventSheet({
       </form>
     </div>
   )
+}
+
+// タイムラインのドラッグ作成の時刻プリフィルを下書きに反映する（時刻ありの単日予定に固定）。
+// prefill が無ければ既定の下書きをそのまま返す。
+function applyPrefill(draft: EventDraft, prefill?: CreatePrefill): EventDraft {
+  if (!prefill) return draft
+  return {
+    ...draft,
+    allDay: false,
+    startDate: prefill.startDate,
+    endDate: prefill.startDate,
+    startTime: prefill.startTime,
+    endTime: prefill.endTime,
+  }
 }
 
 // 作成の初期下書き: 次の正時から1時間の予定。
