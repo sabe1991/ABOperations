@@ -386,8 +386,15 @@ body {
 }
 .gmail__toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.4rem;
+}
+.gmail__diag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .gmail__list {
   list-style: none;
