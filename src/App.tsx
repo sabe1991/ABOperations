@@ -10,8 +10,12 @@ import {
   useAuth,
 } from './auth/useAuth'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
+import { TodayTimeline } from './features/calendar/TodayTimeline'
+import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
+import { WeatherPanel } from './features/weather/WeatherPanel'
+import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { isGmailEnabled } from './features/gmail/enabled'
@@ -36,6 +40,11 @@ export default function App() {
   const [tab, setTab] = useState<PanelKey>('calendar')
   // 設定モーダルの開閉。
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // 密度型レイアウト（段積み3カラム）が有効な幅か。広い PC のときだけ
+  // 新規の読み取り専用部品（24hタイムライン・月カレンダー・天気）を描画する（Fable 助言）。
+  // 状態を持つ3パネル（予定7日リスト・タスク・Gmail）は常に単一インスタンスで描画し、
+  // 位置と表示は CSS の grid-template-areas / display にだけ任せる（再マウントを避け状態保持）。
+  const isWide = useMediaQuery(WIDE_QUERY)
 
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
@@ -171,20 +180,44 @@ export default function App() {
         </div>
       )}
 
-      {/* 3パネルは常に全てマウントしておく（Fable 助言）。スマホでは非選択タブを CSS で隠すだけ
-          なので、タブを行き来してもスクロール位置や展開状態が保持され、裏側の取得も途切れない。
-          PC（960px以上）では3カラムで並列表示し、タブバーは隠す。 */}
+      {/* 状態を持つ3パネル（予定7日リスト・タスク・Gmail）は常に全てマウントしておく（Fable 助言）。
+          スマホでは非選択タブを CSS で隠すだけなので、タブを行き来してもスクロール位置や展開状態が
+          保持され、裏側の取得も途切れない。レイアウトは3状態（index.css 参照）:
+            - 〜959px（スマホ）: タブで1枚だけ表示。
+            - 960〜1199px（中間幅）: 予定・タスク・Gmail の3カラムリスト。
+            - 1200px〜（密度型）: 段積み3カラム。ここでだけ新規の読み取り専用部品を追加描画する。
+          密度型の新規部品（24hタイムライン・月カレンダー・天気）は読み取り専用で、幅の境界を
+          またいで再マウントされても React Query のキャッシュから即復元されるため実害がない。
+          DOM は grid-template-areas が効くようフラットな6グリッドアイテムにする（入れ子を挟まない）。 */}
       <main className="app__main">
         <div className="panels">
-          <section className={`panel${tab === 'calendar' ? ' panel--active' : ''}`}>
+          {isWide && (
+            <section className="panel panel--timeline">
+              <h2 className="panel__title">今日</h2>
+              <TodayTimeline />
+            </section>
+          )}
+          <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">予定（今後7日間）</h2>
             <CalendarPanel />
           </section>
-          <section className={`panel${tab === 'tasks' ? ' panel--active' : ''}`}>
+          {isWide && (
+            <section className="panel panel--month">
+              <h2 className="panel__title">今月</h2>
+              <MonthCalendar />
+            </section>
+          )}
+          <section className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">タスク</h2>
             <TasksPanel />
           </section>
-          <section className={`panel${tab === 'gmail' ? ' panel--active' : ''}`}>
+          {isWide && (
+            <section className="panel panel--weather">
+              <h2 className="panel__title">天気</h2>
+              <WeatherPanel />
+            </section>
+          )}
+          <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">メール（受信トレイ・未読）</h2>
             <GmailPanel />
           </section>
