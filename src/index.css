@@ -713,8 +713,14 @@ body {
 }
 .calendar__toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between; /* 左に見出し、右に「＋予定」ボタン */
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+/* ツールバー内に置いた見出しは下余白を持たせない（余白はツールバー側で確保）。 */
+.calendar__toolbar .panel__title {
+  margin: 0;
 }
 .calendar__event {
   width: 100%;

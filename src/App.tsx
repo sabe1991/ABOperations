@@ -202,7 +202,7 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">今後の予定</h2>
+            {/* 見出し「今後の予定」は「＋予定」ボタンと同じ行にするため CalendarPanel 内で描画する */}
             <div className="panel__body">
               <CalendarPanel />
             </div>

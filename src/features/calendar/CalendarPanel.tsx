@@ -139,7 +139,9 @@ export function CalendarPanel() {
 
   return (
     <div className="calendar" ref={rootRef}>
+      {/* 見出しと「＋予定」ボタンを同じ行に並べる（両端揃え）。 */}
       <div className="calendar__toolbar">
+        <h2 className="panel__title">今後の予定</h2>
         <button
           className="btn btn--small btn--primary"
           onClick={() => setSheet('create')}
