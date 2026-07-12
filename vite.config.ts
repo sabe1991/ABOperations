@@ -35,8 +35,8 @@ export default defineConfig({
         name: 'AB Operations',
         short_name: 'AB Operations',
         description: 'Google カレンダー・タスク・メールを1画面に集約した自分専用ダッシュボード',
-        theme_color: '#2563eb',
-        background_color: '#16181d',
+        theme_color: '#f7f1e8',
+        background_color: '#f7f1e8',
         display: 'standalone',
         orientation: 'portrait-primary',
         icons: [

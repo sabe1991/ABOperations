@@ -32,7 +32,7 @@ const TABS: { key: PanelKey; label: string }[] = [
 // メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスク・メールの3パネル表示。
 // レイアウトは PC=3カラム並列 / スマホ=下端タブで1枚ずつ切替。タブには未読・期限切れの件数バッジ。
 export default function App() {
-  const { isConnected, needsReconnect, needsScope, acquiredAt, grantedScopes } = useAuth()
+  const { isConnected, needsReconnect, needsScope, grantedScopes } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   // スマホで表示中のタブ（初期は「予定」固定＝朝イチで今日の予定を最初に見る想定・Fable 助言）。
@@ -143,7 +143,6 @@ export default function App() {
         <h1 className="app__title">AB Operations</h1>
         <div className="app__headerRight">
           <ConnectionStatus
-            acquiredAt={acquiredAt}
             needsReconnect={needsReconnect}
             connecting={connecting}
             onReconnect={handleConnect}
@@ -281,30 +280,20 @@ export default function App() {
   )
 }
 
-// 接続状態＝トークン取得時刻の表示。再ログイン頻度の実機検証用の計測点。
+// 再接続が必要なときだけ「再接続」ボタンを表示する。通常時は何も出さない。
 function ConnectionStatus({
-  acquiredAt,
   needsReconnect,
   connecting,
   onReconnect,
 }: {
-  acquiredAt: number | null
   needsReconnect: boolean
   connecting: boolean
   onReconnect: () => void
 }) {
-  if (needsReconnect) {
-    return (
-      <button className="btn btn--small" onClick={onReconnect} disabled={connecting}>
-        再接続
-      </button>
-    )
-  }
-  if (!acquiredAt) return null
-  const time = new Date(acquiredAt).toLocaleTimeString('ja-JP', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  return <span className="app__status">接続: {time} 取得（約1時間で失効）</span>
+  if (!needsReconnect) return null
+  return (
+    <button className="btn btn--small" onClick={onReconnect} disabled={connecting}>
+      再接続
+    </button>
+  )
 }

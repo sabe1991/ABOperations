@@ -367,7 +367,7 @@ body {
   }
   .panels {
     /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月(やや狭め) / Gmail(広め)。 */
-    grid-template-columns: minmax(190px, 0.7fr) 1.15fr 0.8fr 1.55fr;
+    grid-template-columns: minmax(180px, 0.62fr) 1.05fr 0.72fr 1.9fr;
     /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
        今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
        （0.6 : 1.4）。min 0 で中身にページを膨らませない。 */
@@ -383,16 +383,16 @@ body {
   }
 
   /* タスクは下段で2列ぶんの幅を持つため、期限バケツを横並びのカラム（かんばん風）にする。
-     flex-wrap で入りきらない分は折り返す（flex-basis 170px ＝ おおむね4列目安）。
+     カラム数が変わっても各カラムの幅は均一にする（flex: 1 1 0 で残り幅を等分）。
      中身のあるバケツだけ描画されるので空カラムは出ない。縦スクロールはパネル本体（panel__body）側。 */
   .panel--tasks .tasks__groups {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: stretch; /* 各カラムを同じ高さに伸ばし、仕切り線を下まで通す */
     gap: 0.5rem 1rem;
   }
   .panel--tasks .tasks__groups .tasks__group {
-    flex: 1 1 170px;
+    flex: 1 1 0; /* basis を 0 にして全カラムを等幅にする（要素数に依存しない） */
     min-width: 0;
     margin-top: 0; /* 縦積み時の段間マージンを打ち消す（カラム間は gap で確保） */
     /* カラム間の縦仕切り線。どのチェックボックスがどのバケツかを分かりやすくする（ユーザー要望）。 */
@@ -833,6 +833,20 @@ body {
   padding: 0.2rem 0;
 }
 
+/* バケツ内で10件を超えた分を開閉する「他 N 件 ▽」トグル。控えめなテキストボタン。 */
+.tasks__more {
+  margin-top: 0.35rem;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tasks__more:hover {
+  color: var(--primary);
+}
+
 /* 行本体（タップでアクションバー開閉）。中は 期限/タイトル/リスト名 の3列。 */
 .tasks__row {
   flex: 1;
@@ -1111,6 +1125,11 @@ body {
 .gmail__item:first-child {
   border-top: none;
 }
+/* 展開中（本文を表示中）のメールは背景を薄いアクセント色で塗り、選択中と分かるようにする。 */
+.gmail__item--open {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: var(--radius);
+}
 /* 既読メールは差出人・件名の強調を弱めて未読と区別する。 */
 .gmail__item--read .gmail__from {
   font-weight: 400;
@@ -1338,18 +1357,19 @@ body {
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   width: 100%;
-  max-width: 26rem;
+  max-width: 27rem;
   max-height: 85vh;
   overflow-y: auto;
-  padding: 1rem 1.25rem 1.25rem;
+  padding: 1.25rem 1.5rem 1.6rem;
 }
 .modal__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.9rem;
 }
 .modal__title {
   margin: 0;
@@ -1365,17 +1385,19 @@ body {
   cursor: pointer;
 }
 .settings__section {
-  padding: 0.75rem 0;
+  padding: 1.15rem 0;
   border-top: 1px solid var(--border);
 }
+/* 各区画の見出し（アカウント等）。少し間隔を空けてゆったり見せる。 */
 .settings__heading {
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.7rem;
   font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 .settings__value {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.7rem;
   font-size: var(--fs-sm);
   word-break: break-all;
 }
@@ -1389,11 +1411,32 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-height: 2rem;
   font-size: var(--fs-sm);
 }
+/* 設定項目どうしの間隔を確保して窮屈さをなくす。 */
+.settings__row + .settings__row {
+  margin-top: 0.7rem;
+}
+/* 区画内のトグル群と説明文の間にも余白を入れる。 */
+.settings__section > .settings__row + .settings__note,
+.settings__section > .settings__note {
+  margin-top: 0.6rem;
+}
+/* プルダウン（テーマ・週開始）の見た目を丸みのある入力に統一。 */
+.settings__row select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
 .settings__note {
-  margin: 0.4rem 0 0;
+  margin: 0.5rem 0 0;
   font-size: var(--fs-xs);
+  line-height: 1.5;
   color: var(--text-muted);
 }
 .settings__note--error {
@@ -1412,9 +1455,9 @@ body {
 .settings__geo-input {
   flex: 1;
   min-width: 0;
-  padding: 0.4rem 0.5rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: inherit;
   font: inherit;

@@ -290,72 +290,126 @@ function TaskList({
         const items = groups[key]
         if (items.length === 0) return null
         return (
-          <section key={key} className="tasks__group">
-            <h3 className={`tasks__group-header tasks__group-header--${variant}`}>
-              {label} <span className="tasks__count">{items.length}</span>
-            </h3>
-            <ul className="tasks__list">
-              {items.map((t) => {
-                const rowKey = `${t.listId}:${t.id}`
-                // 日付が自明でないバケツ（期限切れ/以降）でだけ期限を表示する。
-                const showDue = (key === 'overdue' || key === 'later') && t.dueStr
-                return (
-                  <li key={rowKey} className="tasks__item-wrap">
-                    <div className="tasks__item">
-                      <button
-                        className="tasks__check"
-                        onClick={() => onComplete(t)}
-                        disabled={t.pending}
-                        aria-label={`「${t.title}」を完了にする`}
-                        title="完了にする"
-                      >
-                        <span className="tasks__check-box" aria-hidden="true" />
-                      </button>
-                      {/* 行本体タップでアクションバーを開閉。追加直後(pending)は操作不可 */}
-                      <button
-                        className="tasks__row"
-                        onClick={() => !t.pending && onToggleExpand(rowKey)}
-                        disabled={t.pending}
-                        aria-expanded={expandedKey === rowKey}
-                      >
-                        {/* 期限は日付が自明でないバケツ（期限切れ/今週/以降）でだけ表示。
-                            今日/明日/期限なしは日付欄ごと描画しない（余白を残さない）。 */}
-                        {showDue && <span className="tasks__due">{formatDue(t.dueStr)}</span>}
-                        <span className="tasks__title">{t.title}</span>
-                        {showLabels && <span className="tasks__list-name">{t.listName}</span>}
-                      </button>
-                    </div>
-
-                    {expandedKey === rowKey && (
-                      <div className="tasks__actions">
-                        {RESCHEDULE_BY_BUCKET[key].map((r) => (
-                          <button
-                            key={r.label}
-                            className="tasks__action"
-                            onClick={() => onReschedule(t, r.getDate(), r.label)}
-                          >
-                            {r.label}
-                          </button>
-                        ))}
-                        <button className="tasks__action" onClick={() => onEdit(t)}>
-                          編集
-                        </button>
-                        <button
-                          className="tasks__action tasks__action--danger"
-                          onClick={() => onDelete(t)}
-                        >
-                          削除
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
+          <TaskBucket
+            key={key}
+            bucketKey={key}
+            label={label}
+            variant={variant}
+            items={items}
+            showLabels={showLabels}
+            expandedKey={expandedKey}
+            onToggleExpand={onToggleExpand}
+            onComplete={onComplete}
+            onReschedule={onReschedule}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
         )
       })}
     </div>
+  )
+}
+
+// 1バケツ（期限切れ／今日…）の描画。1列に多数のタスクがあると縦に長くなるため、
+// VISIBLE 件を超える分は初期状態で隠し、「他 N 件 ▽」で展開できるようにする（ユーザー要望）。
+const VISIBLE = 10
+function TaskBucket({
+  bucketKey,
+  label,
+  variant,
+  items,
+  showLabels,
+  expandedKey,
+  onToggleExpand,
+  onComplete,
+  onReschedule,
+  onEdit,
+  onDelete,
+}: {
+  bucketKey: Bucket
+  label: string
+  variant: string
+  items: TaskItem[]
+  showLabels: boolean
+  expandedKey: string | null
+  onToggleExpand: (key: string) => void
+  onComplete: (task: TaskItem) => void
+  onReschedule: (task: TaskItem, dueDateStr: string, label: string) => void
+  onEdit: (task: TaskItem) => void
+  onDelete: (task: TaskItem) => void
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const overflow = items.length - VISIBLE
+  const visibleItems = showAll ? items : items.slice(0, VISIBLE)
+  return (
+    <section className="tasks__group">
+      <h3 className={`tasks__group-header tasks__group-header--${variant}`}>
+        {label} <span className="tasks__count">{items.length}</span>
+      </h3>
+      <ul className="tasks__list">
+        {visibleItems.map((t) => {
+          const rowKey = `${t.listId}:${t.id}`
+          // 日付が自明でないバケツ（期限切れ/以降）でだけ期限を表示する。
+          const showDue = (bucketKey === 'overdue' || bucketKey === 'later') && t.dueStr
+          return (
+            <li key={rowKey} className="tasks__item-wrap">
+              <div className="tasks__item">
+                <button
+                  className="tasks__check"
+                  onClick={() => onComplete(t)}
+                  disabled={t.pending}
+                  aria-label={`「${t.title}」を完了にする`}
+                  title="完了にする"
+                >
+                  <span className="tasks__check-box" aria-hidden="true" />
+                </button>
+                {/* 行本体タップでアクションバーを開閉。追加直後(pending)は操作不可 */}
+                <button
+                  className="tasks__row"
+                  onClick={() => !t.pending && onToggleExpand(rowKey)}
+                  disabled={t.pending}
+                  aria-expanded={expandedKey === rowKey}
+                >
+                  {/* 期限は日付が自明でないバケツ（期限切れ/今週/以降）でだけ表示。
+                      今日/明日/期限なしは日付欄ごと描画しない（余白を残さない）。 */}
+                  {showDue && <span className="tasks__due">{formatDue(t.dueStr)}</span>}
+                  <span className="tasks__title">{t.title}</span>
+                  {showLabels && <span className="tasks__list-name">{t.listName}</span>}
+                </button>
+              </div>
+
+              {expandedKey === rowKey && (
+                <div className="tasks__actions">
+                  {RESCHEDULE_BY_BUCKET[bucketKey].map((r) => (
+                    <button
+                      key={r.label}
+                      className="tasks__action"
+                      onClick={() => onReschedule(t, r.getDate(), r.label)}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                  <button className="tasks__action" onClick={() => onEdit(t)}>
+                    編集
+                  </button>
+                  <button
+                    className="tasks__action tasks__action--danger"
+                    onClick={() => onDelete(t)}
+                  >
+                    削除
+                  </button>
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {overflow > 0 && (
+        <button className="tasks__more" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? '閉じる ▲' : `他 ${overflow} 件 ▽`}
+        </button>
+      )}
+    </section>
   )
 }
 

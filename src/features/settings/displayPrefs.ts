@@ -101,11 +101,32 @@ function readTheme(): Theme {
   }
 }
 
+// アプリ背景色（index.html / manifest の theme_color と一致させる）。Android のステータスバー色に反映。
+const THEME_COLOR_LIGHT = '#f7f1e8'
+const THEME_COLOR_DARK = '#1c1815'
+
+// Android のステータスバー/ナビ領域の色（theme-color メタ）をテーマに合わせて上書きする。
+// index.html には OS 追従用の media 付きメタが2つある。手動テーマ時は両方を同色にして
+// どちらがマッチしても選択テーマの色になるようにし、'system' 時は本来の明暗色に戻す。
+function applyThemeColor(theme: Theme): void {
+  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+  metas.forEach((meta) => {
+    const media = meta.getAttribute('media') || ''
+    const isDarkMeta = media.includes('dark')
+    if (theme === 'system') {
+      meta.setAttribute('content', isDarkMeta ? THEME_COLOR_DARK : THEME_COLOR_LIGHT)
+    } else {
+      meta.setAttribute('content', theme === 'dark' ? THEME_COLOR_DARK : THEME_COLOR_LIGHT)
+    }
+  })
+}
+
 // <html> の color-scheme を設定値に合わせて上書き/解除する。light-dark() の解決に影響する。
 function applyTheme(theme: Theme): void {
   const root = document.documentElement
   // 'system' は空文字で inline 指定を消し、CSS の :root（OS 追従）に委ねる。
   root.style.colorScheme = theme === 'system' ? '' : theme
+  applyThemeColor(theme)
 }
 
 let theme: Theme = readTheme()

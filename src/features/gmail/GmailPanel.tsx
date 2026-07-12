@@ -192,7 +192,7 @@ function GmailRow({
   }
 
   return (
-    <li className={`gmail__item${m.unread ? '' : ' gmail__item--read'}`}>
+    <li className={`gmail__item${m.unread ? '' : ' gmail__item--read'}${open ? ' gmail__item--open' : ''}`}>
       <button
         type="button"
         className="gmail__row"
