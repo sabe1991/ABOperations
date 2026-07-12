@@ -250,6 +250,21 @@ body {
   .panel--weather {
     max-height: 40vh;
   }
+
+  /* タスクは下段で2列ぶんの幅を持つため、期限バケツを横並びのカラム（かんばん風）にする。
+     flex-wrap で入りきらない分は折り返す（flex-basis 170px ＝ おおむね4列目安）。
+     中身のあるバケツだけ描画されるので空カラムは出ない。縦スクロールはパネル本体（panel__body）側。 */
+  .panel--tasks .tasks__groups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 1rem;
+  }
+  .panel--tasks .tasks__groups .tasks__group {
+    flex: 1 1 170px;
+    min-width: 0;
+    margin-top: 0; /* 縦積み時の段間マージンを打ち消す（カラム間は gap で確保） */
+  }
 }
 
 /* --- スマホ用タブバー（画面下端固定） --- */
@@ -603,6 +618,12 @@ body {
 }
 .tasks__group-header--overdue {
   color: #dc2626;
+}
+.tasks__group-header--today {
+  color: var(--primary);
+}
+.tasks__group-header--tomorrow {
+  color: #0891b2; /* 明日: 落ち着いた青緑 */
 }
 .tasks__count {
   font-size: 0.75rem;
