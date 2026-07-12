@@ -2,7 +2,7 @@
 
 ## Added
 
-- フェーズ1(公開フロー確立)に着手。React + Vite + TypeScript の最小プロジェクトを scaffold し、GitHub Pages 自動デプロイ用の GitHub Actions ワークフロー(`.github/workflows/deploy.yml`)を作成した。暫定画面(`src/App.tsx`)にはアプリ名・アセット画像・ビルド情報(コミットハッシュ/ビルド日時)を表示し、(1)デプロイが通ること、(2)base path `/ABOperations/` 配下でアセットが解決されること、(3)デプロイの反映を目視確認できることを検証できるようにした (2026-07-12)
+- フェーズ1(公開フロー確立)完了。React + Vite + TypeScript の最小プロジェクトを scaffold し、GitHub Pages 自動デプロイ用の GitHub Actions ワークフロー(`.github/workflows/deploy.yml`)を作成。GitHub 公開リポジトリ `sabe1991/ABOperations` を作成し、Pages のソースを「GitHub Actions」に設定してデプロイ成功を確認した(公開URL: https://sabe1991.github.io/ABOperations/ が HTTP 200 で表示、JS/CSS/画像アセットが base path `/ABOperations/` 配下で解決、バンドルにコミットハッシュが埋め込まれデプロイ反映を目視確認できることを検証済み)。暫定画面(`src/App.tsx`)はアプリ名・アセット画像・ビルド情報(コミットハッシュ/ビルド日時)を表示する (2026-07-12)
 - プロジェクト開始。グリルセッションでダッシュボードの設計を合意し、`PLAN.md`(設計合意書)、`TODO.md`、`STATE.md` を作成した (2026-07-12)
 
 ## Changed
