@@ -13,12 +13,30 @@ import { CalendarPanel } from './features/calendar/CalendarPanel'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
 
+// パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
+type PanelKey = 'calendar' | 'tasks' | 'gmail'
+const TABS: { key: PanelKey; label: string }[] = [
+  { key: 'calendar', label: '予定' },
+  { key: 'tasks', label: 'タスク' },
+  { key: 'gmail', label: 'メール' },
+]
+
 // メイン画面。ウェルカム（未ログイン）→ ログイン → 予定・タスクの2パネル表示。
 // レイアウトの作り込み（3カラム化・スマホタブ）は後のフェーズ。今は素朴な2カラム。
 export default function App() {
   const { isConnected, needsReconnect, needsScope, acquiredAt } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  // スマホで表示中のタブ（初期は「予定」固定＝朝イチで今日の予定を最初に見る想定・Fable 助言）。
+  // PC では3枚とも並列表示するのでこの状態は使わない（CSS 側で切替）。
+  const [tab, setTab] = useState<PanelKey>('calendar')
+
+  // タブ切替時は先頭までスクロールを戻す（ページ全体スクロール方式のため、
+  // 前のタブの途中位置が次のタブに引き継がれるのを防ぐ）。
+  function selectTab(key: PanelKey) {
+    setTab(key)
+    window.scrollTo(0, 0)
+  }
   // 起動直後に接続を復元/試行している間の状態（ログインボタンの一瞬の点滅を防ぐ）
   const [initializing, setInitializing] = useState(
     isClientIdConfigured && (hasToken() || hasPreviousCalendarGrant()),
@@ -129,22 +147,40 @@ export default function App() {
         </div>
       )}
 
+      {/* 3パネルは常に全てマウントしておく（Fable 助言）。スマホでは非選択タブを CSS で隠すだけ
+          なので、タブを行き来してもスクロール位置や展開状態が保持され、裏側の取得も途切れない。
+          PC（960px以上）では3カラムで並列表示し、タブバーは隠す。 */}
       <main className="app__main">
         <div className="panels">
-          <section className="panel">
+          <section className={`panel${tab === 'calendar' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">予定（今後7日間）</h2>
             <CalendarPanel />
           </section>
-          <section className="panel">
+          <section className={`panel${tab === 'tasks' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">タスク</h2>
             <TasksPanel />
           </section>
-          <section className="panel">
+          <section className={`panel${tab === 'gmail' ? ' panel--active' : ''}`}>
             <h2 className="panel__title">メール（受信トレイ・未読）</h2>
             <GmailPanel />
           </section>
         </div>
       </main>
+
+      {/* スマホ用タブバー（画面下端固定）。PC では CSS で非表示。 */}
+      <nav className="tabbar" role="tablist" aria-label="表示切替">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`tabbar__tab${tab === t.key ? ' tabbar__tab--active' : ''}`}
+            onClick={() => selectTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

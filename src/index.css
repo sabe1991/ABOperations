@@ -97,16 +97,66 @@ body {
   margin: 0 auto;
 }
 
-/* パネルは狭い画面で1列、広い画面で2列 */
+/* レイアウトは2状態だけ（Fable 助言）:
+   - 〜959px（スマホ）: 1カラム。タブで選んだ1枚だけ表示（他は display:none）。
+   - 960px〜（PC）: 3カラム並列表示。タブバーは隠す。 */
 .panels {
   display: grid;
   gap: 1rem;
   grid-template-columns: 1fr;
 }
-@media (min-width: 800px) {
+
+/* スマホ: 非選択パネルを隠す。タブ下端固定バーに隠れないよう下に余白。 */
+@media (max-width: 959px) {
+  .panel {
+    display: none;
+  }
+  .panel--active {
+    display: block;
+  }
+  .app__main {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* PC: 3カラム。タブ状態は無視して全て表示（.panel--active は効かせない）。 */
+@media (min-width: 960px) {
   .panels {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: start;
+  }
+}
+
+/* --- スマホ用タブバー（画面下端固定） --- */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 20;
+}
+.tabbar__tab {
+  flex: 1;
+  padding: 0.7rem 0.25rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tabbar__tab--active {
+  color: var(--primary);
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+/* PC ではタブバーを隠す（3カラム並列表示のため不要） */
+@media (min-width: 960px) {
+  .tabbar {
+    display: none;
   }
 }
 
