@@ -36,6 +36,16 @@ export function hasPreviousCalendarGrant(): boolean {
   return loadGrantedScopes().includes(SCOPES.calendarEvents)
 }
 
+// sessionStorage から復元した有効なトークンがあれば、それで即座に接続済みにする。
+// ページ更新時の再ログインを不要にするための主経路。復元できたら true を返す。
+export function restoreSession(): boolean {
+  if (getToken()) {
+    markConnected(loadGrantedScopes(), getAcquiredAt() ?? Date.now())
+    return true
+  }
+  return false
+}
+
 // 起動時のサイレント（ポップアップ無し）ログインを試みる。
 // 成功すれば true を返して接続済み状態にする。失敗（セッション切れ・未同意・
 // タイムアウト）なら false を返し、呼び出し側は通常のウェルカム画面に倒す。

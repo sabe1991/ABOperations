@@ -3,7 +3,9 @@ import { CALENDAR_SCOPES, isClientIdConfigured } from './config'
 import {
   connect,
   hasPreviousCalendarGrant,
+  hasToken,
   prepareAuth,
+  restoreSession,
   trySilentConnect,
   useAuth,
 } from './auth/useAuth'
@@ -15,18 +17,28 @@ export default function App() {
   const { isConnected, needsReconnect, acquiredAt } = useAuth()
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
-  // 起動直後にサイレント認証を試している間の状態（ログインボタンの一瞬の点滅を防ぐ）
-  const [initializing, setInitializing] = useState(isClientIdConfigured && hasPreviousCalendarGrant())
+  // 起動直後に接続を復元/試行している間の状態（ログインボタンの一瞬の点滅を防ぐ）
+  const [initializing, setInitializing] = useState(
+    isClientIdConfigured && (hasToken() || hasPreviousCalendarGrant()),
+  )
 
-  // 起動時: GIS を事前準備し、以前接続済みの端末ならサイレント認証を試みる。
-  // 成功すれば自動でログイン状態になり、毎回のログインクリックが不要になる。
+  // 起動時の接続復元。優先順:
+  //   1. sessionStorage に有効なトークンがあれば即接続（ページ更新時の主経路）
+  //   2. 無ければ、以前同意済みの端末ならサイレント認証を試す（別セッションからの復帰）
+  //   3. どちらも無ければ、クリックで即ログインできるよう事前準備だけしておく
   useEffect(() => {
-    if (!isClientIdConfigured) return
+    if (!isClientIdConfigured) {
+      setInitializing(false)
+      return
+    }
+    if (restoreSession()) {
+      setInitializing(false)
+      return
+    }
     if (hasPreviousCalendarGrant()) {
-      // 以前同意済み → ポップアップ無しの自動ログインを試す
       trySilentConnect(CALENDAR_SCOPES).finally(() => setInitializing(false))
     } else {
-      // 初回端末 → クリックで即トークン要求できるよう事前準備だけしておく
+      setInitializing(false)
       prepareAuth(CALENDAR_SCOPES).catch(() => {
         // 読み込み失敗はログイン試行時にエラー表示するのでここでは握りつぶす
       })
