@@ -36,9 +36,21 @@ export interface Weather {
   daily: DailyForecast[] // 今日から数日ぶん
 }
 
+// 天気絵文字をカラー表示に統一する。🌤🌫🌦🌧🌨⛈ などは既定が「文字表示」のため、
+// 異体字セレクタ(U+FE0F)を付けないと Windows 等でモノクロの字形になり、☀️⛅☁️ のカラー絵文字と
+// 混在して見た目が不揃いになる。すべてに U+FE0F を付けてカラー(絵文字)表示へ強制する。
+function colorEmoji(e: string): string {
+  return e.endsWith('️') ? e : e + '️'
+}
+
 // WMO 天気コード → 絵文字と日本語ラベル。Open-Meteo は天気を数値コードで返すため対応表で変換する。
 // https://open-meteo.com/en/docs の Weather variable documentation より。
 export function weatherCodeInfo(code: number): { emoji: string; label: string } {
+  const info = rawWeatherCodeInfo(code)
+  return { emoji: colorEmoji(info.emoji), label: info.label }
+}
+
+function rawWeatherCodeInfo(code: number): { emoji: string; label: string } {
   switch (code) {
     case 0:
       return { emoji: '☀️', label: '快晴' }

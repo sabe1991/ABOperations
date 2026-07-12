@@ -11,7 +11,8 @@ import type { CalendarEvent } from './api'
 import { TimelineSkeleton } from '../../Skeleton'
 
 const HOUR_PX = 48 // 1時間あたりの高さ(px)
-const GUTTER = 40 // 左の時刻ラベル幅(px)
+const GUTTER = 34 // 左の時刻ラベル幅(px)。ラベル("24:00")が収まる範囲でできるだけ詰めて、
+// ラベルとドラッグ範囲（予定・選択矩形）の隙間を小さくする。
 const SNAP_MIN = 15 // ドラッグ作成の時刻スナップ幅(分)
 
 // 分(0〜1440)を 'HH:mm' に整形する。type=time / EventDraft がそのまま受け取れる値にする。
