@@ -126,25 +126,10 @@ body {
   gap: 1rem;
   grid-template-columns: 1fr;
 }
-/* 各パネルにエリア名を割り当てる（どの @media でも同じ名前を使う）。 */
-.panel--timeline {
-  grid-area: timeline;
-}
-.panel--events {
-  grid-area: events;
-}
-.panel--month {
-  grid-area: month;
-}
-.panel--tasks {
-  grid-area: tasks;
-}
-.panel--weather {
-  grid-area: weather;
-}
-.panel--gmail {
-  grid-area: gmail;
-}
+/* 注意: grid-area（エリア名）の割り当ては ≥960px の中だけで行う。スマホ（≤959px）では
+   grid-template-areas を定義しないため、ここでエリア名を付けると未定義の列を参照して
+   ブラウザが空の暗黙カラムを作り、パネルの左に不自然な余白が出る。スマホは 1fr の
+   単一カラムに素直に積む。 */
 
 /* スマホ: 非選択パネルを隠す。タブ下端固定バーに隠れないよう下に余白。 */
 @media (max-width: 959px) {
@@ -189,6 +174,27 @@ body {
   .panels {
     flex: 1;
     min-height: 0;
+  }
+  /* エリア名の割り当ては grid-template-areas が存在する広い画面でのみ行う（上の注意参照）。
+     名前は中間幅・密度型で共通。未描画のパネル（中間幅での timeline/month/weather）は
+     要素自体が無いので、対応するエリアが無くても問題ない。 */
+  .panel--timeline {
+    grid-area: timeline;
+  }
+  .panel--events {
+    grid-area: events;
+  }
+  .panel--month {
+    grid-area: month;
+  }
+  .panel--tasks {
+    grid-area: tasks;
+  }
+  .panel--weather {
+    grid-area: weather;
+  }
+  .panel--gmail {
+    grid-area: gmail;
   }
   .panel {
     display: flex;
