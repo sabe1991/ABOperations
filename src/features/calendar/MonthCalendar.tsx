@@ -112,6 +112,10 @@ export function MonthCalendar() {
     if (target == null || !isFocusableIdx(target)) return
     setFocusIdx(target)
     focusCell(target)
+    // 矢印キーでも表示日（タイムラインの対象日）を即時に切り替える（ユーザー要望）。
+    // ただし予定リストの自動スクロールはしない（1押下ごとにスクロールすると画面が暴れるため）。
+    // クリック時は従来どおり requestScrollToDate でその日へスクロールする。
+    setSelectedDate(fmt(cells[target]))
   }
 
   return (

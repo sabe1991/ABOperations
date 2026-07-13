@@ -1080,6 +1080,36 @@ body {
   gap: 0.5rem;
   padding: 0.2rem 0;
 }
+/* ドラッグで期限を変えられることを示す（掴めるカーソル）。pending 行は draggable=false。 */
+.tasks__item[draggable='true'] {
+  cursor: grab;
+}
+.tasks__item[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* --- タスクのドラッグ移動（期限変更）のドロップ先表現 --- */
+/* ドロップ先バケツにドラッグが乗っているときのハイライト（枠＋薄い地色）。 */
+.tasks__group.is-drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+/* ドラッグ中の「入れられない」バケツ（期限切れ/以降）は減光して不可を示す。 */
+.tasks__group.is-drop-disabled {
+  opacity: 0.45;
+}
+/* 空のドロップ先（ドラッグ中のみ表示）のプレースホルダ。破線枠で落とし先を示す。 */
+.tasks__drop-hint {
+  margin: 0.2rem 0;
+  padding: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
 
 /* バケツ内で10件を超えた分を開閉する「他 N 件 ▽」トグル。控えめなテキストボタン。 */
 .tasks__more {

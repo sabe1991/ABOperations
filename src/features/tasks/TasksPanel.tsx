@@ -40,6 +40,32 @@ const GROUP_ORDER: { key: Bucket; label: string; variant: string }[] = [
 // 「以降」に含める上限日数（予定パネル・ミニカレンダーの先5週間＝35日に合わせる・ユーザー要望）。
 const UPCOMING_DAYS = 35
 
+// タスクのドラッグ移動（ユーザー要望）。ドロップ先にできるのは「期限が一意に定まる」3バケツのみ。
+// 期限切れ・以降は複数日を含むためドロップ先にできない（＝そこへは入れられない）が、
+// ドラッグ元にはなれる（＝そこから出して今日/明日/期限なしへ移せる）。
+const DROPPABLE_BUCKETS: Bucket[] = ['today', 'tomorrow', 'noDue']
+
+// ドロップ先バケツに対応する新しい期限（today=今日, tomorrow=明日, noDue=期限クリア）。
+function dropDueFor(bucket: Bucket): string | null {
+  if (bucket === 'today') return localTodayStr()
+  if (bucket === 'tomorrow') return localDateStrPlusDays(1)
+  return null // noDue
+}
+
+// ドロップ先バケツの短い呼び名（スナックバー文言用）。
+function dropLabelFor(bucket: Bucket): string {
+  if (bucket === 'today') return '今日'
+  if (bucket === 'tomorrow') return '明日'
+  return 'なし'
+}
+
+// 空でもドラッグ中に出すドロップ先プレースホルダの文言。
+const DROP_HINT: Partial<Record<Bucket, string>> = {
+  today: 'ここにドロップで期限を今日に',
+  tomorrow: 'ここにドロップで期限を明日に',
+  noDue: 'ここにドロップで期限をなしに',
+}
+
 // 期限文字列を「M/D」の短い表示にする（今日/期限なしグループでは表示しない）。
 function formatDue(dueStr: string | null): string {
   if (!dueStr) return ''
@@ -96,6 +122,44 @@ export function TasksPanel() {
 
   // 編集ボトムシートで開いているタスク（行タップで開く）。
   const [editing, setEditing] = useState<TaskItem | null>(null)
+
+  // --- タスクのドラッグ移動（期限変更） ---
+  // ドラッグ中のタスクは ref に持つ（dataTransfer は drop 時しか読めないため判定用は ref）。
+  const dragTaskRef = useRef<TaskItem | null>(null)
+  // 描画用フラグ: ドラッグ中は空のドロップ先バケツを表示し、不可バケツを減光する。
+  const [dragging, setDragging] = useState(false)
+  // ハイライト中のドロップ先バケツ。
+  const [dropTarget, setDropTarget] = useState<Bucket | null>(null)
+
+  function handleRowDragStart(task: TaskItem, e: React.DragEvent) {
+    dragTaskRef.current = task
+    e.dataTransfer.effectAllowed = 'move'
+    // Firefox はデータをセットしないとドラッグを開始しないため、ダミー値を入れる。
+    e.dataTransfer.setData('text/plain', task.id)
+    // Chrome は dragstart 中に同期で DOM を変えるとドラッグがキャンセルされるので次フレームで。
+    // dragstart と dragend が同一フレームに収まった場合に dragging が残らないよう ref を再確認する。
+    requestAnimationFrame(() => {
+      if (dragTaskRef.current) setDragging(true)
+    })
+  }
+  function clearDrag() {
+    dragTaskRef.current = null
+    setDragging(false)
+    setDropTarget(null)
+  }
+  function handleBucketDrop(bucket: Bucket) {
+    const task = dragTaskRef.current
+    clearDrag() // dragend が飛ばないケースの保険として drop 側でも必ず掃除する。
+    if (!task) return
+    const newDue = dropDueFor(bucket)
+    // 期限が変わらない（同値）ドロップは何もしない（例: 今日のタスクを今日へ）。
+    if (newDue === task.dueStr) return
+    const prevDue = task.dueStr
+    update.mutate({ task, patch: { dueDateStr: newDue } })
+    showSnack(`「${task.title}」の期限を${dropLabelFor(bucket)}にしました`, () =>
+      update.mutate({ task, patch: { dueDateStr: prevDue } }),
+    )
+  }
 
   // クイック追加フォームの入力。
   const [newTitle, setNewTitle] = useState('')
@@ -199,6 +263,13 @@ export function TasksPanel() {
           onRetry={() => refetch()}
           onComplete={handleComplete}
           onEdit={(t) => setEditing(t)}
+          dragging={dragging}
+          dropTarget={dropTarget}
+          onRowDragStart={handleRowDragStart}
+          onRowDragEnd={clearDrag}
+          onBucketDragEnter={(b) => setDropTarget(b)}
+          onBucketDragLeave={(b) => setDropTarget((cur) => (cur === b ? null : cur))}
+          onBucketDrop={handleBucketDrop}
         />
       </div>
 
@@ -238,6 +309,13 @@ function TaskList({
   onRetry,
   onComplete,
   onEdit,
+  dragging,
+  dropTarget,
+  onRowDragStart,
+  onRowDragEnd,
+  onBucketDragEnter,
+  onBucketDragLeave,
+  onBucketDrop,
 }: {
   tasks: TaskItem[] | undefined
   isLoading: boolean
@@ -246,6 +324,13 @@ function TaskList({
   onRetry: () => void
   onComplete: (task: TaskItem) => void
   onEdit: (task: TaskItem) => void
+  dragging: boolean
+  dropTarget: Bucket | null
+  onRowDragStart: (task: TaskItem, e: React.DragEvent) => void
+  onRowDragEnd: () => void
+  onBucketDragEnter: (bucket: Bucket) => void
+  onBucketDragLeave: (bucket: Bucket) => void
+  onBucketDrop: (bucket: Bucket) => void
 }) {
   // 出典名（リスト名）を表示するかは端末ローカルの表示設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
@@ -274,7 +359,10 @@ function TaskList({
     <div className="tasks__groups">
       {GROUP_ORDER.map(({ key, label, variant }) => {
         const items = groups[key]
-        if (items.length === 0) return null
+        const droppable = DROPPABLE_BUCKETS.includes(key)
+        // 空バケツは通常は非表示。ただしドラッグ中のドロップ先候補（今日/明日/期限なし）は
+        // 空でも表示して、そこへ落とせるようにする。
+        if (items.length === 0 && !(dragging && droppable)) return null
         return (
           <TaskBucket
             key={key}
@@ -285,6 +373,14 @@ function TaskList({
             showLabels={showLabels}
             onComplete={onComplete}
             onEdit={onEdit}
+            dragging={dragging}
+            droppable={droppable}
+            isDropTarget={dropTarget === key}
+            onRowDragStart={onRowDragStart}
+            onRowDragEnd={onRowDragEnd}
+            onDragEnter={onBucketDragEnter}
+            onDragLeave={onBucketDragLeave}
+            onDrop={onBucketDrop}
           />
         )
       })}
@@ -303,6 +399,14 @@ function TaskBucket({
   showLabels,
   onComplete,
   onEdit,
+  dragging,
+  droppable,
+  isDropTarget,
+  onRowDragStart,
+  onRowDragEnd,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
 }: {
   bucketKey: Bucket
   label: string
@@ -311,15 +415,54 @@ function TaskBucket({
   showLabels: boolean
   onComplete: (task: TaskItem) => void
   onEdit: (task: TaskItem) => void
+  dragging: boolean
+  droppable: boolean
+  isDropTarget: boolean
+  onRowDragStart: (task: TaskItem, e: React.DragEvent) => void
+  onRowDragEnd: () => void
+  onDragEnter: (bucket: Bucket) => void
+  onDragLeave: (bucket: Bucket) => void
+  onDrop: (bucket: Bucket) => void
 }) {
   const [showAll, setShowAll] = useState(false)
   const overflow = items.length - VISIBLE
   const visibleItems = showAll ? items : items.slice(0, VISIBLE)
+  // ドロップ可能なバケツにだけ drop 系ハンドラを付ける。不可バケツは preventDefault しない＝
+  // ブラウザが自動で not-allowed カーソルを出し、ドロップも無効になる（Fable 助言）。
+  const dropProps = droppable
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          e.preventDefault() // これを呼ばないとドロップ不可のまま。
+          e.dataTransfer.dropEffect = 'move' as const
+        },
+        onDragEnter: () => onDragEnter(bucketKey),
+        onDragLeave: (e: React.DragEvent) => {
+          // 子要素をまたぐ dragleave では消さない。バケツの外へ出たときだけ解除する。
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onDragLeave(bucketKey)
+        },
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault()
+          onDrop(bucketKey)
+        },
+      }
+    : {}
+  const sectionCls = [
+    'tasks__group',
+    isDropTarget ? 'is-drop-target' : '',
+    // ドラッグ中の「入れられない」バケツ（期限切れ/以降）は減光して不可を示す。
+    dragging && !droppable ? 'is-drop-disabled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return (
-    <section className="tasks__group">
+    <section className={sectionCls} {...dropProps}>
       <h3 className={`tasks__group-header tasks__group-header--${variant}`}>
         {label} <span className="tasks__count">{items.length}</span>
       </h3>
+      {/* 空のドロップ先（ドラッグ中のみ表示）。落とし先が分かるようプレースホルダを出す。 */}
+      {items.length === 0 && (
+        <p className="tasks__drop-hint">{DROP_HINT[bucketKey] ?? 'ここにドロップ'}</p>
+      )}
       <ul className="tasks__list">
         {visibleItems.map((t) => {
           const rowKey = `${t.listId}:${t.id}`
@@ -327,7 +470,13 @@ function TaskBucket({
           const showDue = (bucketKey === 'overdue' || bucketKey === 'later') && t.dueStr
           return (
             <li key={rowKey} className="tasks__item-wrap">
-              <div className="tasks__item">
+              <div
+                className="tasks__item"
+                // 追加直後(pending)以外はドラッグで期限変更できる。draggable は行を包む div に付ける
+                // （中の button に付けるとクリック編集と競合し Firefox で発火しにくいため・Fable 助言）。
+                draggable={!t.pending}
+                onDragStart={(e) => !t.pending && onRowDragStart(t, e)}
+                onDragEnd={onRowDragEnd}>
                 <button
                   className="tasks__check"
                   onClick={() => onComplete(t)}
