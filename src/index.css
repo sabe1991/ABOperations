@@ -268,22 +268,24 @@ body {
 }
 
 /* レイアウトは3状態（Fable 助言）:
-   - 〜959px（スマホ）: 1カラム。タブで選んだ1枚だけ表示（他は display:none）。ページ全体スクロール（据え置き）。
-   - 960〜1339px（中間幅）: 予定・タスク・Gmail の3カラムリスト。密度型の新規部品は未描画。
+   - 〜767px（スマホ）: 1カラム。タブで選んだ1枚だけ表示（他は display:none）。ページ全体スクロール（据え置き）。
+   - 768〜1339px（中間幅）: 予定・タスク・Gmail の3カラムリスト。密度型の新規部品は未描画。
    - 1340px〜（密度型）: 段積み3カラム。grid-template-areas で6セルを配置する。
-   配置は grid-template-areas に任せるので、DOM の並び順ではなくエリア名で位置が決まる。 */
+   配置は grid-template-areas に任せるので、DOM の並び順ではなくエリア名で位置が決まる。
+   ※ 3カラムへ切り替える境界は当初 960px だったが、幅に余裕があるうちにタブへ落ちて見えたため
+     768px（タブレット相当）まで下げ、狭い画面でだけタブ表示にする（ユーザー要望）。 */
 .panels {
   display: grid;
   gap: 1rem;
   grid-template-columns: 1fr;
 }
-/* 注意: grid-area（エリア名）の割り当ては ≥960px の中だけで行う。スマホ（≤959px）では
+/* 注意: grid-area（エリア名）の割り当ては ≥768px の中だけで行う。スマホ（≤767px）では
    grid-template-areas を定義しないため、ここでエリア名を付けると未定義の列を参照して
    ブラウザが空の暗黙カラムを作り、パネルの左に不自然な余白が出る。スマホは 1fr の
    単一カラムに素直に積む。 */
 
 /* スマホ: 非選択パネルを隠す。タブ下端固定バーに隠れないよう下に余白。 */
-@media (max-width: 959px) {
+@media (max-width: 767px) {
   .panel {
     display: none;
   }
@@ -295,12 +297,12 @@ body {
   }
 }
 
-/* 広い画面（≥960px）共通: ダッシュボード全体を画面高にぴったり収め、ページ全体はスクロールさせず
+/* 広い画面（≥768px）共通: ダッシュボード全体を画面高にぴったり収め、ページ全体はスクロールさせず
    各パネル内だけをスクロールさせる（項目数が増えても全体の縦がガタつかないようにする・Fable レビュー反映）。
    高さの連鎖（どれか1つでも min-height:0 が欠けると中身に押し広げられて破綻する）:
    .app(100dvh・縦flex) → .app__main(flex:1・縦flex) → .panels(flex:1・grid) → .panel(縦flex)
    → .panel__body(flex:1・overflow-y:auto)。見出し(.panel__title)は縮まず固定、本文だけスクロール。 */
-@media (min-width: 960px) {
+@media (min-width: 768px) {
   body {
     /* 1px の丸め誤差などでページスクロールバーが出るのを確実に防ぐ保険。 */
     overflow: hidden;
@@ -351,6 +353,9 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    /* 狭めの3カラム（≥768px）でも、幅の広い中身（メール本文の iframe や長い文字列）に
+       押し広げられて列がはみ出さないよう、グリッド項目が列幅まで縮めることを許可する。 */
+    min-width: 0;
   }
   .panel__title {
     flex-shrink: 0;
@@ -394,7 +399,7 @@ body {
 
 /* 中間幅: 予定・タスク・Gmail の3カラムリスト。タブ状態は無視して全て表示。
    密度型の新規部品（timeline / month / weather）はこの幅では描画されない。 */
-@media (min-width: 960px) and (max-width: 1339px) {
+@media (min-width: 768px) and (max-width: 1339px) {
   .app__main {
     max-width: 1100px;
   }
@@ -515,7 +520,7 @@ body {
   line-height: 1;
 }
 /* PC ではタブバーを隠す（3カラム並列表示のため不要） */
-@media (min-width: 960px) {
+@media (min-width: 768px) {
   .tabbar {
     display: none;
   }
