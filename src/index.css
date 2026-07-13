@@ -728,6 +728,7 @@ body {
 }
 .timeline__event {
   position: absolute;
+  /* 通常の高さの予定は従来どおり枠内に収める（はみ出しは短い予定=--short だけに限定する）。 */
   overflow: hidden;
   border-left: 3px solid var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
@@ -743,6 +744,25 @@ body {
 }
 .timeline__event--editable:hover {
   background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+}
+/* 高さの足りない短い予定。タイトルを色枠の下へはみ出させ（overflow:visible）、他の予定に
+   隠れないよう前面に出す。overflow は短い予定にだけ付け、通常予定は枠内クリップのまま。 */
+.timeline__event--short {
+  overflow: visible;
+  z-index: 2;
+}
+.timeline__event:hover {
+  z-index: 5;
+}
+/* 短い予定のタイトルは、はみ出した文字が背景（罫線・下の予定）に紛れないよう薄い地を敷き、
+   文字幅ぶんだけ（枠幅を上限に）背景を広げる。 */
+.timeline__event--short .timeline__event-title {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-radius: 0 0 4px 4px;
+  padding: 0 4px 1px;
+  margin: 0 -4px; /* 親の左右パディングぶん外へ広げ、色枠と左端を揃える */
+  width: max-content;
+  max-width: calc(100% + 8px);
 }
 /* 空き時間ドラッグ（#17 Phase A）の選択範囲プレビュー。 */
 .timeline__drag-sel {

@@ -298,12 +298,15 @@ export function TodayTimeline() {
             const height = Math.max(18, ((p.endMin - p.startMin) / 60) * HOUR_PX - 1)
             const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
             const width = `calc((100% - ${GUTTER}px) / ${p.lanes} - 2px)`
+            // 時刻＋タイトルの2行が枠内に収まらない高さ（約32px未満）は「短い予定」とし、
+            // タイトルを色枠の下へはみ出して表示する（CSS の --short）。
+            const short = height < 32
             // 書き込み可能で確定済み（pending でない）予定だけ、クリックで編集シートを開ける（#18）。
             const editable = p.ev.writable && !p.ev.pending
             return (
               <div
                 key={p.ev.id}
-                className={`timeline__event${editable ? ' timeline__event--editable' : ''}`}
+                className={`timeline__event${editable ? ' timeline__event--editable' : ''}${short ? ' timeline__event--short' : ''}`}
                 style={{ top, height, left, width, borderColor: p.ev.calendarColor }}
                 title={`${p.ev.startTimeStr ?? ''} ${p.ev.title}`}
                 onClick={editable ? () => requestEditEvent(p.ev) : undefined}

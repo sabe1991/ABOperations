@@ -146,36 +146,92 @@ export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMes
 
 // ---- 本文プレビュー（本文表示スライス） ----
 
-// base64url（Gmail の body.data は URL-safe base64）を、指定の文字コードで文字列にデコードする。
-// atob は「Latin-1 のバイト列」を返すので、そのバイト列を TextDecoder で目的の charset として
-// 読み直す（この2段を踏まないと日本語が化ける。ここが一番の文字化けポイント）。
-// charset はパーツの Content-Type から取得（既定は UTF-8）。ISO-2022-JP・Shift_JIS・EUC-JP 等の
-// 日本語メールも TextDecoder が対応する（未知/壊れた charset は UTF-8 にフォールバック）。#12
-function decodeBase64Url(data: string, charset = 'utf-8'): string {
-  const b64 = data.replace(/-/g, '+').replace(/_/g, '/')
+// base64url（Gmail の body.data は URL-safe base64）を生のバイト列に戻す。
+// atob は「Latin-1 のバイト列」を文字列で返すので、各文字コードを Uint8Array に写す。
+// Gmail はパディング（=）を落として返すことがあるため、atob 前に補う（末尾の欠けを防ぐ）。
+function base64UrlToBytes(data: string): Uint8Array {
+  let b64 = data.replace(/-/g, '+').replace(/_/g, '/')
+  const pad = b64.length % 4
+  if (pad) b64 += '='.repeat(4 - pad)
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  try {
-    return new TextDecoder(charset).decode(bytes)
-  } catch {
-    // TextDecoder が知らない charset 名のときは UTF-8 で読む（化けても表示は続ける）。
-    return new TextDecoder('utf-8').decode(bytes)
+  return bytes
+}
+
+// ISO-2022-JP 系のエスケープ（ESC $ / ESC (）が生バイトにあるか。charset 宣言が欠落/誤りでも
+// これで日本語メールの ISO-2022-JP を検出できる（メールの Content-Type は当てにならないことが多い）。
+function hasIso2022Escape(bytes: Uint8Array): boolean {
+  for (let i = 0; i < bytes.length - 1; i++) {
+    if (bytes[i] === 0x1b && (bytes[i + 1] === 0x24 || bytes[i + 1] === 0x28)) return true
   }
+  return false
+}
+
+// デコード結果の「もっともらしさ」（小さいほど良い）。文字化け U+FFFD の個数を数え、
+// ISO-2022-JP のエスケープが文字列に残っていれば大きく減点する（＝誤った charset で復号した証拠）。
+function decodeScore(text: string): number {
+  let n = 0
+  for (const ch of text) {
+    // 文字化け(U+FFFD)は最も重い証拠。半角カナ(U+FF61-FF9F)は EUC-JP を Shift_JIS で
+    // 誤読したときに大量発生する兆候なので軽く加点し、正しい EUC-JP 側が選ばれるようにする。
+    if (ch === '�') n += 2
+    else if (ch >= '\uff61' && ch <= '\uff9f') n += 1
+  }
+  if (/\u001b[$(]/.test(text)) n += 1000 // 残った ESC$/ESC( ＝ ISO-2022-JP 誤読
+  return n
+}
+
+// メール本文の生バイトを、宣言 charset をヒントにしつつ「最も化けない」charset で文字列化する（#12）。
+// 日本語メール（Shift_JIS / EUC-JP / ISO-2022-JP）は charset 宣言が欠落・誤記のことが多く、UTF-8 固定
+// 復号だと日本語が全て文字化けする（本文が ◆◆◆ 等になる）。候補を順に試し、文字化けが最少のものを採る。
+function decodeBody(bytes: Uint8Array, declaredCharset?: string): string {
+  const candidates: string[] = []
+  // ISO-2022-JP はエスケープ検出で最優先（UTF-8 でも化けずに“通って”しまい見分けにくいため）。
+  if (hasIso2022Escape(bytes)) candidates.push('iso-2022-jp')
+  // UTF-8 を宣言 charset より先に試す（Fable 助言）。UTF-8 の検証は厳格で、実体が Shift_JIS/EUC-JP
+  // のバイト列はほぼ必ず文字化け(U+FFFD)を出す＝スコアが悪化するため、UTF-8 が 0 点で通るのは
+  // 「本当に UTF-8 のとき」だけ。逆に「実体 UTF-8 なのに charset=shift_jis と誤宣言」されたメールで、
+  // 誤った宣言を先に採って化けさせる事故を防げる。
+  candidates.push('utf-8')
+  if (declaredCharset) candidates.push(declaredCharset)
+  candidates.push('shift_jis', 'euc-jp', 'iso-2022-jp')
+  const seen = new Set<string>()
+  let best: string | null = null
+  let bestScore = Infinity
+  for (const raw of candidates) {
+    const cs = raw.toLowerCase()
+    if (seen.has(cs)) continue
+    seen.add(cs)
+    let text: string
+    try {
+      text = new TextDecoder(cs).decode(bytes)
+    } catch {
+      continue // TextDecoder が知らない charset 名は飛ばす
+    }
+    const s = decodeScore(text)
+    if (s < bestScore) {
+      best = text
+      bestScore = s
+      if (s === 0) break // 文字化け無し＝確定
+    }
+  }
+  return best ?? new TextDecoder('utf-8').decode(bytes)
 }
 
 // パーツの Content-Type ヘッダから charset を取り出す（例: 'text/html; charset="ISO-2022-JP"'）。
-function charsetOfPart(part: MessagePart): string {
+// 宣言が無ければ undefined（decodeBody 側で候補から自動判定する）。
+function charsetOfPart(part: MessagePart): string | undefined {
   const ct = headerValue(part.headers, 'Content-Type')
   const m = /charset\s*=\s*"?([^";]+)"?/i.exec(ct)
-  return (m?.[1] ?? 'utf-8').trim().toLowerCase()
+  return m?.[1]?.trim().toLowerCase()
 }
 
 // payload の木を再帰的に辿り、指定 MIME タイプの最初のパーツ本文を取り出す。
 function findPart(part: MessagePart | undefined, mimeType: string): string | null {
   if (!part) return null
   if (part.mimeType === mimeType && part.body?.data) {
-    return decodeBase64Url(part.body.data, charsetOfPart(part))
+    return decodeBody(base64UrlToBytes(part.body.data), charsetOfPart(part))
   }
   for (const child of part.parts ?? []) {
     const found = findPart(child, mimeType)
