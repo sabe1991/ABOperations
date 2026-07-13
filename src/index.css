@@ -728,7 +728,8 @@ body {
 }
 .timeline__event {
   position: absolute;
-  /* 通常の高さの予定は従来どおり枠内に収める（はみ出しは短い予定=--short だけに限定する）。 */
+  /* 長いタイトルは枠幅で省略（横方向のクリップ）。短い予定は JS 側の min-height で縦に伸ばして
+     中身を収めるので、この overflow:hidden で縦に切れることはない。 */
   overflow: hidden;
   border-left: 3px solid var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
@@ -745,24 +746,13 @@ body {
 .timeline__event--editable:hover {
   background: color-mix(in srgb, var(--primary) 20%, var(--surface));
 }
-/* 高さの足りない短い予定。タイトルを色枠の下へはみ出させ（overflow:visible）、他の予定に
-   隠れないよう前面に出す。overflow は短い予定にだけ付け、通常予定は枠内クリップのまま。 */
+/* 高さの足りない短い予定。色枠（ブロック）自体を中身に合わせて下へ伸ばすので（JS 側で minHeight）、
+   枠と文字背景が同じ1色になり色差が出ない。伸びたぶんが下の予定に隠れないよう前面に出す。 */
 .timeline__event--short {
-  overflow: visible;
   z-index: 2;
 }
 .timeline__event:hover {
   z-index: 5;
-}
-/* 短い予定のタイトルは、はみ出した文字が背景（罫線・下の予定）に紛れないよう薄い地を敷き、
-   文字幅ぶんだけ（枠幅を上限に）背景を広げる。 */
-.timeline__event--short .timeline__event-title {
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  border-radius: 0 0 4px 4px;
-  padding: 0 4px 1px;
-  margin: 0 -4px; /* 親の左右パディングぶん外へ広げ、色枠と左端を揃える */
-  width: max-content;
-  max-width: calc(100% + 8px);
 }
 /* 空き時間ドラッグ（#17 Phase A）の選択範囲プレビュー。 */
 .timeline__drag-sel {
@@ -777,16 +767,14 @@ body {
 .timeline__event-time {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
-  /* 短い予定でも縮まず自然な高さを保ち、色枠からはみ出せるようにする（下記 title と対で重要）。
-     これが無いと flex がコンテンツを枠内に押し込め、タイトル自身の overflow:hidden で切れてしまう。 */
+  /* 短い予定は枠を min-height で伸ばして中身を入れる。flex による圧縮を止め、自然な高さを保つ。 */
   flex-shrink: 0;
 }
 .timeline__event-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* flex による圧縮を止める。これで短い予定ではタイトルが色枠の下へ“はみ出す”（親 --short は
-     overflow:visible なので見える）。圧縮を許すと枠内に収められ overflow:hidden で縦に切れる。 */
+  /* 同上。圧縮を許すと枠内に押し込められ、タイトル自身の overflow:hidden で縦に切れてしまう。 */
   flex-shrink: 0;
 }
 .timeline__now {
