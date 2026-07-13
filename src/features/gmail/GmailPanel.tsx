@@ -20,6 +20,7 @@ import {
   toIntentUrl,
 } from './renderBody'
 import type { GmailMessage } from './api'
+import { useEffectiveDark } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 
 // Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
@@ -283,9 +284,10 @@ function HtmlBody({ html }: { html: string }) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   // 中身の高さを監視するオブザーバ。srcDoc 差し替え時に前の監視を止めて張り直す。
   const observerRef = useRef<ResizeObserver | null>(null)
+  const dark = useEffectiveDark()
   const sanitized = useMemo(() => sanitizeEmailHtml(html), [html])
   const imagesBlocked = useMemo(() => hasBlockedImages(sanitized), [sanitized])
-  const srcDoc = useMemo(() => buildSrcDoc(sanitized, showImages), [sanitized, showImages])
+  const srcDoc = useMemo(() => buildSrcDoc(sanitized, showImages, dark), [sanitized, showImages, dark])
 
   // アンマウント時に高さ監視を止める（監視が残るとメモリリークになる）。
   useEffect(() => () => observerRef.current?.disconnect(), [])

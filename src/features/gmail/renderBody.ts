@@ -162,13 +162,16 @@ function restoreImages(html: string): string {
 // iframe の srcdoc に流し込む完全なHTML文書を組み立てる。
 // CSP メタタグで、既定は data: 画像のみ許可（＝外部画像ブロック）、
 // showImages 時のみ https: 画像も許可する。default-src 'none' で script/fetch 等は全遮断。
-export function buildSrcDoc(sanitizedHtml: string, showImages: boolean): string {
+export function buildSrcDoc(sanitizedHtml: string, showImages: boolean, dark = false): string {
   const body = showImages ? restoreImages(sanitizedHtml) : sanitizedHtml
   const imgSrc = showImages ? 'data: https:' : 'data:'
   const csp = `default-src 'none'; img-src ${imgSrc}; style-src 'unsafe-inline'; font-src data:`
+  // ダーク時は本文カードの地を純白ではなく穏やかな暖色オフホワイトにして眩しさを抑える（#27）。
+  // 本文色は #111 のままなのでコントラストは十分保たれる（メールHTMLの互換のため全反転はしない）。
+  const bg = dark ? '#e7e0d3' : '#ffffff'
   const reset =
     'html,body{margin:0}' +
-    "body{margin:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" +
+    `body{margin:8px;background:${bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;` +
     'font-size:14px;line-height:1.5;color:#111;word-break:break-word;overflow-wrap:anywhere}' +
     'img{max-width:100%;height:auto}a{color:#2563eb}table{max-width:100%}'
   return (

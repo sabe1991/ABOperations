@@ -19,6 +19,7 @@ import {
 } from './useTaskMutations'
 import { localDateStrPlusDays, localNextMondayStr, localTodayStr } from './api'
 import type { TaskItem } from './api'
+import { useQuickAddFocusSignal } from './quickAddFocus'
 import { useAuth } from '../../auth/useAuth'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
@@ -115,6 +116,17 @@ export function TasksPanel() {
   // クイック追加フォームの入力。
   const [newTitle, setNewTitle] = useState('')
   const [dueToday, setDueToday] = useState(false)
+  // 「/」ショートカット（#7）でクイック追加入力へフォーカスするためのシグナル購読。
+  const addInputRef = useRef<HTMLInputElement>(null)
+  const quickAddSeq = useQuickAddFocusSignal()
+  useEffect(() => {
+    if (quickAddSeq === 0) return // 初回（未要求）はフォーカスしない
+    const el = addInputRef.current
+    if (el) {
+      el.scrollIntoView({ block: 'nearest' })
+      el.focus()
+    }
+  }, [quickAddSeq])
 
   // アンマウント時にタイマーを片付ける
   useEffect(() => () => window.clearTimeout(snackTimer.current), [])
@@ -187,6 +199,7 @@ export function TasksPanel() {
       {/* クイック追加フォーム（常に表示） */}
       <form className="tasks__add" onSubmit={handleAdd}>
         <input
+          ref={addInputRef}
           className="tasks__add-input"
           type="text"
           value={newTitle}

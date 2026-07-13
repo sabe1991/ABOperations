@@ -19,6 +19,7 @@ import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
 import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
+import { PanelLink } from '../../PanelLink'
 
 // 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
 type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
@@ -33,29 +34,19 @@ function fmtLocalDate(d: Date): string {
 function fmtLocalTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
-function addDaysStr(dateStr: string, n: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return fmtLocalDate(new Date(y, m - 1, d + n))
-}
-function daysBetweenStr(aStr: string, bStr: string): number {
-  const [ay, am, ad] = aStr.split('-').map(Number)
-  const [by, bm, bd] = bStr.split('-').map(Number)
-  const a = Date.UTC(ay, am - 1, ad)
-  const b = Date.UTC(by, bm - 1, bd)
-  return Math.round((b - a) / (24 * 60 * 60 * 1000))
-}
 function startMsOfDraft(draft: EventDraft): number {
   return draft.allDay
     ? new Date(`${draft.startDate}T00:00:00`).getTime()
     : new Date(`${draft.startDate}T${draft.startTime}:00`).getTime()
 }
 
-// 予定を「YYYY-MM-DD」の日付キーごとにグループ化する。
-function groupByDay(events: CalendarEvent[]): [string, CalendarEvent[]][] {
+// 予定を日付キー（'YYYY-MM-DD' ゼロ埋め）ごとにグループ化する。
+// 進行中の複数日予定（今日より前に開始し、今日以降まで続く）は、実開始日（過去日）ではなく
+// 「今日」のグループに寄せる（一覧は今日以降しか出さないので、過去日の見出しが最上部に出るのを防ぐ・#34）。
+function groupByDay(events: CalendarEvent[], todayStr: string): [string, CalendarEvent[]][] {
   const groups = new Map<string, CalendarEvent[]>()
   for (const ev of events) {
-    const d = new Date(ev.startMs)
-    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+    const key = ev.startDateStr < todayStr ? todayStr : ev.startDateStr
     const list = groups.get(key)
     if (list) list.push(ev)
     else groups.set(key, [ev])
@@ -63,10 +54,10 @@ function groupByDay(events: CalendarEvent[]): [string, CalendarEvent[]][] {
   return Array.from(groups.entries())
 }
 
-function formatDayHeader(ev: CalendarEvent): string {
-  const d = new Date(ev.startMs)
-  const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
-  return `${d.getMonth() + 1}月${d.getDate()}日 (${weekday})`
+function formatDayHeader(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][new Date(y, m - 1, d).getDay()]
+  return `${m}月${d}日 (${weekday})`
 }
 
 function formatTime(ev: CalendarEvent): string {
@@ -179,16 +170,19 @@ export function CalendarPanel() {
 
   return (
     <div className="calendar" ref={rootRef}>
-      {/* 見出しと「＋予定」ボタンを同じ行に並べる（両端揃え）。 */}
+      {/* 見出しと右側の操作（Google カレンダーを開く・＋予定）を同じ行に並べる（両端揃え）。 */}
       <div className="calendar__toolbar">
         <h2 className="panel__title">今後の予定</h2>
-        <button
-          className="btn btn--small btn--primary"
-          onClick={() => openCreate(null)}
-          disabled={!calendars || calendars.length === 0}
-        >
-          ＋ 予定
-        </button>
+        <div className="calendar__toolbar-actions">
+          <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
+          <button
+            className="btn btn--small btn--primary"
+            onClick={() => openCreate(null)}
+            disabled={!calendars || calendars.length === 0}
+          >
+            ＋ 予定
+          </button>
+        </div>
       </div>
 
       <div className="calendar__scroll">
@@ -270,15 +264,12 @@ function EventList({
     return <p className="panel__note">今後の予定はありません</p>
   }
 
+  const todayStr = fmtLocalDate(new Date())
   return (
     <>
-      {groupByDay(events).map(([dayKey, dayEvents]) => (
-        <section
-          key={dayKey}
-          className="calendar__day"
-          data-date={fmtLocalDate(new Date(dayEvents[0].startMs))}
-        >
-          <h3 className="calendar__day-header">{formatDayHeader(dayEvents[0])}</h3>
+      {groupByDay(events, todayStr).map(([dayStr, dayEvents]) => (
+        <section key={dayStr} className="calendar__day" data-date={dayStr}>
+          <h3 className="calendar__day-header">{formatDayHeader(dayStr)}</h3>
           <ul className="calendar__events">
             {dayEvents.map((ev) => {
               const canEdit = ev.writable && !ev.pending
@@ -366,24 +357,37 @@ function EventSheet({
         }
       : applyPrefill(defaultCreateDraft(calendars[0]?.id ?? 'primary'), createPrefill)
 
-  // 既存予定の日数スパン（複数日予定を編集で潰さないよう保持）。
-  const spanDays = daysBetweenStr(initial.startDate, initial.endDate)
+  // 作成時は過去日を選べないよう開始日の下限を今日にする（#30）。編集は既存の日付を尊重して下限なし。
+  const todayStr = fmtLocalDate(new Date())
 
   const [title, setTitle] = useState(initial.title)
   const [location, setLocation] = useState(initial.location)
   const [description, setDescription] = useState(initial.description)
   const [calendarId, setCalendarId] = useState(initial.calendarId)
   const [allDay, setAllDay] = useState(initial.allDay)
-  const [date, setDate] = useState(initial.startDate)
+  // 開始日・終了日を別々に持ち、複数日予定の作成・編集に対応する（#10）。
+  const [startDate, setStartDate] = useState(initial.startDate)
+  const [endDate, setEndDate] = useState(initial.endDate)
   const [startTime, setStartTime] = useState(initial.startTime)
   const [endTime, setEndTime] = useState(initial.endTime)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // 開始日を変えたら、終了日が前になっていれば開始日に合わせる（終了日<開始日を作らせない）。
+  function handleStartDateChange(value: string) {
+    setStartDate(value)
+    if (endDate < value) setEndDate(value)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = title.trim()
     if (!trimmed) return
-    if (!allDay && startTime >= endTime && spanDays === 0) {
+    if (endDate < startDate) {
+      setErrorMsg('終了日は開始日以降にしてください。')
+      return
+    }
+    // 同一日の時刻あり予定は、終了時刻が開始時刻より後である必要がある（複数日なら時刻の前後は不問）。
+    if (!allDay && startDate === endDate && startTime >= endTime) {
       setErrorMsg('終了時刻は開始時刻より後にしてください。')
       return
     }
@@ -393,8 +397,8 @@ function EventSheet({
       location: location.trim(),
       description: description.trim(),
       allDay,
-      startDate: date,
-      endDate: addDaysStr(date, spanDays),
+      startDate,
+      endDate,
       startTime,
       endTime,
     })
@@ -449,15 +453,29 @@ function EventSheet({
           終日
         </label>
 
-        <label className="sheet__label" htmlFor="ev-date">
-          日付
+        <label className="sheet__label" htmlFor="ev-start-date">
+          開始日
         </label>
         <input
-          id="ev-date"
+          id="ev-start-date"
           className="tasks__add-input"
           type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+          value={startDate}
+          // 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
+          min={mode === 'create' ? todayStr : undefined}
+          onChange={(e) => handleStartDateChange(e.target.value)}
+        />
+
+        <label className="sheet__label" htmlFor="ev-end-date">
+          終了日
+        </label>
+        <input
+          id="ev-end-date"
+          className="tasks__add-input"
+          type="date"
+          value={endDate}
+          min={startDate}
+          onChange={(e) => setEndDate(e.target.value)}
         />
 
         {!allDay && (

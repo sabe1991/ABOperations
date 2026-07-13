@@ -19,11 +19,17 @@
   --surface: light-dark(#fffdf8, #26201a);
   --border: light-dark(#ece2d3, #3a3128);
   --text: light-dark(#322c25, #efe7d9);
-  --text-muted: light-dark(#8c8175, #a89c8b);
-  /* アクセント(操作・選択・今日など): テラコッタ(素焼きの器のような暖かいオレンジ赤)。
-     白文字を乗せるボタンにも使うため十分濃いトーンにし、ホバー時はさらに一段濃くする。 */
+  /* 補助テキスト色。小さな文字（時刻・スニペット・期限など）に広く使うため、
+     WCAG AA(通常文字 4.5:1)を満たす濃さにする（明色は surface 上 5.5:1・bg 上 5.0:1）。 */
+  --text-muted: light-dark(#6f665b, #a89c8b);
+  /* アクセント(操作・選択・今日など): テラコッタ(素焼きの器のような暖かいオレンジ赤)。 */
   --primary: light-dark(#c15a30, #d9713f);
   --primary-strong: light-dark(#a54a26, #e58a5c);
+  /* 白文字ボタンの背景専用色。アクセント(--primary)は明るめで白文字とのコントラストが
+     不足する(特にダーク)ため、ボタン背景はより濃いテラコッタに分け、白文字で AA 4.5:1 以上
+     を明暗とも確保する(実測 5.16:1 / hover 6.07:1)。#24 の対策。 */
+  --primary-btn: #b0521c;
+  --primary-btn-strong: #9e4a24;
   /* 差し色2: 琥珀(あたたかい金茶)。淡いハイライトや装飾に使う。 */
   --amber: light-dark(#d98e2b, #e8a94e);
   /* 寒色(最低気温・土曜など「冷たさ/対比」を意味する箇所だけに使う青)。
@@ -113,16 +119,16 @@ body {
   cursor: default;
 }
 .btn--primary {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--primary-btn);
+  border-color: var(--primary-btn);
   color: #fff;
   font-size: var(--fs-base);
   padding: 0.7rem 1.6rem;
   box-shadow: var(--shadow-sm);
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--primary-strong);
-  border-color: var(--primary-strong);
+  background: var(--primary-btn-strong);
+  border-color: var(--primary-btn-strong);
   color: #fff; /* ホバーで文字色が変わらないよう既定ボタンのルールを打ち消す */
 }
 .btn--small {
@@ -165,6 +171,24 @@ body {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow-sm); /* ヘッダをわずかに浮かせる */
+  position: relative; /* 中央の日付を絶対配置で真ん中に置くための基準 */
+}
+/* タイトルバー中央の今日の日付。左右の要素幅に依らず常にバー中央に来るよう絶対配置する。 */
+.app__date {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  pointer-events: none; /* 中央表示はクリックを奪わない（背後の操作を妨げない） */
+}
+/* 狭い画面ではタイトル・設定と干渉しうるので中央の日付は隠す。 */
+@media (max-width: 560px) {
+  .app__date {
+    display: none;
+  }
 }
 .app__title {
   margin: 0;
@@ -515,6 +539,49 @@ body {
   border-radius: var(--radius-pill);
   background: linear-gradient(var(--amber), var(--primary));
   flex-shrink: 0;
+}
+/* 見出し行（左に見出し・右に「外部サービスを開く」リンク）。パネルの固定ヘッダとして機能する。 */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+.panel__head .panel__title {
+  margin: 0; /* 下マージンは .panel__head 側に持たせる */
+}
+/* 「外部サービスを開く」小さな丸ボタン（↗）。パネル見出しの右上に置く。 */
+.panel__link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.panel__link:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+/* カレンダーのツールバー右側（Google カレンダーを開く＋＋予定）をまとめる。 */
+.calendar__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 .panel__note {
   color: var(--text-muted);
@@ -1241,7 +1308,9 @@ body {
   min-height: 8rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  /* 読み込み前・余白はテーマ色になじませる（ダークで白い枠が眩しいのを緩和）。
+     本文カードの背景色は buildSrcDoc 側でテーマに応じて設定する（#27）。 */
+  background: var(--surface);
 }
 .gmail__text {
   margin: 0;

@@ -21,6 +21,15 @@ import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
+import { queryClient } from './queryClient'
+import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
+import { PanelLink } from './PanelLink'
+
+// ヘッダー中央に出す今日の日付（例:「7月13日 (日)」）。
+function formatHeaderDate(d: Date): string {
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  return `${d.getMonth() + 1}月${d.getDate()}日 (${weekday})`
+}
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
 type PanelKey = 'calendar' | 'tasks' | 'gmail'
@@ -92,6 +101,27 @@ export default function App() {
     }
   }, [])
 
+  // PC のキーボードショートカット（#7）: R=全データ更新 / "/"=タスクのクイック追加へフォーカス。
+  // 入力中(input/textarea/select/contentEditable)・修飾キー併用・モーダル/シート表示中は無効。
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return
+      if (document.querySelector('.sheet-backdrop, .modal-overlay')) return
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        queryClient.invalidateQueries() // 予定・タスク・メール等を再取得
+      } else if (e.key === '/') {
+        e.preventDefault()
+        requestQuickAddFocus() // タスクのクイック追加入力へフォーカス
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const handleConnect = () => {
     setConnectError(null)
     setConnecting(true)
@@ -147,6 +177,8 @@ export default function App() {
     <div className="app">
       <header className="app__header">
         <h1 className="app__title">AB Operations</h1>
+        {/* タイトルバー中央に今日の日付を表示（左右の要素幅に依らず中央に置くため絶対配置）。 */}
+        <div className="app__date">{formatHeaderDate(new Date())}</div>
         <div className="app__headerRight">
           <ConnectionStatus
             needsReconnect={needsReconnect}
@@ -222,7 +254,10 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">タスク</h2>
+            <div className="panel__head">
+              <h2 className="panel__title">タスク</h2>
+              <PanelLink href="https://tasks.google.com/" label="Google タスクを開く" />
+            </div>
             <div className="panel__body">
               <TasksPanel />
             </div>
@@ -236,7 +271,10 @@ export default function App() {
             </section>
           )}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
-            <h2 className="panel__title">メール</h2>
+            <div className="panel__head">
+              <h2 className="panel__title">メール</h2>
+              <PanelLink href="https://mail.google.com/" label="Gmail を開く" />
+            </div>
             <div className="panel__body">
               <GmailPanel />
             </div>

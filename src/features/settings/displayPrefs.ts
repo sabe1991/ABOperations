@@ -156,6 +156,32 @@ export function useTheme(): Theme {
   return useSyncExternalStore(subscribeTheme, getTheme)
 }
 
+// 実効的にダークかどうか（theme='dark'、または theme='system' で OS がダーク）。
+// CSS の light-dark() で表せない箇所（iframe 内メール本文の背景色など）の判定に使う。
+function osPrefersDark(): boolean {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  } catch {
+    return false
+  }
+}
+function subscribeOsDark(listener: () => void): () => void {
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    mq.addEventListener('change', listener)
+    return () => mq.removeEventListener('change', listener)
+  } catch {
+    return () => {}
+  }
+}
+export function useEffectiveDark(): boolean {
+  const t = useTheme()
+  const osDark = useSyncExternalStore(subscribeOsDark, osPrefersDark, () => false)
+  if (t === 'dark') return true
+  if (t === 'light') return false
+  return osDark
+}
+
 // 起動時に保存済みテーマを <html> へ適用する。main.tsx から描画前に呼び、初回の明暗のちらつきを防ぐ。
 export function initTheme(): void {
   applyTheme(theme)
