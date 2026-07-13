@@ -196,7 +196,7 @@ export function TasksPanel() {
 
   return (
     <div className="tasks">
-      {/* クイック追加フォーム（常に表示） */}
+      {/* クイック追加フォーム（常に表示）。入力・「今日」チェック・追加ボタンを1行に並べて縦を節約する。 */}
       <form className="tasks__add" onSubmit={handleAdd}>
         <input
           ref={addInputRef}
@@ -207,19 +207,13 @@ export function TasksPanel() {
           placeholder="タスクを追加…"
           aria-label="新しいタスクのタイトル"
         />
-        <div className="tasks__add-row">
-          <label className="tasks__add-check">
-            <input
-              type="checkbox"
-              checked={dueToday}
-              onChange={(e) => setDueToday(e.target.checked)}
-            />
-            期限を今日にする
-          </label>
-          <button type="submit" className="btn btn--small btn--primary" disabled={!newTitle.trim()}>
-            追加
-          </button>
-        </div>
+        <label className="tasks__add-check">
+          <input type="checkbox" checked={dueToday} onChange={(e) => setDueToday(e.target.checked)} />
+          今日
+        </label>
+        <button type="submit" className="btn btn--small btn--primary" disabled={!newTitle.trim()}>
+          追加
+        </button>
       </form>
 
       <div className="tasks__scroll">

@@ -174,13 +174,27 @@ export function TodayTimeline() {
     const scroller = getScrollParent(root)
     if (!scroller) return
     const firstTimedStart = timed.length ? Math.min(...timed.map((t) => t.startMin)) : null
-    const refMin = isToday ? nowMin : (firstTimedStart ?? 8 * 60)
+    // 基準の分（refMin）と、可視域内での基準位置（上からの割合 anchorRatio）を決める:
+    //   - 今日 / 予定のある日: 現在時刻 or 最初の予定を上から約4割の位置に。
+    //   - 予定のない日: 朝7時を上端付近に置く（早朝の空白から始まって見えるのを防ぐ）。
+    let refMin: number
+    let anchorRatio: number
+    if (isToday) {
+      refMin = nowMin
+      anchorRatio = 0.4
+    } else if (firstTimedStart != null) {
+      refMin = firstTimedStart
+      anchorRatio = 0.4
+    } else {
+      refMin = 7 * 60
+      anchorRatio = 0.08
+    }
     // 軸の上端をスクロール座標に直し（allday チップ行の高さぶんのオフセットを吸収）、基準分の位置を出す。
     const axisRect = axis.getBoundingClientRect()
     const scRect = scroller.getBoundingClientRect()
     const axisTopInScroll = axisRect.top - scRect.top + scroller.scrollTop
     const refTop = axisTopInScroll + ((refMin - winStart) / 60) * HOUR_PX
-    scroller.scrollTop = Math.max(0, refTop - scroller.clientHeight * 0.4) // ブラウザが上限もクランプする
+    scroller.scrollTop = Math.max(0, refTop - scroller.clientHeight * anchorRatio) // ブラウザが上限もクランプする
     scrolledForDateRef.current = selectedDate
   }, [events, selectedDate, isToday, nowMin, timed, winStart])
 

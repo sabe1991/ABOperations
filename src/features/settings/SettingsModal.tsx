@@ -146,7 +146,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
           </p>
           <label className="settings__row">
-            <span>週の開始曜日（今月カレンダー）</span>
+            <span>週の開始曜日</span>
             <select
               value={weekStart}
               onChange={(e) => setWeekStart(e.target.value === '1' ? 1 : 0)}

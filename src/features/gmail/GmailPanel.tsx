@@ -87,7 +87,7 @@ export function GmailPanel() {
     return (
       <div className="gmail__enable">
         <p className="panel__note">
-          この端末では Gmail は表示していません。有効にすると受信トレイの未読を表示します。
+          この端末では Gmail は表示していません。有効にすると受信トレイのメールを表示します。
         </p>
         <button
           className="btn btn--small btn--primary"

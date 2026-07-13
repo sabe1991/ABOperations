@@ -1045,16 +1045,12 @@ body {
 
 /* クイック追加フォーム */
 .tasks__add {
+  /* 入力・「今日」チェック・追加ボタンを1行に並べる（縦スペース節約）。幅が足りなければ折り返す。 */
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 0.9rem;
-}
-.tasks__add-row {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
 }
 .tasks__add-check {
   display: inline-flex;
