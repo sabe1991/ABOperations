@@ -25,10 +25,10 @@ import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
 import { PanelLink } from './PanelLink'
 
-// ヘッダー中央に出す今日の日付（例:「7月13日 (日)」）。
+// ヘッダー中央に出す今日の日付（例:「2026年7月13日 (日)」）。
 function formatHeaderDate(d: Date): string {
   const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
-  return `${d.getMonth() + 1}月${d.getDate()}日 (${weekday})`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${weekday})`
 }
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
@@ -247,7 +247,10 @@ export default function App() {
           </section>
           {isWide && (
             <section className="panel panel--month">
-              <h2 className="panel__title">カレンダー</h2>
+              <div className="panel__head">
+                <h2 className="panel__title">カレンダー</h2>
+                <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
+              </div>
               <div className="panel__body">
                 <MonthCalendar />
               </div>

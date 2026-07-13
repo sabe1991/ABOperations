@@ -184,8 +184,8 @@ body {
   white-space: nowrap;
   pointer-events: none; /* 中央表示はクリックを奪わない（背後の操作を妨げない） */
 }
-/* 狭い画面ではタイトル・設定と干渉しうるので中央の日付は隠す。 */
-@media (max-width: 560px) {
+/* 狭い画面ではタイトル・設定と干渉しうるので中央の日付は隠す（年入りで少し長いため広めに）。 */
+@media (max-width: 640px) {
   .app__date {
     display: none;
   }
@@ -576,12 +576,6 @@ body {
   color: var(--primary);
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 10%, transparent);
-}
-/* カレンダーのツールバー右側（Google カレンダーを開く＋＋予定）をまとめる。 */
-.calendar__toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
 }
 .panel__note {
   color: var(--text-muted);

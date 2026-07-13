@@ -19,7 +19,6 @@ import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
 import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
-import { PanelLink } from '../../PanelLink'
 
 // 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
 type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
@@ -170,19 +169,16 @@ export function CalendarPanel() {
 
   return (
     <div className="calendar" ref={rootRef}>
-      {/* 見出しと右側の操作（Google カレンダーを開く・＋予定）を同じ行に並べる（両端揃え）。 */}
+      {/* 見出しと「＋予定」ボタンを同じ行に並べる（両端揃え）。 */}
       <div className="calendar__toolbar">
         <h2 className="panel__title">今後の予定</h2>
-        <div className="calendar__toolbar-actions">
-          <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
-          <button
-            className="btn btn--small btn--primary"
-            onClick={() => openCreate(null)}
-            disabled={!calendars || calendars.length === 0}
-          >
-            ＋ 予定
-          </button>
-        </div>
+        <button
+          className="btn btn--small btn--primary"
+          onClick={() => openCreate(null)}
+          disabled={!calendars || calendars.length === 0}
+        >
+          ＋ 予定
+        </button>
       </div>
 
       <div className="calendar__scroll">
