@@ -28,6 +28,7 @@ import { SettingsModal } from './features/settings/SettingsModal'
 import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
 import { applyUpdate, useNeedRefresh } from './pwaUpdate'
+import { gmailLink } from './features/gmail/gmailLink'
 import { PanelLink } from './PanelLink'
 import { handleTablistKeyDown } from './roving'
 
@@ -338,7 +339,7 @@ export default function App() {
           >
             <div className="panel__head">
               <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
-              {gmailActive && <PanelLink href="https://mail.google.com/" label="Gmail を開く" />}
+              {gmailActive && <PanelLink {...gmailLink()} label="Gmail を開く" />}
             </div>
             <div className="panel__body">
               <ErrorBoundary label={gmailActive ? 'メール' : 'ニュース'}>

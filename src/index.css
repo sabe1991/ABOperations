@@ -1701,6 +1701,13 @@ body {
 .sheet__date {
   margin-top: 0.2rem;
 }
+/* 編集シート内の補足案内（例: タスクは日付単位・#9）。控えめな小さめ文字。 */
+.sheet__hint {
+  margin-top: 0.6rem;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
 .sheet__buttons {
   display: flex;
   justify-content: flex-end;

@@ -3,6 +3,7 @@
 // 出す意味が薄いため・ユーザー要望）。グリッドの左上は今週の開始曜日、そこから5週=35セル。
 // 今週の中で今日より前の日は薄く・クリック不可にする。今日以降はクリックで予定パネルをその日へ。
 // 予定のある日には小さなドットを付ける（読み取り専用）。
+import { useRef, useState } from 'react'
 import { useMonthEventDays } from './useCalendarEvents'
 import { useWeekStart } from '../settings/displayPrefs'
 import { requestScrollToDate } from './scrollTarget'
@@ -49,6 +50,70 @@ export function MonthCalendar() {
   // 5週×7日を週ごとの行に分割する（グリッドの ARIA 行構造のため）。
   const weeks: Date[][] = Array.from({ length: 5 }, (_, w) => cells.slice(w * 7, w * 7 + 7))
 
+  // --- 矢印キーでの日移動（WAI-ARIA グリッドパターン・ロービングタブインデックス） ---
+  // 過去日（今日より前）はクリックできない＝フォーカス対象外。今日の位置は週内オフセットに一致する。
+  const todayIdx = daysFromWeekStart
+  const isPastIdx = (i: number): boolean => fmt(cells[i]) < todayStr
+  const isFocusableIdx = (i: number): boolean => i >= 0 && i <= 34 && !isPastIdx(i)
+  // Tab でカレンダーに入ったとき最初に focus されるセル（＝ロービングの起点）。
+  // 既定は選択日。選択日がグリッド外/過去なら今日へ寄せる。
+  const selectedIdx = cells.findIndex((d) => fmt(d) === selectedStr)
+  const defaultIdx = isFocusableIdx(selectedIdx) ? selectedIdx : todayIdx
+  // 矢印キーで動かした現在のフォーカス位置。未操作(null)の間は defaultIdx を使う。
+  const [focusIdx, setFocusIdx] = useState<number | null>(null)
+  const tabbableIdx = focusIdx != null && isFocusableIdx(focusIdx) ? focusIdx : defaultIdx
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  // 指定 index のセル（フォーカス可能なボタン）に DOM フォーカスを移す。
+  function focusCell(i: number): void {
+    gridRef.current?.querySelector<HTMLButtonElement>(`[data-idx="${i}"]`)?.focus()
+  }
+  // 行 [start, end] の中で最初/最後のフォーカス可能セルを探す（Home/End 用）。
+  function firstFocusableInRow(start: number, end: number): number | null {
+    for (let i = start; i <= end; i++) if (isFocusableIdx(i)) return i
+    return null
+  }
+  function lastFocusableInRow(start: number, end: number): number | null {
+    for (let i = end; i >= start; i--) if (isFocusableIdx(i)) return i
+    return null
+  }
+
+  function handleGridKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
+    const cur = tabbableIdx
+    let target: number | null = null
+    switch (e.key) {
+      case 'ArrowRight':
+        target = cur + 1
+        break
+      case 'ArrowLeft':
+        target = cur - 1
+        break
+      case 'ArrowDown':
+        target = cur + 7
+        break
+      case 'ArrowUp':
+        target = cur - 7
+        break
+      case 'Home': {
+        const rowStart = Math.floor(cur / 7) * 7
+        target = firstFocusableInRow(rowStart, rowStart + 6)
+        break
+      }
+      case 'End': {
+        const rowStart = Math.floor(cur / 7) * 7
+        target = lastFocusableInRow(rowStart, rowStart + 6)
+        break
+      }
+      default:
+        return
+    }
+    // 過去日・範囲外へは移動しない（選択できないため）。移動の有無に関わらず既定スクロールは抑止。
+    e.preventDefault()
+    if (target == null || !isFocusableIdx(target)) return
+    setFocusIdx(target)
+    focusCell(target)
+  }
+
   return (
     <div className="month">
       {/* role="grid" は行(role="row")→セル(role="gridcell"/columnheader) の入れ子を要求するが、
@@ -60,6 +125,8 @@ export function MonthCalendar() {
         role="grid"
         aria-label={`${rangeLabel} のカレンダー`}
         aria-busy={isLoading || undefined}
+        ref={gridRef}
+        onKeyDown={handleGridKeyDown}
       >
         <div className="month__row" role="row">
           {Array.from({ length: 7 }, (_, i) => {
@@ -113,8 +180,12 @@ export function MonthCalendar() {
                     <button
                       type="button"
                       className={cls}
+                      // 矢印キーで移動する範囲（#40）。選択中セルだけ Tab 順に入れ、他は矢印キーで辿る。
+                      data-idx={idx}
+                      tabIndex={idx === tabbableIdx ? 0 : -1}
                       // クリックでタイムラインの表示日を切り替え、予定リストもその日へスクロールする。
                       onClick={() => {
+                        setFocusIdx(idx)
                         setSelectedDate(ds)
                         requestScrollToDate(ds)
                       }}

@@ -1,13 +1,24 @@
 // パネル見出しの右上に置く「外部サービスを開く」小さなリンクボタン。
-// 予定→Google カレンダー / タスク→Google タスク / メール→Gmail を新規タブで開く。
-// 新規タブ＋rel="noopener noreferrer" で開く（参照元・window.opener を渡さない）。
-export function PanelLink({ href, label }: { href: string; label: string }) {
+// 予定→Google カレンダー / タスク→Google タスク / メール→Gmail を開く。
+// 既定は新規タブ＋rel="noopener noreferrer"（参照元・window.opener を渡さない）。
+// newTab=false のときは同一コンテキストで遷移する（スマホでアプリを起動する intent:// や
+// googlegmail:// は、新規タブにすると空白タブが残るため target/rel を付けない）。
+export function PanelLink({
+  href,
+  label,
+  newTab = true,
+}: {
+  href: string
+  label: string
+  newTab?: boolean
+}) {
   return (
     <a
       className="panel__link"
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      // 新規タブのときだけ target/rel を付ける（アプリ起動 URL では付けない）。
+      target={newTab ? '_blank' : undefined}
+      rel={newTab ? 'noopener noreferrer' : undefined}
       title={label}
       aria-label={label}
     >
