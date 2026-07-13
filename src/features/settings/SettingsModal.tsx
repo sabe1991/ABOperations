@@ -1,8 +1,7 @@
-// 設定モーダル。4つの区画をまとめる:
-//  1. アカウント / ログアウト（ログイン中のメール表示・サインアウト）
-//  2. この端末の表示設定（Gmail の表示 ON/OFF。端末ローカル）
-//  3. 接続状態 / 再接続（トークン取得時刻・再接続ボタン）
-//  4. アプリ情報（ビルド版＝コミットハッシュ・ビルド日時）
+// 設定モーダル。項目が増えてきたので、区画をタブで分けて一望性を上げる:
+//  - 表示     … この端末の表示設定（テーマ・Gmail 表示・出典名・週開始・天気の地点。端末ローカル）
+//  - アカウント … ログイン中のメール表示・サインアウト / 接続状態・再接続
+//  - 情報     … アプリ情報（ビルド版＝コミットハッシュ・ビルド日時）
 
 import { useState } from 'react'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
@@ -23,6 +22,14 @@ import { geocodeLocation } from '../weather/api'
 import type { GeocodeResult } from '../weather/api'
 import { setWeatherLocation, useWeatherLocation } from '../weather/location'
 
+// 設定タブの識別子と見出し。
+type SettingsTab = 'display' | 'account' | 'about'
+const TABS: { key: SettingsTab; label: string }[] = [
+  { key: 'display', label: '表示' },
+  { key: 'account', label: 'アカウント' },
+  { key: 'about', label: '情報' },
+]
+
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { needsReconnect, acquiredAt, grantedScopes } = useAuth()
   const { data: email, isLoading: emailLoading } = useAccountEmail()
@@ -33,6 +40,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 開いている区画（既定は「表示」＝一番よく触る端末表示設定）。
+  const [activeTab, setActiveTab] = useState<SettingsTab>('display')
 
   function handleLogout() {
     // 確認なしで即実行しない: 誤タップ防止に確認を挟む
@@ -102,85 +111,112 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
+        {/* エラーはどのタブの操作でも起こりうるので、タブより上に常時表示する。 */}
         {error && <p className="welcome__error">{error}</p>}
 
-        {/* 1. アカウント / ログアウト */}
-        <section className="settings__section">
-          <h3 className="settings__heading">アカウント</h3>
-          <p className="settings__value">{emailLoading ? '取得中…' : email || '（不明）'}</p>
-          <button className="btn btn--small" onClick={handleLogout} disabled={busy}>
-            ログアウト
-          </button>
-        </section>
-
-        {/* 2. この端末の表示設定 */}
-        <section className="settings__section">
-          <h3 className="settings__heading">この端末の表示</h3>
-          <label className="settings__row">
-            <span>配色テーマ（明るさ）</span>
-            <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
-              <option value="system">端末の設定に合わせる</option>
-              <option value="light">ライト（明るい）</option>
-              <option value="dark">ダーク（暗い）</option>
-            </select>
-          </label>
-          <label className="settings__row">
-            <span>メール（Gmail）を表示</span>
-            <input
-              type="checkbox"
-              checked={gmailEnabled && gmailHasScope}
-              disabled={busy}
-              onChange={handleToggleGmail}
-            />
-          </label>
-          <label className="settings__row">
-            <span>予定・タスクの出典名を表示</span>
-            <input
-              type="checkbox"
-              checked={showSourceLabels}
-              onChange={(e) => setShowSourceLabels(e.target.checked)}
-            />
-          </label>
-          <p className="settings__note">
-            ON
-            にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
-          </p>
-          <label className="settings__row">
-            <span>週の開始曜日</span>
-            <select
-              value={weekStart}
-              onChange={(e) => setWeekStart(e.target.value === '1' ? 1 : 0)}
+        {/* 区分タブ（表示 / アカウント / 情報）。 */}
+        <div className="settings__tabs" role="tablist" aria-label="設定の区分">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={activeTab === t.key}
+              className={`settings__tab${activeTab === t.key ? ' settings__tab--active' : ''}`}
+              onClick={() => setActiveTab(t.key)}
             >
-              <option value={0}>日曜始まり</option>
-              <option value={1}>月曜始まり</option>
-            </select>
-          </label>
-          <p className="settings__note">
-            これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
-          </p>
-          <WeatherLocationSetting />
-        </section>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        {/* 3. 接続状態 / 再接続 */}
-        <section className="settings__section">
-          <h3 className="settings__heading">接続状態</h3>
-          <p className="settings__value">
-            {needsReconnect
-              ? '接続が切れています'
-              : `トークン取得: ${acquiredText}（約1時間で失効）`}
-          </p>
-          <button className="btn btn--small" onClick={handleReconnect} disabled={busy}>
-            {busy ? '接続中…' : '再接続'}
-          </button>
-        </section>
+        <div className="settings__panel">
+          {/* 表示: この端末の表示設定 */}
+          {activeTab === 'display' && (
+            <section className="settings__section">
+              <label className="settings__row">
+                <span>配色テーマ（明るさ）</span>
+                <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+                  <option value="system">端末の設定に合わせる</option>
+                  <option value="light">ライト（明るい）</option>
+                  <option value="dark">ダーク（暗い）</option>
+                </select>
+              </label>
+              <label className="settings__row">
+                <span>メール（Gmail）を表示</span>
+                <input
+                  type="checkbox"
+                  checked={gmailEnabled && gmailHasScope}
+                  disabled={busy}
+                  onChange={handleToggleGmail}
+                />
+              </label>
+              <p className="settings__note">
+                OFF にすると、メール枠の代わりにニュース（Qiita / Hacker News）を表示します。
+              </p>
+              <label className="settings__row">
+                <span>予定・タスクの出典名を表示</span>
+                <input
+                  type="checkbox"
+                  checked={showSourceLabels}
+                  onChange={(e) => setShowSourceLabels(e.target.checked)}
+                />
+              </label>
+              <p className="settings__note">
+                ON
+                にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
+              </p>
+              <label className="settings__row">
+                <span>週の開始曜日</span>
+                <select
+                  value={weekStart}
+                  onChange={(e) => setWeekStart(e.target.value === '1' ? 1 : 0)}
+                >
+                  <option value={0}>日曜始まり</option>
+                  <option value={1}>月曜始まり</option>
+                </select>
+              </label>
+              <p className="settings__note">
+                これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
+              </p>
+              <WeatherLocationSetting />
+            </section>
+          )}
 
-        {/* 4. アプリ情報 */}
-        <section className="settings__section">
-          <h3 className="settings__heading">アプリ情報</h3>
-          <p className="settings__value settings__value--mono">
-            版 {__COMMIT_HASH__} / ビルド {buildText}
-          </p>
-        </section>
+          {/* アカウント: ログイン情報・ログアウト / 接続状態・再接続 */}
+          {activeTab === 'account' && (
+            <>
+              <section className="settings__section">
+                <h3 className="settings__heading">アカウント</h3>
+                <p className="settings__value">{emailLoading ? '取得中…' : email || '（不明）'}</p>
+                <button className="btn btn--small" onClick={handleLogout} disabled={busy}>
+                  ログアウト
+                </button>
+              </section>
+
+              <section className="settings__section">
+                <h3 className="settings__heading">接続状態</h3>
+                <p className="settings__value">
+                  {needsReconnect
+                    ? '接続が切れています'
+                    : `トークン取得: ${acquiredText}（約1時間で失効）`}
+                </p>
+                <button className="btn btn--small" onClick={handleReconnect} disabled={busy}>
+                  {busy ? '接続中…' : '再接続'}
+                </button>
+              </section>
+            </>
+          )}
+
+          {/* 情報: アプリのビルド版 */}
+          {activeTab === 'about' && (
+            <section className="settings__section">
+              <h3 className="settings__heading">アプリ情報</h3>
+              <p className="settings__value settings__value--mono">
+                版 {__COMMIT_HASH__} / ビルド {buildText}
+              </p>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   )

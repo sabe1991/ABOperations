@@ -18,6 +18,7 @@ import { GmailPanel } from './features/gmail/GmailPanel'
 import { NewsPanel } from './features/news/NewsPanel'
 import { WeatherPanel } from './features/weather/WeatherPanel'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
+import { useLastUpdated } from './useLastUpdated'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { useGmailEnabled } from './features/gmail/enabled'
@@ -30,6 +31,11 @@ import { PanelLink } from './PanelLink'
 function formatHeaderDate(d: Date): string {
   const weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${weekday})`
+}
+
+// 最終更新の時刻表示（時:分）。日付は当日前提の想定なので時刻だけ出す。
+function formatUpdatedTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
 }
 
 // パネルの識別子。スマホのタブ切替に使う（PC では3枚とも並べるので未使用）。
@@ -60,6 +66,8 @@ export default function App() {
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
   const overdueCount = useOverdueCount()
+  // データの最終更新時刻（各パネルの取得成功のうち一番新しいもの）。ヘッダー右に表示する。
+  const lastUpdated = useLastUpdated()
   const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
@@ -181,6 +189,12 @@ export default function App() {
         {/* タイトルバー中央に今日の日付を表示（左右の要素幅に依らず中央に置くため絶対配置）。 */}
         <div className="app__date">{formatHeaderDate(new Date())}</div>
         <div className="app__headerRight">
+          {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。 */}
+          {lastUpdated > 0 && (
+            <span className="app__updated" title="データの最終更新時刻（R キーで更新）">
+              最終更新 {formatUpdatedTime(lastUpdated)}
+            </span>
+          )}
           <ConnectionStatus
             needsReconnect={needsReconnect}
             connecting={connecting}
