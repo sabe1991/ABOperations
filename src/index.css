@@ -777,11 +777,17 @@ body {
 .timeline__event-time {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
+  /* 短い予定でも縮まず自然な高さを保ち、色枠からはみ出せるようにする（下記 title と対で重要）。
+     これが無いと flex がコンテンツを枠内に押し込め、タイトル自身の overflow:hidden で切れてしまう。 */
+  flex-shrink: 0;
 }
 .timeline__event-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* flex による圧縮を止める。これで短い予定ではタイトルが色枠の下へ“はみ出す”（親 --short は
+     overflow:visible なので見える）。圧縮を許すと枠内に収められ overflow:hidden で縦に切れる。 */
+  flex-shrink: 0;
 }
 .timeline__now {
   position: absolute;
