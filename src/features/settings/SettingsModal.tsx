@@ -18,6 +18,13 @@ import {
 } from './displayPrefs'
 import type { Theme } from './displayPrefs'
 import { useAccountEmail } from './useAccountEmail'
+import {
+  MAX_SELECTED_SOURCES,
+  NEWS_SOURCES,
+  setSelectedNewsSources,
+  useSelectedNewsSources,
+} from '../news/newsSource'
+import type { NewsSource } from '../news/newsSource'
 import { geocodeLocation } from '../weather/api'
 import type { GeocodeResult } from '../weather/api'
 import { setWeatherLocation, useWeatherLocation } from '../weather/location'
@@ -151,8 +158,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 />
               </label>
               <p className="settings__note">
-                OFF にすると、メール枠の代わりにニュース（Qiita / Hacker News）を表示します。
+                OFF にすると、メール枠の代わりにニュースを表示します。表示するソースは下で選べます。
               </p>
+              <NewsSourceSetting />
               <label className="settings__row">
                 <span>予定・タスクの出典名を表示</span>
                 <input
@@ -218,6 +226,58 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ニュースソースの選択（最大3つ）。チェックした順にニュースパネルのタブに並ぶ。
+// 全ソースとも APIキー不要・CORS 対応・JSON 直取り（news/api.ts 参照）。
+function NewsSourceSetting() {
+  const selected = useSelectedNewsSources()
+  const atMax = selected.length >= MAX_SELECTED_SOURCES
+
+  function toggle(key: NewsSource, checked: boolean) {
+    if (checked) {
+      if (selected.includes(key) || atMax) return
+      setSelectedNewsSources([...selected, key]) // 選んだ順にタブへ並べる
+    } else {
+      if (selected.length <= 1) return // 最低1つは残す
+      setSelectedNewsSources(selected.filter((k) => k !== key))
+    }
+  }
+
+  return (
+    <div className="settings__news">
+      <div className="settings__row">
+        <span>ニュースのソース（最大{MAX_SELECTED_SOURCES}つ）</span>
+        <span className="settings__value">
+          {selected.length}/{MAX_SELECTED_SOURCES}
+        </span>
+      </div>
+      <ul className="settings__news-list">
+        {NEWS_SOURCES.map((s) => {
+          const checked = selected.includes(s.key)
+          // 上限到達時は未選択のものだけ無効化。最後の1つは外せないよう無効化。
+          const disabled = (!checked && atMax) || (checked && selected.length <= 1)
+          return (
+            <li key={s.key} className="settings__news-item">
+              <label className="settings__news-label">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={(e) => toggle(s.key, e.target.checked)}
+                />
+                <span className="settings__news-name">{s.label}</span>
+                <span className="settings__news-desc">{s.description}</span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="settings__note">
+        チェックした順にニュースパネル上部のタブとして並びます（この端末だけに保存）。
+      </p>
     </div>
   )
 }

@@ -3,15 +3,12 @@
 // 各記事はクリックで別タブに開く（読むだけの一覧なので操作は最小限）。
 // ※ Gmail を再表示したいときは設定（⚙）の「メール（Gmail）を表示」から切り替える。
 import { useNews } from './useNews'
-import { setNewsSource, useNewsSource } from './newsSource'
-import type { NewsSource } from './newsSource'
+import { NEWS_SOURCES, setNewsSource, useNewsSource, useSelectedNewsSources } from './newsSource'
 import type { NewsItem } from './api'
 import { ListSkeleton } from '../../Skeleton'
 
-const SOURCES: { key: NewsSource; label: string }[] = [
-  { key: 'qiita', label: 'Qiita' },
-  { key: 'hn', label: 'Hacker News' },
-]
+// キー → タブ表示名の対応表（カタログから引く）。
+const LABELS = new Map(NEWS_SOURCES.map((s) => [s.key, s.label]))
 
 // 投稿時刻の相対表示（例: たった今 / 3分前 / 5時間前 / 2日前）。細い列に収まる短い形にする。
 function formatRelative(dateMs: number): string {
@@ -29,25 +26,30 @@ function formatRelative(dateMs: number): string {
 }
 
 export function NewsPanel() {
-  const source = useNewsSource()
+  // 設定で選んだソース（最大3つ）をタブに出す。表示中ソースが選択外なら先頭に丸める。
+  const selected = useSelectedNewsSources()
+  const rawSource = useNewsSource()
+  const source = selected.includes(rawSource) ? rawSource : selected[0]
   const { data, isLoading, isError, error } = useNews(source, true)
 
   return (
     <div className="news">
-      {/* ソース切替タブ（Qiita / Hacker News）。 */}
-      <div className="news__tabs" role="tablist" aria-label="ニュースソース切替">
-        {SOURCES.map((s) => (
-          <button
-            key={s.key}
-            role="tab"
-            aria-selected={source === s.key}
-            className={`news__tab${source === s.key ? ' news__tab--active' : ''}`}
-            onClick={() => setNewsSource(s.key)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      {/* ソース切替タブ（設定で選んだソースだけ出す。1つだけならタブは省く）。 */}
+      {selected.length > 1 && (
+        <div className="news__tabs" role="tablist" aria-label="ニュースソース切替">
+          {selected.map((key) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={source === key}
+              className={`news__tab${source === key ? ' news__tab--active' : ''}`}
+              onClick={() => setNewsSource(key)}
+            >
+              {LABELS.get(key) ?? key}
+            </button>
+          ))}
+        </div>
+      )}
 
       <NewsList data={data} isLoading={isLoading} isError={isError} error={error} />
     </div>
