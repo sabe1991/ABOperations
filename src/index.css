@@ -600,6 +600,13 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  /* パネル内をスクロールしても終日予定は上部に固定して見えるようにする（ユーザー要望）。
+     スクロール領域は .panel__body なので、その上端に貼り付ける。背景で下の軸を隠す。 */
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--surface);
+  padding-bottom: 4px;
 }
 .timeline__chip {
   font-size: var(--fs-2xs);
@@ -1419,6 +1426,16 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.9rem;
+}
+/* シート左端の削除ボタン（危険操作なので朱色。キャンセル/保存とは左右に分ける）。 */
+.sheet__btn-delete {
+  margin-right: auto;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+.sheet__btn-delete:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 .sheet__times {
   display: flex;

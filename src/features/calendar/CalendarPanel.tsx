@@ -81,7 +81,6 @@ export function CalendarPanel() {
   // シートを開くたびに増やす通し番号。EventSheet の key に使い、開き直し・対象差し替え時に
   // 必ず再マウントさせる（フォーム state が前の対象のまま残って別予定に保存されるのを防ぐ）。
   const [sheetSerial, setSheetSerial] = useState(0)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // 作成シートを開く（prefill 無し=既定、有り=タイムラインのドラッグ作成）。
   function openCreate(prefill: CreatePrefill) {
@@ -89,11 +88,10 @@ export function CalendarPanel() {
     setSheet('create')
     setSheetSerial((n) => n + 1)
   }
-  // 編集シートを開く。
+  // 予定のシートを開く。書き込み可能なら編集、読み取り専用なら詳細表示（場所・メモも見られる）。
   function openEdit(event: CalendarEvent) {
     setCreatePrefill(null)
     setSheet(event)
-    setExpandedId(null)
     setSheetSerial((n) => n + 1)
   }
 
@@ -160,7 +158,7 @@ export function CalendarPanel() {
 
   function handleDelete(event: CalendarEvent) {
     del.mutate(event)
-    setExpandedId(null)
+    setSheet(null)
     showSnack(
       `「${event.title}」を削除しました${event.isRecurringInstance ? '（この回のみ）' : ''}`,
       () => restore.mutate(event),
@@ -187,10 +185,7 @@ export function CalendarPanel() {
           isLoading={isLoading}
           isError={isError}
           error={error}
-          expandedId={expandedId}
-          onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-          onEdit={openEdit}
-          onDelete={handleDelete}
+          onSelect={openEdit}
         />
       </div>
 
@@ -210,8 +205,11 @@ export function CalendarPanel() {
           mode="edit"
           event={sheet}
           calendars={calendars ?? []}
+          // 書き込み権限のない予定は読み取り専用で詳細（場所・メモ含む）を表示する。
+          readOnly={!sheet.writable}
           onClose={() => setSheet(null)}
           onSubmit={(draft) => handleEditSave(sheet, draft)}
+          onDelete={sheet.writable ? () => handleDelete(sheet) : undefined}
         />
       )}
 
@@ -234,19 +232,13 @@ function EventList({
   isLoading,
   isError,
   error,
-  expandedId,
-  onToggleExpand,
-  onEdit,
-  onDelete,
+  onSelect,
 }: {
   events: CalendarEvent[] | undefined
   isLoading: boolean
   isError: boolean
   error: unknown
-  expandedId: string | null
-  onToggleExpand: (id: string) => void
-  onEdit: (ev: CalendarEvent) => void
-  onDelete: (ev: CalendarEvent) => void
+  onSelect: (ev: CalendarEvent) => void
 }) {
   // 出典名（カレンダー名 / 主カレンダーはメールアドレス）を表示するかは端末ローカルの設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
@@ -267,52 +259,29 @@ function EventList({
         <section key={dayStr} className="calendar__day" data-date={dayStr}>
           <h3 className="calendar__day-header">{formatDayHeader(dayStr)}</h3>
           <ul className="calendar__events">
-            {dayEvents.map((ev) => {
-              const canEdit = ev.writable && !ev.pending
-              return (
-                <li key={`${ev.calendarId}:${ev.id}`} className="calendar__event-wrap">
-                  <button
-                    className="calendar__event"
-                    // 読み取り専用の予定もタップで展開し、長いタイトルを全文表示できるようにする
-                    // （編集・削除は下の canEdit のときだけ出す）。追加直後(pending)は操作不可。
-                    onClick={() => !ev.pending && onToggleExpand(ev.id)}
-                    disabled={ev.pending}
-                    aria-expanded={expandedId === ev.id}
-                  >
-                    <span className="calendar__time">{formatTime(ev)}</span>
-                    <span
-                      className="calendar__dot"
-                      style={{ backgroundColor: ev.calendarColor }}
-                      aria-hidden
-                    />
-                    <span className="calendar__title-cell">
-                      <span className="calendar__title">{ev.title}</span>
-                      {ev.location && (
-                        <span className="calendar__location">📍 {ev.location}</span>
-                      )}
-                    </span>
-                    {showLabels && <span className="calendar__cal-name">{ev.calendarName}</span>}
-                  </button>
-
-                  {expandedId === ev.id && canEdit && (
-                    <div className="tasks__actions">
-                      {ev.isRecurringInstance && (
-                        <span className="calendar__recur-note">繰り返し予定（この回のみ）</span>
-                      )}
-                      <button className="tasks__action" onClick={() => onEdit(ev)}>
-                        編集
-                      </button>
-                      <button
-                        className="tasks__action tasks__action--danger"
-                        onClick={() => onDelete(ev)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  )}
-                </li>
-              )
-            })}
+            {dayEvents.map((ev) => (
+              <li key={`${ev.calendarId}:${ev.id}`} className="calendar__event-wrap">
+                <button
+                  className="calendar__event"
+                  // 予定をタップすると詳細シートを開く（書き込み可能なら編集、読み取り専用なら
+                  // 場所・メモも見られる詳細表示）。追加直後(pending)は操作不可。
+                  onClick={() => !ev.pending && onSelect(ev)}
+                  disabled={ev.pending}
+                >
+                  <span className="calendar__time">{formatTime(ev)}</span>
+                  <span
+                    className="calendar__dot"
+                    style={{ backgroundColor: ev.calendarColor }}
+                    aria-hidden
+                  />
+                  <span className="calendar__title-cell">
+                    <span className="calendar__title">{ev.title}</span>
+                    {ev.location && <span className="calendar__location">📍 {ev.location}</span>}
+                  </span>
+                  {showLabels && <span className="calendar__cal-name">{ev.calendarName}</span>}
+                </button>
+              </li>
+            ))}
           </ul>
         </section>
       ))}
@@ -320,21 +289,27 @@ function EventList({
   )
 }
 
-// 予定の作成・編集ボトムシート。
+// 予定の作成・編集・詳細ボトムシート。
+// readOnly=true（書き込み権限のない予定）のときは入力を無効化し、場所・メモも含めて閲覧だけできる。
+// onDelete があれば（書き込み可能な予定の編集時）フッタに削除ボタンを出す。
 function EventSheet({
   mode,
   event,
   calendars,
   createPrefill,
+  readOnly = false,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   mode: 'create' | 'edit'
   event?: CalendarEvent
   calendars: WritableCalendar[]
   createPrefill?: CreatePrefill
+  readOnly?: boolean
   onClose: () => void
   onSubmit: (draft: EventDraft) => void
+  onDelete?: () => void
 }) {
   // 初期値。編集は既存予定から。作成は既定「次の正時から1時間」だが、
   // タイムラインのドラッグ作成（createPrefill）があればその日付・時刻で上書きする（#17 Phase A）。
@@ -376,6 +351,7 @@ function EventSheet({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (readOnly) return
     const trimmed = title.trim()
     if (!trimmed) return
     if (endDate < startDate) {
@@ -407,9 +383,11 @@ function EventSheet({
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         role="dialog"
-        aria-label={mode === 'create' ? '予定を作成' : '予定を編集'}
+        aria-label={mode === 'create' ? '予定を作成' : readOnly ? '予定の詳細' : '予定を編集'}
       >
-        <h3 className="sheet__title">{mode === 'create' ? '予定を作成' : '予定を編集'}</h3>
+        <h3 className="sheet__title">
+          {mode === 'create' ? '予定を作成' : readOnly ? '予定の詳細' : '予定を編集'}
+        </h3>
 
         <label className="sheet__label" htmlFor="ev-title">
           タイトル
@@ -421,7 +399,8 @@ function EventSheet({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="予定のタイトル"
-          autoFocus
+          disabled={readOnly}
+          autoFocus={!readOnly}
         />
 
         {mode === 'create' && calendars.length > 1 && (
@@ -445,7 +424,12 @@ function EventSheet({
         )}
 
         <label className="sheet__row-check">
-          <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={allDay}
+            onChange={(e) => setAllDay(e.target.checked)}
+            disabled={readOnly}
+          />
           終日
         </label>
 
@@ -460,6 +444,7 @@ function EventSheet({
           // 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
           min={mode === 'create' ? todayStr : undefined}
           onChange={(e) => handleStartDateChange(e.target.value)}
+          disabled={readOnly}
         />
 
         <label className="sheet__label" htmlFor="ev-end-date">
@@ -472,6 +457,7 @@ function EventSheet({
           value={endDate}
           min={startDate}
           onChange={(e) => setEndDate(e.target.value)}
+          disabled={readOnly}
         />
 
         {!allDay && (
@@ -483,6 +469,7 @@ function EventSheet({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                disabled={readOnly}
               />
             </label>
             <label className="sheet__time-field">
@@ -492,6 +479,7 @@ function EventSheet({
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                disabled={readOnly}
               />
             </label>
           </div>
@@ -506,7 +494,8 @@ function EventSheet({
           type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="場所（任意）"
+          placeholder={readOnly ? '（場所なし）' : '場所（任意）'}
+          disabled={readOnly}
         />
 
         <label className="sheet__label" htmlFor="ev-desc">
@@ -517,19 +506,32 @@ function EventSheet({
           className="tasks__add-input sheet__textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="詳細・メモ（任意）"
+          placeholder={readOnly ? '（メモなし）' : '詳細・メモ（任意）'}
           rows={3}
+          disabled={readOnly}
         />
 
         {errorMsg && <p className="welcome__error">{errorMsg}</p>}
 
         <div className="sheet__buttons">
+          {/* 書き込み可能な予定の編集時のみ、削除ボタンを左端に置く。 */}
+          {onDelete && !readOnly && (
+            <button
+              type="button"
+              className="btn btn--small sheet__btn-delete"
+              onClick={onDelete}
+            >
+              削除
+            </button>
+          )}
           <button type="button" className="btn btn--small" onClick={onClose}>
-            キャンセル
+            {readOnly ? '閉じる' : 'キャンセル'}
           </button>
-          <button type="submit" className="btn btn--small btn--primary" disabled={!title.trim()}>
-            {mode === 'create' ? '作成' : '保存'}
-          </button>
+          {!readOnly && (
+            <button type="submit" className="btn btn--small btn--primary" disabled={!title.trim()}>
+              {mode === 'create' ? '作成' : '保存'}
+            </button>
+          )}
         </div>
       </form>
     </div>
