@@ -103,20 +103,10 @@ function layout(timed: { ev: CalendarEvent; startMin: number; endMin: number }[]
   return result
 }
 
-// 要素の「スクロールする祖先」（overflow-y が auto/scroll で実際にスクロール可能な親）を探す。
-function getScrollParent(el: HTMLElement): HTMLElement | null {
-  let p = el.parentElement
-  while (p) {
-    const oy = getComputedStyle(p).overflowY
-    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p
-    p = p.parentElement
-  }
-  return null
-}
-
 export function TodayTimeline() {
   const { data: events, isLoading, isError } = useCalendarEvents()
-  const rootRef = useRef<HTMLDivElement | null>(null)
+  // 時間軸のスクロール領域（この要素だけを内部スクロールさせる。終日チップは外＝固定ヘッダ）。
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const axisRef = useRef<HTMLDivElement | null>(null)
   const nowRef = useRef<HTMLDivElement | null>(null)
   // 直近でスクロールを合わせた表示日。日付が変わったら再スクロールし、同じ日のポーリング再取得では
@@ -168,11 +158,9 @@ export function TodayTimeline() {
   useEffect(() => {
     if (!events) return
     if (scrolledForDateRef.current === selectedDate) return
-    const root = rootRef.current
+    const scroller = scrollRef.current
     const axis = axisRef.current
-    if (!root || !axis) return
-    const scroller = getScrollParent(root)
-    if (!scroller) return
+    if (!scroller || !axis) return
     const firstTimedStart = timed.length ? Math.min(...timed.map((t) => t.startMin)) : null
     // 基準の分（refMin）と、可視域内での基準位置（上からの割合 anchorRatio）を決める:
     //   - 今日 / 予定のある日: 現在時刻 or 最初の予定を上から約4割の位置に。
@@ -249,12 +237,13 @@ export function TodayTimeline() {
     requestCreateEventAt(selectedDate, minToHHmm(startMin), minToHHmm(endMin))
   }
 
-  if (isError) return <p className="panel__note panel__note--error">今日の予定の取得に失敗しました。</p>
+  if (isError)
+    return <p className="panel__note panel__note--error">今日の予定の取得に失敗しました。</p>
   if (isLoading && !events) return <TimelineSkeleton />
   // 今日の予定が0件でも軸は描画する（空き時間ドラッグ作成・初期スクロールを使えるようにするため）。
 
   return (
-    <div className="timeline" ref={rootRef}>
+    <div className="timeline">
       {allDay.length > 0 && (
         <div className="timeline__allday">
           {allDay.map((ev) => {
@@ -286,74 +275,76 @@ export function TodayTimeline() {
           })}
         </div>
       )}
-      <div
-        className="timeline__axis"
-        ref={axisRef}
-        style={{ height: axisHeight }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => setDrag(null)}
-      >
-        {hours.map((h) => {
-          const top = ((h * 60 - winStart) / 60) * HOUR_PX
-          return (
-            <div key={h} className="timeline__hour" style={{ top }}>
-              <span className="timeline__hour-label">{String(h).padStart(2, '0')}:00</span>
-            </div>
-          )
-        })}
-        {placed.map((p) => {
-          const top = ((p.startMin - winStart) / 60) * HOUR_PX
-          const height = Math.max(18, ((p.endMin - p.startMin) / 60) * HOUR_PX - 1)
-          const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
-          const width = `calc((100% - ${GUTTER}px) / ${p.lanes} - 2px)`
-          // 書き込み可能で確定済み（pending でない）予定だけ、クリックで編集シートを開ける（#18）。
-          const editable = p.ev.writable && !p.ev.pending
-          return (
-            <div
-              key={p.ev.id}
-              className={`timeline__event${editable ? ' timeline__event--editable' : ''}`}
-              style={{ top, height, left, width, borderColor: p.ev.calendarColor }}
-              title={`${p.ev.startTimeStr ?? ''} ${p.ev.title}`}
-              onClick={editable ? () => requestEditEvent(p.ev) : undefined}
-              role={editable ? 'button' : undefined}
-              tabIndex={editable ? 0 : undefined}
-              onKeyDown={
-                editable
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        requestEditEvent(p.ev)
+      <div className="timeline__scroll" ref={scrollRef}>
+        <div
+          className="timeline__axis"
+          ref={axisRef}
+          style={{ height: axisHeight }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={() => setDrag(null)}
+        >
+          {hours.map((h) => {
+            const top = ((h * 60 - winStart) / 60) * HOUR_PX
+            return (
+              <div key={h} className="timeline__hour" style={{ top }}>
+                <span className="timeline__hour-label">{String(h).padStart(2, '0')}:00</span>
+              </div>
+            )
+          })}
+          {placed.map((p) => {
+            const top = ((p.startMin - winStart) / 60) * HOUR_PX
+            const height = Math.max(18, ((p.endMin - p.startMin) / 60) * HOUR_PX - 1)
+            const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
+            const width = `calc((100% - ${GUTTER}px) / ${p.lanes} - 2px)`
+            // 書き込み可能で確定済み（pending でない）予定だけ、クリックで編集シートを開ける（#18）。
+            const editable = p.ev.writable && !p.ev.pending
+            return (
+              <div
+                key={p.ev.id}
+                className={`timeline__event${editable ? ' timeline__event--editable' : ''}`}
+                style={{ top, height, left, width, borderColor: p.ev.calendarColor }}
+                title={`${p.ev.startTimeStr ?? ''} ${p.ev.title}`}
+                onClick={editable ? () => requestEditEvent(p.ev) : undefined}
+                role={editable ? 'button' : undefined}
+                tabIndex={editable ? 0 : undefined}
+                onKeyDown={
+                  editable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          requestEditEvent(p.ev)
+                        }
                       }
-                    }
-                  : undefined
-              }
-            >
-              <span className="timeline__event-time">{p.ev.startTimeStr}</span>
-              <span className="timeline__event-title">{p.ev.title}</span>
-            </div>
-          )
-        })}
-        {drag && (
-          <div
-            className="timeline__drag-sel"
-            style={{
-              top: (Math.min(drag.startMin, drag.curMin) / 60) * HOUR_PX,
-              height: Math.max(2, (Math.abs(drag.curMin - drag.startMin) / 60) * HOUR_PX),
-              left: GUTTER,
-            }}
-            aria-hidden
-          />
-        )}
-        {nowVisible && (
-          <div
-            ref={nowRef}
-            className="timeline__now"
-            style={{ top: ((nowMin - winStart) / 60) * HOUR_PX }}
-            aria-label="現在時刻"
-          />
-        )}
+                    : undefined
+                }
+              >
+                <span className="timeline__event-time">{p.ev.startTimeStr}</span>
+                <span className="timeline__event-title">{p.ev.title}</span>
+              </div>
+            )
+          })}
+          {drag && (
+            <div
+              className="timeline__drag-sel"
+              style={{
+                top: (Math.min(drag.startMin, drag.curMin) / 60) * HOUR_PX,
+                height: Math.max(2, (Math.abs(drag.curMin - drag.startMin) / 60) * HOUR_PX),
+                left: GUTTER,
+              }}
+              aria-hidden
+            />
+          )}
+          {nowVisible && (
+            <div
+              ref={nowRef}
+              className="timeline__now"
+              style={{ top: ((nowMin - winStart) / 60) * HOUR_PX }}
+              aria-label="現在時刻"
+            />
+          )}
+        </div>
       </div>
     </div>
   )

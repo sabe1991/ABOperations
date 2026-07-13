@@ -346,13 +346,15 @@ body {
      こうするとスクロールバーが一覧の高さぶんだけになり、固定ヘッダの横まで伸びない
      （本体全体を sticky でスクロールさせる方式だと、バーが固定部の横まで伸びて違和感が出るため）。 */
   .panel--tasks .panel__body,
-  .panel--events .panel__body {
+  .panel--events .panel__body,
+  .panel--timeline .panel__body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
   }
   .panel--tasks .tasks,
-  .panel--events .calendar {
+  .panel--events .calendar,
+  .panel--timeline .timeline {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -595,18 +597,20 @@ body {
   flex-direction: column;
   gap: 0.5rem;
 }
+/* 終日予定チップの帯。時間軸の内部スクロールとは分離した「固定ヘッダ」として上部に留める
+   （スクロールバーは下の時間軸だけにかかる。ユーザー要望）。実際の固定は .timeline を
+   縦フレックスにして .timeline__scroll だけをスクロールさせることで実現する（下の @media）。 */
 .timeline__allday {
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  /* パネル内をスクロールしても終日予定は上部に固定して見えるようにする（ユーザー要望）。
-     スクロール領域は .panel__body なので、その上端に貼り付ける。背景で下の軸を隠す。 */
-  position: sticky;
-  top: 0;
-  z-index: 6;
-  background: var(--surface);
-  padding-bottom: 4px;
+}
+/* 時間軸のスクロール領域。ここだけを内部スクロールさせる。 */
+.timeline__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .timeline__chip {
   font-size: var(--fs-2xs);
