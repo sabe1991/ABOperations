@@ -231,9 +231,9 @@ body {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-/* 狭い画面ではヘッダーが窮屈になるので隠す（中央の日付と同じ方針）。 */
+/* 狭い画面では「最終更新」の語だけ隠し、時刻は残す（スマホでも鮮度が分かるように・#51）。 */
 @media (max-width: 640px) {
-  .app__updated {
+  .app__updated-label {
     display: none;
   }
 }
@@ -260,6 +260,47 @@ body {
   background: color-mix(in srgb, var(--primary) 10%, transparent);
   border-color: var(--primary);
   color: var(--primary);
+}
+/* 手動更新ボタン（#51）。設定ボタンと同じ丸型。取得中は回転＋操作不可にする。 */
+.app__refresh {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.app__refresh:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.app__refresh:disabled {
+  cursor: default;
+}
+.app__refresh--spinning {
+  animation: app-refresh-spin 0.8s linear infinite;
+}
+@keyframes app-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 動きを減らす設定では回転させない（アイコンは無効表示のまま）。 */
+@media (prefers-reduced-motion: reduce) {
+  .app__refresh--spinning {
+    animation: none;
+  }
 }
 .app__main {
   padding: 1.25rem;
@@ -614,6 +655,17 @@ body {
 }
 .panel__note--error {
   color: var(--danger);
+}
+/* 取得エラー/描画エラーの表示（テキストの下に再試行などのボタンを縦に置く・#49/#52）。 */
+.panel__note--error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.panel__error-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* --- 24hタイムライン（密度型の1列目。月カレンダーで選んだ日を表示） --- */

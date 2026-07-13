@@ -19,6 +19,7 @@ import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
 import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
+import { PanelError } from '../../ErrorBoundary'
 
 // 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
 type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
@@ -67,7 +68,7 @@ function formatTime(ev: CalendarEvent): string {
 type Snack = { text: string; undo: (() => void) | null }
 
 export function CalendarPanel() {
-  const { data: events, isLoading, isError, error } = useCalendarEvents()
+  const { data: events, isLoading, isError, error, refetch } = useCalendarEvents()
   const { data: calendars } = useWritableCalendars()
   const create = useCreateEvent()
   const update = useUpdateEvent()
@@ -185,6 +186,7 @@ export function CalendarPanel() {
           isLoading={isLoading}
           isError={isError}
           error={error}
+          onRetry={() => refetch()}
           onSelect={openEdit}
         />
       </div>
@@ -232,12 +234,14 @@ function EventList({
   isLoading,
   isError,
   error,
+  onRetry,
   onSelect,
 }: {
   events: CalendarEvent[] | undefined
   isLoading: boolean
   isError: boolean
   error: unknown
+  onRetry: () => void
   onSelect: (ev: CalendarEvent) => void
 }) {
   // 出典名（カレンダー名 / 主カレンダーはメールアドレス）を表示するかは端末ローカルの設定に従う（既定は非表示）。
@@ -246,7 +250,7 @@ function EventList({
     return <ListSkeleton rows={5} />
   }
   if (isError) {
-    return <p className="panel__note panel__note--error">予定の取得に失敗しました: {String(error)}</p>
+    return <PanelError message="予定の取得に失敗しました" error={error} onRetry={onRetry} />
   }
   if (!events || events.length === 0) {
     return <p className="panel__note">今後の予定はありません。</p>

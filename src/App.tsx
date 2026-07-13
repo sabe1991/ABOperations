@@ -17,8 +17,10 @@ import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
 import { NewsPanel } from './features/news/NewsPanel'
 import { WeatherPanel } from './features/weather/WeatherPanel'
+import { useIsFetching } from '@tanstack/react-query'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useLastUpdated } from './useLastUpdated'
+import { ErrorBoundary } from './ErrorBoundary'
 import { useOverdueCount } from './features/tasks/useTasks'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { useGmailEnabled } from './features/gmail/enabled'
@@ -68,6 +70,8 @@ export default function App() {
   const overdueCount = useOverdueCount()
   // データの最終更新時刻（各パネルの取得成功のうち一番新しいもの）。ヘッダー右に表示する。
   const lastUpdated = useLastUpdated()
+  // 取得中のクエリ数（>0 なら更新ボタンを回転・無効化する）。
+  const fetching = useIsFetching() > 0
   const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
@@ -189,12 +193,25 @@ export default function App() {
         {/* タイトルバー中央に今日の日付を表示（左右の要素幅に依らず中央に置くため絶対配置）。 */}
         <div className="app__date">{formatHeaderDate(new Date())}</div>
         <div className="app__headerRight">
-          {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。 */}
+          {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
+              スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
           {lastUpdated > 0 && (
-            <span className="app__updated" title="データの最終更新時刻（R キーで更新）">
-              最終更新 {formatUpdatedTime(lastUpdated)}
+            <span className="app__updated" title="データの最終更新時刻">
+              <span className="app__updated-label">最終更新 </span>
+              {formatUpdatedTime(lastUpdated)}
             </span>
           )}
+          {/* 手動更新ボタン（全データ再取得）。スマホでは R キーが無いので常設する（#51）。
+              取得中は回転アイコン＋無効化。PC の R キーと同じ invalidateQueries を呼ぶ。 */}
+          <button
+            className={`app__refresh${fetching ? ' app__refresh--spinning' : ''}`}
+            onClick={() => queryClient.invalidateQueries()}
+            disabled={fetching}
+            aria-label="データを更新"
+            title="データを更新"
+          >
+            ↻
+          </button>
           <ConnectionStatus
             needsReconnect={needsReconnect}
             connecting={connecting}
@@ -250,14 +267,18 @@ export default function App() {
             <section className="panel panel--timeline">
               <TimelineHeading />
               <div className="panel__body">
-                <TodayTimeline />
+                <ErrorBoundary label="今日の予定">
+                  <TodayTimeline />
+                </ErrorBoundary>
               </div>
             </section>
           )}
           <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
             {/* 見出し「今後の予定」は「＋予定」ボタンと同じ行にするため CalendarPanel 内で描画する */}
             <div className="panel__body">
-              <CalendarPanel />
+              <ErrorBoundary label="予定">
+                <CalendarPanel />
+              </ErrorBoundary>
             </div>
           </section>
           {isWide && (
@@ -267,7 +288,9 @@ export default function App() {
                 <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
               </div>
               <div className="panel__body">
-                <MonthCalendar />
+                <ErrorBoundary label="カレンダー">
+                  <MonthCalendar />
+                </ErrorBoundary>
               </div>
             </section>
           )}
@@ -277,14 +300,18 @@ export default function App() {
               <PanelLink href="https://tasks.google.com/" label="Google タスクを開く" />
             </div>
             <div className="panel__body">
-              <TasksPanel />
+              <ErrorBoundary label="タスク">
+                <TasksPanel />
+              </ErrorBoundary>
             </div>
           </section>
           {isWide && (
             <section className="panel panel--weather">
               <h2 className="panel__title">天気</h2>
               <div className="panel__body">
-                <WeatherPanel />
+                <ErrorBoundary label="天気">
+                  <WeatherPanel />
+                </ErrorBoundary>
               </div>
             </section>
           )}
@@ -296,7 +323,11 @@ export default function App() {
               <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
               {gmailActive && <PanelLink href="https://mail.google.com/" label="Gmail を開く" />}
             </div>
-            <div className="panel__body">{gmailActive ? <GmailPanel /> : <NewsPanel />}</div>
+            <div className="panel__body">
+              <ErrorBoundary label={gmailActive ? 'メール' : 'ニュース'}>
+                {gmailActive ? <GmailPanel /> : <NewsPanel />}
+              </ErrorBoundary>
+            </div>
           </section>
         </div>
       </main>

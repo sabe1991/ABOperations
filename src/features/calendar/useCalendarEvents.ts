@@ -18,6 +18,19 @@ import { useAuth } from '../../auth/useAuth'
 // カレンダー構成はあまり変わらないので長めに保持する。
 const CALENDAR_LIST_STALE = 30 * 60 * 1000
 
+// 予定取得に使う「選択中カレンダーの署名」。id を並べた文字列で、カレンダーの追加/削除や
+// 表示ON/OFF（selected）が変わると値が変わる。これを queryKey に混ぜることで、構成変更時に
+// 予定・月ドットが確実に取り直される（#54。従来はキー固定で古い集合のまま残ることがあった）。
+function calendarsSignature(
+  calendars: { id: string; selected?: boolean }[] | undefined,
+): string {
+  return (calendars ?? [])
+    .filter((c) => c.selected !== false)
+    .map((c) => c.id)
+    .sort()
+    .join(',')
+}
+
 // 全機能で共有するカレンダー一覧（id・色・権限・selected 等を含む生データ）の共有クエリ（#32）。
 // 予定取得・月ドット・作成先一覧・アカウントメールがこれを参照し、`calendarList` の二重取得を無くす。
 export function useCalendarList() {
@@ -37,7 +50,7 @@ export function useCalendarEvents() {
   // 書き込み(作成/編集/削除)実行中はポーリングを止め、楽観的更新の一瞬を上書きしない。
   const mutating = useIsMutating() > 0
   return useQuery({
-    queryKey: ['calendar', 'upcoming'],
+    queryKey: ['calendar', 'upcoming', calendarsSignature(calendars)],
     queryFn: () => fetchUpcomingEvents(calendars ?? []),
     // ログイン済み・認証切れでない・カレンダー一覧が揃ったときだけ動かす
     enabled: isConnected && !needsReconnect && !!calendars,
@@ -53,7 +66,7 @@ export function useMonthEventDays(gridStartStr: string, gridEndExclusiveStr: str
   const { data: calendars } = useCalendarList()
   const mutating = useIsMutating() > 0
   return useQuery({
-    queryKey: ['calendar', 'monthDays', gridStartStr, gridEndExclusiveStr],
+    queryKey: ['calendar', 'monthDays', gridStartStr, gridEndExclusiveStr, calendarsSignature(calendars)],
     queryFn: () => fetchEventDaysInRange(calendars ?? [], gridStartStr, gridEndExclusiveStr),
     enabled: isConnected && !needsReconnect && !!calendars,
     refetchInterval: mutating ? false : 5 * 60 * 1000,

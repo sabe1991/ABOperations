@@ -7,7 +7,11 @@
 //   - Hacker News  … 技術・スタートアップ系の英語ニュース（Firebase API は鍵なし・完全CORS対応）
 //   - 宇宙ニュース   … 宇宙開発の英語ニュース（Spaceflight News API v4・鍵なし・CORS 対応）
 // 追加する場合は newsSource.ts の NEWS_SOURCES にキー・表示名を足し、ここの fetchNews に分岐を足す。
+import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
 import type { NewsSource } from './newsSource'
+
+// Hacker News の各記事詳細を取る同時実行数の上限。20件を一斉に投げず少数ずつ流す。
+const HN_FETCH_CONCURRENCY = 8
 
 // 画面に渡す整形済みニュース1件。ソース差（Qiita/HN/…）を吸収した共通形。
 export interface NewsItem {
@@ -85,26 +89,28 @@ async function fetchHackerNews(): Promise<NewsItem[]> {
   if (!topRes.ok) throw new Error(`Hacker News の取得に失敗しました (HTTP ${topRes.status})`)
   const ids = ((await topRes.json()) as number[]).slice(0, 20)
 
-  const items = await Promise.all(
-    ids.map(async (id): Promise<NewsItem | null> => {
-      const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
-      if (!r.ok) return null
-      const it = (await r.json()) as HnItem | null
-      if (!it || !it.title) return null
-      return {
-        id: `hn-${it.id}`,
-        // 外部URLが無い投稿（Ask HN 等）はHNのスレッドを開く。
-        title: it.title,
-        url: it.url || `https://news.ycombinator.com/item?id=${it.id}`,
-        author: it.by,
-        points: it.score,
-        comments: it.descendants,
-        dateMs: it.time ? it.time * 1000 : 0,
-      }
-    }),
-  )
-  // 取得に失敗した項目（null）は除き、元のトップ順を保つ。
-  return items.filter((it): it is NewsItem => it !== null)
+  // 各記事の詳細を同時実行数を絞って取得する。1件の瞬断（fetch 失敗）で20件全体を
+  // 落とさないよう、部分失敗を許容して成功分だけ採用する（元のトップ順は保たれる）。
+  const settled = await mapPool(ids, HN_FETCH_CONCURRENCY, async (id): Promise<NewsItem | null> => {
+    const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
+    if (!r.ok) throw new Error(`HN item ${id} の取得に失敗 (HTTP ${r.status})`)
+    const it = (await r.json()) as HnItem | null
+    if (!it || !it.title) return null // タイトルの無い項目（削除済み等）はスキップ
+    return {
+      id: `hn-${it.id}`,
+      // 外部URLが無い投稿（Ask HN 等）はHNのスレッドを開く。
+      title: it.title,
+      url: it.url || `https://news.ycombinator.com/item?id=${it.id}`,
+      author: it.by,
+      points: it.score,
+      comments: it.descendants,
+      dateMs: it.time ? it.time * 1000 : 0,
+    }
+  })
+  // 全件失敗（例: ネットワーク全断）のときだけエラーにして、パネルに再試行を出す。
+  throwIfAllRejected(settled)
+  // 取得できた項目のうち、内容のあるもの（null でない）だけを返す。
+  return fulfilledValues(settled).filter((it): it is NewsItem => it !== null)
 }
 
 // --- Wikipedia（日本語・注目記事）----------------------------------------

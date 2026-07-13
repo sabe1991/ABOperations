@@ -2,9 +2,8 @@
 // 全リストの未完了タスクを「⚠期限切れ/今日/明日/今週/以降/期限なし」の6バケツで表示する。
 // 密度型（≥1200px）ではこのバケツを横並びの多列カラムにし（かんばん風）、狭い幅では縦積みにする。
 // - 完了: 左の丸チェックで即完了。誤タップ対策に画面下部へ「元に戻す」を5秒表示（Undo=reopen）。
-// - 行タップ: 下にアクションバー（明日へ/来週へ/編集/削除）を展開（開くのは常に1行だけ）。
-// - 明日へ/来週へ: 期限を今日基準で変更。移動もスナックバーで Undo できる。
-// - 編集: ボトムシート（下から出る小モーダル）でタイトルと期限を変更。
+// - 行タップ: 予定と同じく編集ボトムシートを直接開く（タイトル・期限を変更）。
+// - 編集シート内: 期限（なし/今日/明日/日付指定）変更と「削除」ができる。
 // - 削除: 即削除し「元に戻す」を表示（Undo=同じ内容で再作成。Tasks に復元APIが無いため）。
 // グループ分けは保存値ではなく毎回 due から導出する（期限変更時に行が即移動する）。
 
@@ -23,6 +22,7 @@ import { useQuickAddFocusSignal } from './quickAddFocus'
 import { useAuth } from '../../auth/useAuth'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
+import { PanelError } from '../../ErrorBoundary'
 
 // 表示用のバケツ（api の TaskGroup とは別に、表示側で due から細かく分ける）。
 type Bucket = 'overdue' | 'today' | 'tomorrow' | 'later' | 'noDue'
@@ -35,21 +35,6 @@ const GROUP_ORDER: { key: Bucket; label: string; variant: string }[] = [
   { key: 'later', label: '以降', variant: 'later' },
   { key: 'noDue', label: '期限なし', variant: 'noDue' },
 ]
-
-// 期限の「移動先」ボタン。getDate はクリック時に評価して今日基準の日付を返す。
-type RescheduleTarget = { label: string; getDate: () => string }
-const TO_TODAY: RescheduleTarget = { label: '今日へ', getDate: () => localTodayStr() }
-const TO_TOMORROW: RescheduleTarget = { label: '明日へ', getDate: () => localDateStrPlusDays(1) }
-const TO_NEXT_WEEK: RescheduleTarget = { label: '来週へ', getDate: () => localNextMondayStr() }
-
-// バケツごとの移動先ボタン。自分と同じ日への無意味な移動は出さない（例: 明日タスクに「明日へ」）。
-const RESCHEDULE_BY_BUCKET: Record<Bucket, RescheduleTarget[]> = {
-  overdue: [TO_TODAY, TO_TOMORROW],
-  today: [TO_TOMORROW, TO_NEXT_WEEK],
-  tomorrow: [TO_TODAY, TO_NEXT_WEEK],
-  later: [TO_TODAY, TO_TOMORROW],
-  noDue: [TO_TODAY, TO_TOMORROW],
-}
 
 // 「以降」に含める上限日数（予定パネル・ミニカレンダーの先5週間＝35日に合わせる・ユーザー要望）。
 const UPCOMING_DAYS = 35
@@ -97,7 +82,7 @@ type Snack = { text: string; undo: () => void }
 
 export function TasksPanel() {
   const { needsScope } = useAuth()
-  const { data: tasks, isLoading, isError, error } = useTasks()
+  const { data: tasks, isLoading, isError, error, refetch } = useTasks()
   const complete = useCompleteTask()
   const reopen = useReopenTask()
   const insert = useInsertTask()
@@ -108,9 +93,7 @@ export function TasksPanel() {
   const [snack, setSnack] = useState<Snack | null>(null)
   const snackTimer = useRef<number | undefined>(undefined)
 
-  // アクションバーを開いている行のキー（常に1行のみ）。
-  const [expandedKey, setExpandedKey] = useState<string | null>(null)
-  // 編集ボトムシートで開いているタスク。
+  // 編集ボトムシートで開いているタスク（行タップで開く）。
   const [editing, setEditing] = useState<TaskItem | null>(null)
 
   // クイック追加フォームの入力。
@@ -147,16 +130,6 @@ export function TasksPanel() {
     showSnack(`「${task.title}」を完了にしました`, () => reopen.mutate(task))
   }
 
-  function handleReschedule(task: TaskItem, dueDateStr: string, label: string) {
-    const oldDue = task.dueStr
-    update.mutate({ task, patch: { dueDateStr } })
-    // label は「今日へ」等。文末の「へ」を落として「今日に移動しました」と自然にする。
-    showSnack(`${label.replace(/へ$/, '')}に移動しました`, () =>
-      update.mutate({ task, patch: { dueDateStr: oldDue } }),
-    )
-    setExpandedKey(null)
-  }
-
   function handleDelete(task: TaskItem) {
     del.mutate(task)
     showSnack(`「${task.title}」を削除しました`, () =>
@@ -167,7 +140,7 @@ export function TasksPanel() {
         listName: task.listName,
       }),
     )
-    setExpandedKey(null)
+    setEditing(null) // 削除は編集シートから行うのでシートを閉じる
   }
 
   function handleSaveEdit(task: TaskItem, patch: { title: string; dueDateStr: string | null }) {
@@ -222,21 +195,20 @@ export function TasksPanel() {
           isLoading={isLoading}
           isError={isError}
           error={error}
-          expandedKey={expandedKey}
-          onToggleExpand={(key) => setExpandedKey((cur) => (cur === key ? null : key))}
+          onRetry={() => refetch()}
           onComplete={handleComplete}
-          onReschedule={handleReschedule}
-          onEdit={(t) => {
-            setEditing(t)
-            setExpandedKey(null)
-          }}
-          onDelete={handleDelete}
+          onEdit={(t) => setEditing(t)}
         />
       </div>
 
-      {/* 編集ボトムシート */}
+      {/* 編集ボトムシート（行タップで開く。削除もこの中から行う） */}
       {editing && (
-        <EditSheet task={editing} onClose={() => setEditing(null)} onSave={handleSaveEdit} />
+        <EditSheet
+          task={editing}
+          onClose={() => setEditing(null)}
+          onSave={handleSaveEdit}
+          onDelete={handleDelete}
+        />
       )}
 
       {/* Undo スナックバー（画面下部固定・5秒） */}
@@ -258,23 +230,17 @@ function TaskList({
   isLoading,
   isError,
   error,
-  expandedKey,
-  onToggleExpand,
+  onRetry,
   onComplete,
-  onReschedule,
   onEdit,
-  onDelete,
 }: {
   tasks: TaskItem[] | undefined
   isLoading: boolean
   isError: boolean
   error: unknown
-  expandedKey: string | null
-  onToggleExpand: (key: string) => void
+  onRetry: () => void
   onComplete: (task: TaskItem) => void
-  onReschedule: (task: TaskItem, dueDateStr: string, label: string) => void
   onEdit: (task: TaskItem) => void
-  onDelete: (task: TaskItem) => void
 }) {
   // 出典名（リスト名）を表示するかは端末ローカルの表示設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
@@ -282,7 +248,7 @@ function TaskList({
     return <ListSkeleton rows={5} />
   }
   if (isError) {
-    return <p className="panel__note panel__note--error">タスクの取得に失敗しました: {String(error)}</p>
+    return <PanelError message="タスクの取得に失敗しました" error={error} onRetry={onRetry} />
   }
   if (!tasks || tasks.length === 0) {
     return <p className="panel__note">タスクはありません。すべて順調です。</p>
@@ -304,12 +270,8 @@ function TaskList({
             variant={variant}
             items={items}
             showLabels={showLabels}
-            expandedKey={expandedKey}
-            onToggleExpand={onToggleExpand}
             onComplete={onComplete}
-            onReschedule={onReschedule}
             onEdit={onEdit}
-            onDelete={onDelete}
           />
         )
       })}
@@ -326,24 +288,16 @@ function TaskBucket({
   variant,
   items,
   showLabels,
-  expandedKey,
-  onToggleExpand,
   onComplete,
-  onReschedule,
   onEdit,
-  onDelete,
 }: {
   bucketKey: Bucket
   label: string
   variant: string
   items: TaskItem[]
   showLabels: boolean
-  expandedKey: string | null
-  onToggleExpand: (key: string) => void
   onComplete: (task: TaskItem) => void
-  onReschedule: (task: TaskItem, dueDateStr: string, label: string) => void
   onEdit: (task: TaskItem) => void
-  onDelete: (task: TaskItem) => void
 }) {
   const [showAll, setShowAll] = useState(false)
   const overflow = items.length - VISIBLE
@@ -370,12 +324,11 @@ function TaskBucket({
                 >
                   <span className="tasks__check-box" aria-hidden="true" />
                 </button>
-                {/* 行本体タップでアクションバーを開閉。追加直後(pending)は操作不可 */}
+                {/* 行本体タップで編集シートを開く（予定パネルと同じ挙動）。追加直後(pending)は操作不可 */}
                 <button
                   className="tasks__row"
-                  onClick={() => !t.pending && onToggleExpand(rowKey)}
+                  onClick={() => !t.pending && onEdit(t)}
                   disabled={t.pending}
-                  aria-expanded={expandedKey === rowKey}
                 >
                   {/* 期限は日付が自明でないバケツ（期限切れ/今週/以降）でだけ表示。
                       今日/明日/期限なしは日付欄ごと描画しない（余白を残さない）。 */}
@@ -384,29 +337,6 @@ function TaskBucket({
                   {showLabels && <span className="tasks__list-name">{t.listName}</span>}
                 </button>
               </div>
-
-              {expandedKey === rowKey && (
-                <div className="tasks__actions">
-                  {RESCHEDULE_BY_BUCKET[bucketKey].map((r) => (
-                    <button
-                      key={r.label}
-                      className="tasks__action"
-                      onClick={() => onReschedule(t, r.getDate(), r.label)}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                  <button className="tasks__action" onClick={() => onEdit(t)}>
-                    編集
-                  </button>
-                  <button
-                    className="tasks__action tasks__action--danger"
-                    onClick={() => onDelete(t)}
-                  >
-                    削除
-                  </button>
-                </div>
-              )}
             </li>
           )
         })}
@@ -425,22 +355,27 @@ function EditSheet({
   task,
   onClose,
   onSave,
+  onDelete,
 }: {
   task: TaskItem
   onClose: () => void
   onSave: (task: TaskItem, patch: { title: string; dueDateStr: string | null }) => void
+  onDelete: (task: TaskItem) => void
 }) {
   const today = localTodayStr()
   const tomorrow = localDateStrPlusDays(1)
+  const nextMonday = localNextMondayStr()
 
-  type DueMode = 'none' | 'today' | 'tomorrow' | 'custom'
+  type DueMode = 'none' | 'today' | 'tomorrow' | 'nextweek' | 'custom'
   const initialMode: DueMode = !task.dueStr
     ? 'none'
     : task.dueStr === today
       ? 'today'
       : task.dueStr === tomorrow
         ? 'tomorrow'
-        : 'custom'
+        : task.dueStr === nextMonday
+          ? 'nextweek'
+          : 'custom'
 
   const [title, setTitle] = useState(task.title)
   const [dueMode, setDueMode] = useState<DueMode>(initialMode)
@@ -457,6 +392,8 @@ function EditSheet({
         return today
       case 'tomorrow':
         return tomorrow
+      case 'nextweek':
+        return nextMonday
       case 'custom':
         return customDate || null
     }
@@ -473,6 +410,7 @@ function EditSheet({
     { mode: 'none', label: 'なし' },
     { mode: 'today', label: '今日' },
     { mode: 'tomorrow', label: '明日' },
+    { mode: 'nextweek', label: '来週' },
     { mode: 'custom', label: '日付指定' },
   ]
 
@@ -524,6 +462,14 @@ function EditSheet({
         )}
 
         <div className="sheet__buttons">
+          {/* 削除は左端に離して置き、保存/キャンセルと押し間違えないようにする（予定シートと同じ配置。誤削除は Undo で戻せる）。 */}
+          <button
+            type="button"
+            className="btn btn--small sheet__btn-delete"
+            onClick={() => onDelete(task)}
+          >
+            削除
+          </button>
           <button type="button" className="btn btn--small" onClick={onClose}>
             キャンセル
           </button>

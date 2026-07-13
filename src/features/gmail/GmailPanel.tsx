@@ -22,6 +22,7 @@ import {
 import type { GmailMessage } from './api'
 import { useEffectiveDark } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
+import { PanelError } from '../../ErrorBoundary'
 
 // Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
 type Snack = { text: string; undo: () => void }
@@ -47,7 +48,7 @@ export function GmailPanel() {
   const [error, setError] = useState<string | null>(null)
 
   const active = enabled && hasScope
-  const { data: messages, isLoading, isError, error: queryError } = useGmail(active)
+  const { data: messages, isLoading, isError, error: queryError, refetch } = useGmail(active)
 
   // スナックバー（既読化/アーカイブの Undo）。行が消えても残るよう親（このパネル）で管理する。
   const [snack, setSnack] = useState<Snack | null>(null)
@@ -108,6 +109,7 @@ export function GmailPanel() {
         isLoading={isLoading}
         isError={isError}
         error={queryError}
+        onRetry={() => refetch()}
         formatWhen={formatWhen}
         notify={notify}
       />
@@ -130,6 +132,7 @@ function GmailList({
   isLoading,
   isError,
   error,
+  onRetry,
   formatWhen,
   notify,
 }: {
@@ -137,6 +140,7 @@ function GmailList({
   isLoading: boolean
   isError: boolean
   error: unknown
+  onRetry: () => void
   formatWhen: (ms: number) => string
   notify: (text: string, undo: () => void) => void
 }) {
@@ -144,9 +148,7 @@ function GmailList({
     return <ListSkeleton rows={6} />
   }
   if (isError) {
-    return (
-      <p className="panel__note panel__note--error">メールの取得に失敗しました: {String(error)}</p>
-    )
+    return <PanelError message="メールの取得に失敗しました" error={error} onRetry={onRetry} />
   }
   if (!messages || messages.length === 0) {
     return <p className="panel__note">受信トレイにメールはありません。</p>
@@ -340,6 +342,12 @@ function HtmlBody({ html }: { html: string }) {
         ref={frameRef}
         className="gmail__frame"
         title="メール本文"
+        // sandbox の各トークンは意図的（#53 で確認）。⚠ allow-scripts は絶対に追加しない
+        // （追加すると本文の JS が本体オリジンで実行され、多層防御が崩れる。詳細は #43）。
+        //  - allow-same-origin: 高さ計測・Android のリンク横取りで contentDocument を読むため。
+        //  - allow-popups: リンク(target="_blank")で新規タブを開けるようにするため。
+        //  - allow-popups-to-escape-sandbox: 開いた外部サイトが sandbox（スクリプト無効）を
+        //    継承して壊れるのを防ぐため必要。外すとリンク先が正しく表示できない。
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         // iframe 自身のスクロールを無効化し、スクロールを親パネルへ流す（ひっかかり防止）。
         // 高さは handleLoad の ResizeObserver で中身に追従させるので内部スクロールは不要。

@@ -6,6 +6,7 @@ import { useNews } from './useNews'
 import { NEWS_SOURCES, setNewsSource, useNewsSource, useSelectedNewsSources } from './newsSource'
 import type { NewsItem } from './api'
 import { ListSkeleton } from '../../Skeleton'
+import { PanelError } from '../../ErrorBoundary'
 
 // キー → タブ表示名の対応表（カタログから引く）。
 const LABELS = new Map(NEWS_SOURCES.map((s) => [s.key, s.label]))
@@ -30,7 +31,7 @@ export function NewsPanel() {
   const selected = useSelectedNewsSources()
   const rawSource = useNewsSource()
   const source = selected.includes(rawSource) ? rawSource : selected[0]
-  const { data, isLoading, isError, error } = useNews(source, true)
+  const { data, isLoading, isError, error, refetch } = useNews(source, true)
 
   return (
     <div className="news">
@@ -51,7 +52,13 @@ export function NewsPanel() {
         </div>
       )}
 
-      <NewsList data={data} isLoading={isLoading} isError={isError} error={error} />
+      <NewsList
+        data={data}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        onRetry={() => refetch()}
+      />
     </div>
   )
 }
@@ -61,19 +68,17 @@ function NewsList({
   isLoading,
   isError,
   error,
+  onRetry,
 }: {
   data: NewsItem[] | undefined
   isLoading: boolean
   isError: boolean
   error: unknown
+  onRetry: () => void
 }) {
   if (isLoading && !data) return <ListSkeleton rows={6} />
   if (isError)
-    return (
-      <p className="panel__note panel__note--error">
-        ニュースの取得に失敗しました: {String(error)}
-      </p>
-    )
+    return <PanelError message="ニュースの取得に失敗しました" error={error} onRetry={onRetry} />
   if (!data || data.length === 0)
     return <p className="panel__note">表示できるニュースがありません。</p>
 

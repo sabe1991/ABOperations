@@ -113,10 +113,22 @@ async function fetchMessageMeta(id: string): Promise<GmailMessage> {
 // 未読と既読を別クエリで取り、それぞれ受信時刻の降順に並べて連結する
 // （in:inbox 一括だと件数上限内で未読が既読に押し出されうるため、枠を分けて取る）。
 export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMessage[]> {
-  const [unreadIds, readIds] = await Promise.all([
+  // 未読リストと既読リストを別々に取得する。既読リストの一時的な失敗（5xx 等）で
+  // 受信トレイ全体を落とさないよう、既読は取れなければ空扱いにして未読だけでも表示する。
+  // ただし未読（主要な表示対象）が取れない場合は、既読だけ出すと「未読0件」と誤解させる
+  // 嘘の表示になるため、その理由を投げて失敗として扱う（401 等は再接続UXへ流れる）。
+  const [unreadRes, readRes] = await Promise.allSettled([
     fetchMessageIds('in:inbox is:unread', maxUnread),
     fetchMessageIds('in:inbox is:read', maxRead),
   ])
+  if (unreadRes.status === 'rejected') throw unreadRes.reason
+  const unreadIds = unreadRes.value
+  // 既読リストだけ失敗したときは、未読は出しつつ既読を空にする。黙って既読が消えると
+  // 「既読メールが無い」と誤解しうるので、切り分け用にコンソールへ警告を残す。
+  if (readRes.status === 'rejected') {
+    console.warn('既読メール一覧の取得に失敗しました（未読のみ表示します）', readRes.reason)
+  }
+  const readIds = readRes.status === 'fulfilled' ? readRes.value : []
   // 未読・既読の id をまとめ、同時実行数を絞って各メタデータを取得する。
   // 1通の取得失敗（取得直後に削除されて 404 等）で受信トレイ全体を落とさないよう
   // 成功分だけ採用する。並び順は取得後に unread フラグで振り分けるので id の由来は問わない。

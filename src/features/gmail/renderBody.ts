@@ -30,6 +30,11 @@ export function toIntentUrl(href: string): string | null {
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
     const scheme = u.protocol.slice(0, -1) // "https" / "http"
     const hostPath = `${u.host}${u.pathname}${u.search}`
+    // 念のためのハードニング（#53）: intent 構文を壊しうる文字（`#`＝フラグメント区切り・
+    // 空白・制御文字）が data 部に万一混ざっていたら intent 化せず null を返し、既定動作
+    // （本体側の通常遷移）に委ねる。URL API 経由なら通常これらは現れない（フラグメントは
+    // u.hash に分離され、危険文字は percent-encode 済み）ので、正当なURLは弾かれない。
+    if (/[#\s\u0000-\u001f]/.test(hostPath)) return null
     const fallback = encodeURIComponent(href)
     return (
       `intent://${hostPath}#Intent;scheme=${scheme};action=android.intent.action.VIEW;` +

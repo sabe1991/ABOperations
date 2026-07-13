@@ -2,6 +2,19 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <!-- Content-Security-Policy（#48）。トークンを sessionStorage に保持しメール本文HTMLも扱うため、
+         万一の DOM-XSS でも被害（外部への送信＝トークン持ち出し等）を抑えるよう接続先・実行元を絞る。
+         方針: スクリプトは自オリジンと Google 認証(GIS)のみ、通信先は使用する API ホストのみ許可。
+         - script-src: 自身＋GIS(accounts.google.com/gsi/client)。インラインscriptは無し(hash/nonce不要)。
+         - connect-src: Google API(*.googleapis.com)・GIS・天気(Open-Meteo)・ニュース各ソースに限定。
+         - img-src に https: を含むのは、メール本文iframe(srcdoc)の「画像を表示」で外部画像を出すため
+           （srcdocは親CSPを継承するので親側も許可が要る。本体アプリ自体は外部画像を読まない）。
+         - frame-src: GIS のiframe と、メール本文の srcdoc('self')。
+         meta版CSPで無効な指定(frame-ancestors 等)は用いない。※実ログイン込みの動作確認は実機で行う。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://api.open-meteo.com https://geocoding-api.open-meteo.com https://qiita.com https://hacker-news.firebaseio.com https://www.jma.go.jp https://api.spaceflightnewsapi.net https://ja.wikipedia.org; frame-src 'self' https://accounts.google.com; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <!-- Android のステータスバー/ナビ領域の色。アプリ背景（暖色）に合わせ、OSのライト/ダークで出し分ける。
