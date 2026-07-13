@@ -31,17 +31,16 @@ function fmtDate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-// タイムラインの見出し用の日付ラベル。'YYYY-MM-DD' → 「7月13日 (月)」。
-// 今日・明日は先頭に付す。todayStr は今日の 'YYYY-MM-DD'。
+// タイムラインパネルの見出しラベル。表示中の日を「今日の予定 / 明日の予定 / M月D日(曜)の予定」で表す。
+// 今日・明日はその言い換えを優先し、それ以降は日付＋曜日を出す。todayStr は今日の 'YYYY-MM-DD'。
 const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土']
-function dateCaption(dateStr: string, todayStr: string): string {
+function headingLabel(dateStr: string, todayStr: string): string {
+  const diff = daysBetween(todayStr, dateStr)
+  if (diff === 0) return '今日の予定'
+  if (diff === 1) return '明日の予定'
   const [y, m, d] = dateStr.split('-').map(Number)
   const dow = WEEKDAY_JA[new Date(y, m - 1, d).getDay()]
-  const base = `${m}月${d}日 (${dow})`
-  const diff = daysBetween(todayStr, dateStr)
-  if (diff === 0) return `今日 ・ ${base}`
-  if (diff === 1) return `明日 ・ ${base}`
-  return base
+  return `${m}月${d}日(${dow})の予定`
 }
 
 // 2つの 'YYYY-MM-DD' の日数差（b - a）。ローカル日付の差をUTC基準で安全に求める。
@@ -49,6 +48,14 @@ function daysBetween(aStr: string, bStr: string): number {
   const [ay, am, ad] = aStr.split('-').map(Number)
   const [by, bm, bd] = bStr.split('-').map(Number)
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
+}
+
+// タイムラインパネルの見出し（h2）。選択日に応じて「今日の予定 / M月D日(曜)の予定」を表示する。
+// 見出しだけがこの小コンポーネントで選択日を購読するので、日付切替で App 全体を再描画しない。
+export function TimelineHeading() {
+  const todayStr = fmtDate(new Date())
+  const selectedDate = useSelectedDate() ?? todayStr
+  return <h2 className="panel__title">{headingLabel(selectedDate, todayStr)}</h2>
 }
 
 function timeToMin(hhmm: string | null): number {
@@ -234,7 +241,6 @@ export function TodayTimeline() {
 
   return (
     <div className="timeline" ref={rootRef}>
-      <div className="timeline__date">{dateCaption(selectedDate, todayStr)}</div>
       {allDay.length > 0 && (
         <div className="timeline__allday">
           {allDay.map((ev) => (

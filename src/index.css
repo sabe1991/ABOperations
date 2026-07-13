@@ -530,13 +530,6 @@ body {
   flex-direction: column;
   gap: 0.5rem;
 }
-/* 表示中の日付の見出し（例: 「今日 ・ 7月13日 (月)」）。 */
-.timeline__date {
-  flex-shrink: 0;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  color: var(--text);
-}
 .timeline__allday {
   flex-shrink: 0;
   display: flex;

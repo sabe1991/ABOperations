@@ -11,7 +11,7 @@ import {
 } from './auth/useAuth'
 import { desiredScopes } from './auth/scopes'
 import { CalendarPanel } from './features/calendar/CalendarPanel'
-import { TodayTimeline } from './features/calendar/TodayTimeline'
+import { TodayTimeline, TimelineHeading } from './features/calendar/TodayTimeline'
 import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
@@ -201,7 +201,7 @@ export default function App() {
         <div className="panels">
           {isWide && (
             <section className="panel panel--timeline">
-              <h2 className="panel__title">タイムライン</h2>
+              <TimelineHeading />
               <div className="panel__body">
                 <TodayTimeline />
               </div>
