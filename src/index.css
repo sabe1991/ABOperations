@@ -1,7 +1,13 @@
 :root {
   color-scheme: light dark;
   /* 本文フォント: OS 標準の読みやすいスタック。 */
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Hiragino Sans',
+    'Noto Sans JP',
+    sans-serif;
   /* 見出し・強調用フォント。プラットフォーム別に着地先を明示する:
      - macOS: 丸ゴシック(Hiragino Maru Gothic ProN)＝角が丸く親しみのある書体。
      - Windows 10/11: Yu Gothic UI(游ゴシック UI)。丸ではないが癖のない標準 UI 書体。
@@ -49,7 +55,8 @@
   --radius-lg: 18px;
   --radius-pill: 999px;
   --shadow-sm: 0 1px 2px light-dark(rgba(80, 54, 28, 0.06), rgba(0, 0, 0, 0.3));
-  --shadow-md: 0 1px 2px light-dark(rgba(80, 54, 28, 0.05), rgba(0, 0, 0, 0.25)),
+  --shadow-md:
+    0 1px 2px light-dark(rgba(80, 54, 28, 0.05), rgba(0, 0, 0, 0.25)),
     0 6px 18px light-dark(rgba(80, 54, 28, 0.08), rgba(0, 0, 0, 0.38));
 
   /* タイポグラフィ・スケール（文字サイズの段階）。
@@ -398,7 +405,7 @@ body {
   .panels {
     /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月 / Gmail。
        予定7日を少し狭め(1.1→1.0)、そのぶん今月カレンダーを広げ(0.76→0.86)、メールも少し狭めた(1.7→1.5)（ユーザー要望）。 */
-    grid-template-columns: minmax(185px, 0.66fr) 1.0fr 0.86fr 1.5fr;
+    grid-template-columns: minmax(185px, 0.66fr) 1fr 0.86fr 1.5fr;
     /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
        今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
        （0.5 : 1.5＝上段の予定・カレンダーをさらに低めに。ユーザー要望）。min 0 で中身にページを膨らませない。 */
@@ -1334,6 +1341,85 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+/* --- ニュースパネル（メール非表示時に Gmail 枠へ出す） --- */
+.news {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* ソース切替タブ（Qiita / Hacker News）。パネル上部に固定し、下の一覧だけスクロールさせたいが、
+   本体スクロールは .panel__body 側に任せているのでここは通常フロー。細い列でも収まる小さめのタブ。 */
+.news__tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.news__tab {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.news__tab--active {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: var(--primary);
+  color: var(--text);
+  font-weight: 600;
+}
+.news__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.news__item {
+  border-top: 1px solid var(--border);
+}
+.news__item:first-child {
+  border-top: none;
+}
+.news__link {
+  display: block;
+  padding: 0.5rem 0;
+  color: inherit;
+  text-decoration: none;
+}
+.news__link:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.news__title {
+  display: block;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  /* 長いタイトルは2行までにして省略（…）。細い列で高さが暴れないようにする。 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.news__author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 8rem;
+}
+.news__when {
+  margin-left: auto; /* 時刻は右端へ寄せる */
 }
 
 /* --- スナックバー（画面下部の「元に戻す」通知） --- */

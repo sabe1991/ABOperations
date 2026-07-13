@@ -15,6 +15,7 @@ import { TodayTimeline, TimelineHeading } from './features/calendar/TodayTimelin
 import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
+import { NewsPanel } from './features/news/NewsPanel'
 import { WeatherPanel } from './features/weather/WeatherPanel'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useOverdueCount } from './features/tasks/useTasks'
@@ -273,14 +274,15 @@ export default function App() {
               </div>
             </section>
           )}
+          {/* メール（Gmail）を表示している端末は Gmail パネル、非表示の端末は代わりにニュースパネルを
+              同じ枠に出す（空の「有効化」パネルが画面を占めるのを避けるため・#16 の A 案）。
+              Gmail の再表示は設定（⚙）の「メール（Gmail）を表示」から。 */}
           <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
             <div className="panel__head">
-              <h2 className="panel__title">メール</h2>
-              <PanelLink href="https://mail.google.com/" label="Gmail を開く" />
+              <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
+              {gmailActive && <PanelLink href="https://mail.google.com/" label="Gmail を開く" />}
             </div>
-            <div className="panel__body">
-              <GmailPanel />
-            </div>
+            <div className="panel__body">{gmailActive ? <GmailPanel /> : <NewsPanel />}</div>
           </section>
         </div>
       </main>
@@ -292,6 +294,8 @@ export default function App() {
           const count = badges[t.key]
           // メールは最大20件取得なので、20件なら「以上かもしれない」意味で 20+ と表示する。
           const label = t.key === 'gmail' && count >= 20 ? '20+' : String(count)
+          // メール非表示の端末では、メールタブの枠にニュースを出すのでタブ名も「ニュース」にする。
+          const tabName = t.key === 'gmail' && !gmailActive ? 'ニュース' : t.label
           return (
             <button
               key={t.key}
@@ -300,7 +304,7 @@ export default function App() {
               className={`tabbar__tab${tab === t.key ? ' tabbar__tab--active' : ''}`}
               onClick={() => selectTab(t.key)}
             >
-              {t.label}
+              {tabName}
               {count > 0 && (
                 <span className="tabbar__badge" aria-label={`${count}件`}>
                   {label}
