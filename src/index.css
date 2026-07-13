@@ -1670,6 +1670,22 @@ body {
   cursor: pointer;
   padding: 0.2rem 0.3rem;
 }
+/* 「×」閉じるボタン。控えめな地色なじみの色で、再読み込みボタンの右に置く。 */
+.update-toast__close {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: light-dark(#f7f1e8, #26201a);
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+}
+.update-toast__close:hover {
+  opacity: 1;
+}
 @media (prefers-reduced-motion: reduce) {
   .update-toast {
     animation: none;

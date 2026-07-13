@@ -27,7 +27,7 @@ import { useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
 import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
-import { applyUpdate, useNeedRefresh } from './pwaUpdate'
+import { applyUpdate, dismissUpdate, useNeedRefresh } from './pwaUpdate'
 import { gmailLink } from './features/gmail/gmailLink'
 import { PanelLink } from './PanelLink'
 import { handleTablistKeyDown } from './roving'
@@ -409,8 +409,14 @@ function UpdateToast() {
   return (
     <div className="update-toast" role="status" aria-live="polite">
       <span className="update-toast__text">新しいバージョンがあります</span>
+      {/* 「再読み込み」だと F5 と同じに見え混乱を招くため、特別な操作だと分かる文言にする。
+          通常の再読み込み(F5)では待機中の新SWは有効化されず、このボタンだけが更新を確定できる。 */}
       <button className="update-toast__action" onClick={applyUpdate}>
-        再読み込み
+        更新して再読み込み
+      </button>
+      {/* 今は適用しないで閉じる（× ボタン）。待機中の新SWは残り、次回起動や再読み込みで適用できる。 */}
+      <button className="update-toast__close" onClick={dismissUpdate} aria-label="閉じる" title="閉じる">
+        ×
       </button>
     </div>
   )

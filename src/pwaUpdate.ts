@@ -41,6 +41,15 @@ export function applyUpdate(): void {
   void updateSW?.(true)
 }
 
+// 「×」ボタンから呼ぶ。今回は更新を適用せずトーストだけ閉じる（このセッション中は再表示しない）。
+// 待機中の新SW自体は残るので、次にページを開いたとき（or 再読み込みボタンで）改めて適用できる。
+// ※ 通常のブラウザ再読み込み(F5)では待機中SWは有効化されないため、確実に最新へ切り替えるには
+//   「再読み込み」ボタン（applyUpdate）を使う必要がある。
+export function dismissUpdate(): void {
+  needRefresh = false
+  emit()
+}
+
 // 起動時に1度だけ Service Worker を登録する（main.tsx から呼ぶ）。
 // 開発サーバーでは SW を無効化しているため registerSW は実質何もしない安全なスタブになる。
 let started = false
