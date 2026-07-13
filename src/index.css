@@ -608,6 +608,12 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.timeline__chip--editable {
+  cursor: pointer;
+}
+.timeline__chip--editable:hover {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
 .timeline__axis {
   position: relative;
   /* マウスドラッグでの空き時間作成中に時刻ラベル・予定タイトルが選択されないようにする。 */

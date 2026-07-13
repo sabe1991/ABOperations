@@ -257,16 +257,33 @@ export function TodayTimeline() {
     <div className="timeline" ref={rootRef}>
       {allDay.length > 0 && (
         <div className="timeline__allday">
-          {allDay.map((ev) => (
-            <span
-              key={ev.id}
-              className="timeline__chip"
-              style={{ borderColor: ev.calendarColor }}
-              title={ev.title}
-            >
-              {ev.title}
-            </span>
-          ))}
+          {allDay.map((ev) => {
+            // 時刻あり予定と同じく、書き込み可能で確定済みの終日予定はクリックで編集できる（#18 と同様）。
+            const editable = ev.writable && !ev.pending
+            return (
+              <span
+                key={ev.id}
+                className={`timeline__chip${editable ? ' timeline__chip--editable' : ''}`}
+                style={{ borderColor: ev.calendarColor }}
+                title={ev.title}
+                onClick={editable ? () => requestEditEvent(ev) : undefined}
+                role={editable ? 'button' : undefined}
+                tabIndex={editable ? 0 : undefined}
+                onKeyDown={
+                  editable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          requestEditEvent(ev)
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {ev.title}
+              </span>
+            )
+          })}
         </div>
       )}
       <div
