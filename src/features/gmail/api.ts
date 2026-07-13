@@ -134,23 +134,36 @@ export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMes
 
 // ---- 本文プレビュー（本文表示スライス） ----
 
-// base64url（Gmail の body.data は URL-safe base64）を UTF-8 文字列にデコードする。
-// atob は「Latin-1 のバイト列」を返すので、そのバイト列を TextDecoder で UTF-8 として
+// base64url（Gmail の body.data は URL-safe base64）を、指定の文字コードで文字列にデコードする。
+// atob は「Latin-1 のバイト列」を返すので、そのバイト列を TextDecoder で目的の charset として
 // 読み直す（この2段を踏まないと日本語が化ける。ここが一番の文字化けポイント）。
-// 文字コードは実用上 UTF-8 決め打ち。ISO-2022-JP 等は後で対応（TODO）。
-function decodeBase64Url(data: string): string {
+// charset はパーツの Content-Type から取得（既定は UTF-8）。ISO-2022-JP・Shift_JIS・EUC-JP 等の
+// 日本語メールも TextDecoder が対応する（未知/壊れた charset は UTF-8 にフォールバック）。#12
+function decodeBase64Url(data: string, charset = 'utf-8'): string {
   const b64 = data.replace(/-/g, '+').replace(/_/g, '/')
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return new TextDecoder('utf-8').decode(bytes)
+  try {
+    return new TextDecoder(charset).decode(bytes)
+  } catch {
+    // TextDecoder が知らない charset 名のときは UTF-8 で読む（化けても表示は続ける）。
+    return new TextDecoder('utf-8').decode(bytes)
+  }
+}
+
+// パーツの Content-Type ヘッダから charset を取り出す（例: 'text/html; charset="ISO-2022-JP"'）。
+function charsetOfPart(part: MessagePart): string {
+  const ct = headerValue(part.headers, 'Content-Type')
+  const m = /charset\s*=\s*"?([^";]+)"?/i.exec(ct)
+  return (m?.[1] ?? 'utf-8').trim().toLowerCase()
 }
 
 // payload の木を再帰的に辿り、指定 MIME タイプの最初のパーツ本文を取り出す。
 function findPart(part: MessagePart | undefined, mimeType: string): string | null {
   if (!part) return null
   if (part.mimeType === mimeType && part.body?.data) {
-    return decodeBase64Url(part.body.data)
+    return decodeBase64Url(part.body.data, charsetOfPart(part))
   }
   for (const child of part.parts ?? []) {
     const found = findPart(child, mimeType)

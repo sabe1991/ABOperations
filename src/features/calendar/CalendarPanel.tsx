@@ -257,7 +257,7 @@ function EventList({
     return <p className="panel__note panel__note--error">予定の取得に失敗しました: {String(error)}</p>
   }
   if (!events || events.length === 0) {
-    return <p className="panel__note">今後の予定はありません</p>
+    return <p className="panel__note">今後の予定はありません。</p>
   }
 
   const todayStr = fmtLocalDate(new Date())

@@ -285,7 +285,7 @@ function TaskList({
     return <p className="panel__note panel__note--error">タスクの取得に失敗しました: {String(error)}</p>
   }
   if (!tasks || tasks.length === 0) {
-    return <p className="panel__note">タスクはありません。すべて順調</p>
+    return <p className="panel__note">タスクはありません。すべて順調です。</p>
   }
 
   const groups = bucketTasks(tasks)

@@ -222,8 +222,12 @@ body {
   background: var(--surface);
   color: var(--text-muted);
   border-radius: var(--radius-pill); /* 正方形＋pill=真円。丸くして親しみを出す */
-  width: 2.2rem;
-  height: 2.2rem;
+  /* タッチターゲットを 44px 以上に（指で押しやすく・#36）。 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
   font-size: var(--fs-lg);
   line-height: 1;
   cursor: pointer;
@@ -1341,9 +1345,12 @@ body {
 }
 .snackbar__text {
   font-size: var(--fs-sm);
+  /* 長いタイトルが1行省略で切れて何を取り消すのか分からなくなるのを防ぎ、2行まで表示する（#38）。 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .snackbar__action {
   flex-shrink: 0;
@@ -1469,6 +1476,12 @@ body {
   font-size: var(--fs-lg);
 }
 .modal__close {
+  /* 透明な当たり判定を 44px 角に広げる（×グリフ自体は 1.5rem のまま・#36）。 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
   border: none;
   background: none;
   color: var(--text-muted);

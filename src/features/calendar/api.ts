@@ -41,7 +41,7 @@ interface CalendarListResponse {
   items?: CalendarListEntry[]
 }
 
-interface CalendarListEntry {
+export interface CalendarListEntry {
   id: string
   summary: string
   backgroundColor?: string
@@ -105,8 +105,9 @@ export interface CalendarEvent {
   pending?: boolean
 }
 
-// カレンダー一覧を取得する。
-async function fetchCalendarList(): Promise<CalendarListEntry[]> {
+// カレンダー一覧を取得する。全機能（予定取得・月ドット・作成先一覧・アカウントメール）で
+// 共有する生データ。呼び出し側は useCalendarList でキャッシュ1本に集約する（#32）。
+export async function fetchCalendarList(): Promise<CalendarListEntry[]> {
   const res = await fetchJson<CalendarListResponse>(`${CAL_BASE}/users/me/calendarList`)
   return res.items ?? []
 }
@@ -188,7 +189,8 @@ async function fetchEventsForCalendar(
 export const UPCOMING_DAYS = 35
 
 // 今日から UPCOMING_DAYS 日分の全カレンダーの予定を、開始時刻順にまとめて取得する。
-export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
+// カレンダー一覧は呼び出し側（useCalendarEvents）が共有クエリから渡す（#32）。
+export async function fetchUpcomingEvents(calendars: CalendarListEntry[]): Promise<CalendarEvent[]> {
   // 今日のローカル0時から UPCOMING_DAYS 日後まで
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -197,11 +199,11 @@ export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
   const timeMin = startOfToday.toISOString()
   const timeMax = windowEnd.toISOString()
 
-  const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
+  const selected = calendars.filter((c) => c.selected !== false)
 
   // カレンダーごとに並列取得（同時実行数は上限を設ける）。1つのカレンダーが一時的に
   // 5xx/429 を返しても他の予定は表示できるよう、成功分だけ採用する（部分失敗を許容）。
-  const settled = await mapPool(calendars, CAL_FETCH_CONCURRENCY, (cal) =>
+  const settled = await mapPool(selected, CAL_FETCH_CONCURRENCY, (cal) =>
     fetchEventsForCalendar(cal, timeMin, timeMax),
   )
   throwIfAllRejected(settled)
@@ -214,13 +216,14 @@ export async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
 // 1件以上ある日の集合（'YYYY-MM-DD'）を返す。7日リストとは別クエリだが取得経路は共通。
 // 複数日・終日にまたがる予定は、またぐ各日にドットが付くよう start〜end（含む）を全て入れる。
 export async function fetchEventDaysInRange(
+  calendars: CalendarListEntry[],
   gridStartStr: string,
   gridEndExclusiveStr: string,
 ): Promise<Set<string>> {
   const timeMin = new Date(`${gridStartStr}T00:00:00`).toISOString()
   const timeMax = new Date(`${gridEndExclusiveStr}T00:00:00`).toISOString()
-  const calendars = (await fetchCalendarList()).filter((c) => c.selected !== false)
-  const settled = await mapPool(calendars, CAL_FETCH_CONCURRENCY, (cal) =>
+  const selected = calendars.filter((c) => c.selected !== false)
+  const settled = await mapPool(selected, CAL_FETCH_CONCURRENCY, (cal) =>
     fetchEventsForCalendar(cal, timeMin, timeMax),
   )
   throwIfAllRejected(settled)
@@ -387,12 +390,11 @@ export async function restoreEvent(calendarId: string, eventId: string): Promise
   })
 }
 
-// 予定を作成できるカレンダー（owner/writer）だけを返す。既定の作成先は primary。
-export async function fetchWritableCalendars(): Promise<WritableCalendar[]> {
-  const res = await fetchJson<CalendarListResponse>(`${CAL_BASE}/users/me/calendarList`)
-  const items = res.items ?? []
+// 共有カレンダー一覧から、予定を作成できるカレンダー（owner/writer）だけを取り出す。
+// 追加取得はせず、useCalendarList の select で使う純関数（#32）。既定の作成先は primary。
+export function toWritableCalendars(entries: CalendarListEntry[]): WritableCalendar[] {
   return (
-    items
+    entries
       .filter((c) => c.accessRole === 'owner' || c.accessRole === 'writer')
       .map((c) => ({
         id: c.id,
@@ -403,4 +405,10 @@ export async function fetchWritableCalendars(): Promise<WritableCalendar[]> {
       // primary を先頭に
       .sort((a, b) => Number(b.primary) - Number(a.primary))
   )
+}
+
+// 共有カレンダー一覧から、ログイン中アカウントのメールアドレスを取り出す。
+// primary（主）カレンダーの id がメールアドレスそのものなので、追加スコープ無しで判明する（#32）。
+export function primaryEmail(entries: CalendarListEntry[]): string {
+  return entries.find((c) => c.primary)?.id ?? ''
 }

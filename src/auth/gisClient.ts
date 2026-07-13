@@ -97,16 +97,30 @@ function doRequest(
       reject(new Error('GIS がまだ読み込まれていません。少し待ってから再試行してください。'))
       return
     }
+    // 同時に複数のトークン要求を走らせない（#31）。GIS のコールバックは単一の resolver
+    // （pendingResolve/pendingReject）を共有するため、要求が競合すると解決先が入れ替わり、
+    // 先発がタイムアウトに倒れたり後発が誤トークンで解決したりしうる。起動時のサイレント認証と
+    // ユーザー操作の競合は initializing ゲートで概ね抑止されるが、コードでも「同時に1つ」を保証する。
+    if (pendingResolve || pendingReject) {
+      reject(new Error('認証処理が進行中です。少し待ってから再試行してください。'))
+      return
+    }
     let settled = false
+    // 解決・拒否・タイムアウトのいずれでも、共有している pending 変数を必ずクリアして
+    // 次の要求が通れるようにする（クリアし忘れると以後の要求が上のガードで全て弾かれる）。
+    const finish = () => {
+      settled = true
+      pendingResolve = null
+      pendingReject = null
+      if (timer) clearTimeout(timer)
+    }
     // サイレント要求では callback も error_callback も返らないことが稀にあるため、
     // タイムアウトを設けて「認証中…」で固まるのを防ぐ（Fable 助言）。
     const timer =
       timeoutMs != null
         ? setTimeout(() => {
             if (settled) return
-            settled = true
-            pendingResolve = null
-            pendingReject = null
+            finish()
             reject(new Error('認証がタイムアウトしました'))
           }, timeoutMs)
         : null
@@ -114,14 +128,12 @@ function doRequest(
     // settled ガードで二重解決・タイムアウト後の解決を無効化する。
     pendingResolve = (token) => {
       if (settled) return
-      settled = true
-      if (timer) clearTimeout(timer)
+      finish()
       resolve(token)
     }
     pendingReject = (reason) => {
       if (settled) return
-      settled = true
-      if (timer) clearTimeout(timer)
+      finish()
       reject(reason)
     }
     const client = getTokenClient(scopes)

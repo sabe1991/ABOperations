@@ -149,7 +149,7 @@ function GmailList({
     )
   }
   if (!messages || messages.length === 0) {
-    return <p className="panel__note">受信トレイにメールはありません</p>
+    return <p className="panel__note">受信トレイにメールはありません。</p>
   }
 
   // 未読を上・既読を下に並べたうえで、既読の先頭に区切り見出し「既読」を挿す。

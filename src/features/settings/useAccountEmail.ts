@@ -3,25 +3,22 @@
 // 追加スコープ無しで取れる方法を採る（Fable 方針の踏襲）: カレンダーの「primary（主）
 // カレンダー」の id はそのアカウントのメールアドレスそのものなので、既に同意済みの
 // カレンダー権限だけで判明する。userinfo 用の openid/email スコープは要求しない。
+//
+// 取得は専用エンドポイントではなく、全機能で共有するカレンダー一覧クエリ（['calendar','list']）を
+// select で絞って primary の id を取り出す。これで calendarList の二重取得を無くす（#32）。
 
 import { useQuery } from '@tanstack/react-query'
-import { fetchJson } from '../../google/fetchJson'
+import { fetchCalendarList, primaryEmail } from '../calendar/api'
 import { useAuth } from '../../auth/useAuth'
-
-const CAL_BASE = 'https://www.googleapis.com/calendar/v3'
-
-async function fetchAccountEmail(): Promise<string> {
-  const res = await fetchJson<{ id?: string }>(`${CAL_BASE}/users/me/calendarList/primary`)
-  return res.id ?? ''
-}
 
 export function useAccountEmail() {
   const { isConnected, needsReconnect } = useAuth()
   return useQuery({
-    queryKey: ['account', 'email'],
-    queryFn: fetchAccountEmail,
+    queryKey: ['calendar', 'list'],
+    queryFn: fetchCalendarList,
     enabled: isConnected && !needsReconnect,
-    // アカウントは基本変わらないので長めに保持（再取得はほぼ不要）。
-    staleTime: 60 * 60 * 1000,
+    // カレンダー構成はあまり変わらないので長めに保持（useCalendarList と同じ設定にそろえる）。
+    staleTime: 30 * 60 * 1000,
+    select: primaryEmail,
   })
 }
