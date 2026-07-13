@@ -208,6 +208,10 @@ export function TasksPanel() {
           onClose={() => setEditing(null)}
           onSave={handleSaveEdit}
           onDelete={handleDelete}
+          onComplete={(t) => {
+            handleComplete(t) // 完了にして Undo スナックを出す
+            setEditing(null) // シートを閉じる
+          }}
         />
       )}
 
@@ -356,11 +360,13 @@ function EditSheet({
   onClose,
   onSave,
   onDelete,
+  onComplete,
 }: {
   task: TaskItem
   onClose: () => void
   onSave: (task: TaskItem, patch: { title: string; dueDateStr: string | null }) => void
   onDelete: (task: TaskItem) => void
+  onComplete: (task: TaskItem) => void
 }) {
   const today = localTodayStr()
   const tomorrow = localDateStrPlusDays(1)
@@ -462,7 +468,15 @@ function EditSheet({
         )}
 
         <div className="sheet__buttons">
-          {/* 削除は左端に離して置き、保存/キャンセルと押し間違えないようにする（予定シートと同じ配置。誤削除は Undo で戻せる）。 */}
+          {/* 完了・削除はタスクのライフサイクル操作なので左側にまとめ、右のキャンセル/保存（フォーム操作）と分ける。
+              どちらも押し間違えても Undo で戻せる。 */}
+          <button
+            type="button"
+            className="btn btn--small sheet__btn-complete"
+            onClick={() => onComplete(task)}
+          >
+            ✓ 完了
+          </button>
           <button
             type="button"
             className="btn btn--small sheet__btn-delete"

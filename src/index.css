@@ -1602,6 +1602,19 @@ body {
   margin-top: 0.9rem;
 }
 /* シート左端の削除ボタン（危険操作なので朱色。キャンセル/保存とは左右に分ける）。 */
+/* シート下部のボタンは、狭い画面でも文字を折り返さない（折り返すと2行になり不格好・ボタンが縦伸び）。 */
+.sheet__buttons .btn {
+  white-space: nowrap;
+}
+/* 編集シート左端の「完了にする」。肯定的な操作なので落ち着いた緑で示す（削除の朱色と区別）。 */
+.sheet__btn-complete {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+}
+.sheet__btn-complete:hover:not(:disabled) {
+  color: var(--success);
+  border-color: var(--success);
+}
 .sheet__btn-delete {
   margin-right: auto;
   color: var(--danger);
@@ -1764,6 +1777,11 @@ body {
   font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--text-muted);
+}
+/* 区画の先頭に置く注記（「この端末だけに保存」）は、直後の設定行と詰まらないよう下に余白を取る。 */
+.settings__section > .settings__note:first-child {
+  margin-top: 0;
+  margin-bottom: 0.9rem;
 }
 .settings__note--error {
   color: var(--danger);

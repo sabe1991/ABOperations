@@ -140,6 +140,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           {/* 表示: この端末の表示設定 */}
           {activeTab === 'display' && (
             <section className="settings__section">
+              <p className="settings__note">これらの設定はこの端末だけに保存されます。</p>
               <label className="settings__row">
                 <span>配色テーマ（明るさ）</span>
                 <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
@@ -183,9 +184,6 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   <option value={1}>月曜始まり</option>
                 </select>
               </label>
-              <p className="settings__note">
-                これらの設定はこの端末だけに保存されます（会社PCなど端末ごとに切り替えられます）。
-              </p>
               <WeatherLocationSetting />
             </section>
           )}
