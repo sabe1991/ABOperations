@@ -27,7 +27,9 @@ import { useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
 import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
+import { applyUpdate, useNeedRefresh } from './pwaUpdate'
 import { PanelLink } from './PanelLink'
+import { handleTablistKeyDown } from './roving'
 
 // ヘッダー中央に出す今日の日付（例:「2026年7月13日 (日)」）。
 function formatHeaderDate(d: Date): string {
@@ -273,7 +275,12 @@ export default function App() {
               </div>
             </section>
           )}
-          <section className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}>
+          <section
+            id="panel-calendar"
+            role="tabpanel"
+            aria-labelledby="tab-calendar"
+            className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}
+          >
             {/* 見出し「今後の予定」は「＋予定」ボタンと同じ行にするため CalendarPanel 内で描画する */}
             <div className="panel__body">
               <ErrorBoundary label="予定">
@@ -294,7 +301,12 @@ export default function App() {
               </div>
             </section>
           )}
-          <section className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}>
+          <section
+            id="panel-tasks"
+            role="tabpanel"
+            aria-labelledby="tab-tasks"
+            className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}
+          >
             <div className="panel__head">
               <h2 className="panel__title">タスク</h2>
               <PanelLink href="https://tasks.google.com/" label="Google タスクを開く" />
@@ -318,7 +330,12 @@ export default function App() {
           {/* メール（Gmail）を表示している端末は Gmail パネル、非表示の端末は代わりにニュースパネルを
               同じ枠に出す（空の「有効化」パネルが画面を占めるのを避けるため・#16 の A 案）。
               Gmail の再表示は設定（⚙）の「メール（Gmail）を表示」から。 */}
-          <section className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}>
+          <section
+            id="panel-gmail"
+            role="tabpanel"
+            aria-labelledby="tab-gmail"
+            className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}
+          >
             <div className="panel__head">
               <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
               {gmailActive && <PanelLink href="https://mail.google.com/" label="Gmail を開く" />}
@@ -334,19 +351,37 @@ export default function App() {
 
       {/* スマホ用タブバー（画面下端固定）。PC では CSS で非表示。
           未読・期限切れ件数をバッジ表示（0 のタブには付けない）。 */}
-      <nav className="tabbar" role="tablist" aria-label="表示切替">
+      <nav
+        className="tabbar"
+        role="tablist"
+        aria-label="表示切替"
+        onKeyDown={(e) =>
+          handleTablistKeyDown(
+            e,
+            TABS.map((t) => t.key),
+            tab,
+            selectTab,
+          )
+        }
+      >
         {TABS.map((t) => {
           const count = badges[t.key]
           // メールは最大20件取得なので、20件なら「以上かもしれない」意味で 20+ と表示する。
           const label = t.key === 'gmail' && count >= 20 ? '20+' : String(count)
           // メール非表示の端末では、メールタブの枠にニュースを出すのでタブ名も「ニュース」にする。
           const tabName = t.key === 'gmail' && !gmailActive ? 'ニュース' : t.label
+          const active = tab === t.key
           return (
             <button
               key={t.key}
+              id={`tab-${t.key}`}
+              data-tabkey={t.key}
               role="tab"
-              aria-selected={tab === t.key}
-              className={`tabbar__tab${tab === t.key ? ' tabbar__tab--active' : ''}`}
+              aria-selected={active}
+              aria-controls={`panel-${t.key}`}
+              // roving tabindex: 選択中タブだけキーボードのタブ順に入れ、他は矢印キーで移動する。
+              tabIndex={active ? 0 : -1}
+              className={`tabbar__tab${active ? ' tabbar__tab--active' : ''}`}
               onClick={() => selectTab(t.key)}
             >
               {tabName}
@@ -361,6 +396,21 @@ export default function App() {
       </nav>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      <UpdateToast />
+    </div>
+  )
+}
+
+// 新しいバージョンが用意できたときだけ、画面上部に「更新があります・再読み込み」を出す（#15）。
+function UpdateToast() {
+  const needRefresh = useNeedRefresh()
+  if (!needRefresh) return null
+  return (
+    <div className="update-toast" role="status" aria-live="polite">
+      <span className="update-toast__text">新しいバージョンがあります</span>
+      <button className="update-toast__action" onClick={applyUpdate}>
+        再読み込み
+      </button>
     </div>
   )
 }

@@ -12,7 +12,7 @@
 //   window.google が undefined でエラーになる。ensureGisLoaded() で読み込みを待つ。
 
 import { GOOGLE_CLIENT_ID } from '../config'
-import { addGrantedScopes, setToken } from './tokenStore'
+import { addGrantedScopes, setGrantedScopes, setToken } from './tokenStore'
 
 // GIS スクリプトの読み込み完了を待つ Promise（多重読み込みしないよう1つだけ保持）。
 let gisLoadPromise: Promise<void> | null = null
@@ -57,8 +57,16 @@ function getTokenClient(scopes: string[]): google.accounts.oauth2.TokenClient {
     callback: (response) => {
       if (response.access_token) {
         setToken(response.access_token, Date.now())
-        // 実際に許可されたスコープを記録（段階的認可の判定用）
-        addGrantedScopes(response.scope ? response.scope.split(' ') : scopes)
+        // 実際に許可されたスコープを記録（段階的認可の判定用）。#62
+        // response.scope があればそれで「上書き」する（union ではなく置き換え）。
+        // こうすると Google 側で権限を取り消された場合も記録が実態に追従し、失効を反映できる。
+        // response.scope が無い場合だけ、要求スコープを従来どおり積み増しで記録する
+        // （情報が無いのに勝手に権限を縮小しないための保険）。
+        if (response.scope) {
+          setGrantedScopes(response.scope.split(' '))
+        } else {
+          addGrantedScopes(scopes)
+        }
         pendingResolve?.(response.access_token)
       } else {
         pendingReject?.(new Error('アクセストークンを取得できませんでした'))

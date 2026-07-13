@@ -83,9 +83,13 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
     throw new ApiError(response.status, detail || `APIエラー (${response.status})`)
   }
 
-  // 204 No Content 等、本文が無い場合に備える
-  if (response.status === 204) {
+  // 本文を読む。204 No Content や、200 でも本文が空のケース（delete 等）に備え、
+  // 空なら undefined を返す。空ボディに response.json() を呼ぶと SyntaxError で落ちるため、
+  // いったん text で受けてから JSON 解析する（#64）。値を使わない delete/complete 系の
+  // ミューテーションは戻り値を参照しないので undefined でよい（型上は T として返す）。
+  const body = await response.text()
+  if (body === '') {
     return undefined as T
   }
-  return (await response.json()) as T
+  return JSON.parse(body) as T
 }

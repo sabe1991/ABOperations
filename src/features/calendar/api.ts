@@ -257,6 +257,23 @@ export interface EventDraft {
   endTime: string // 'HH:mm'（終日のときは無視）
 }
 
+// 既存の予定(CalendarEvent)を編集用の下書き(EventDraft)へ変換する。
+// 変更したい項目だけ差し替える土台として使う（タイムラインのドラッグ移動/リサイズ・#17 Phase B）。
+// 時刻が無い（終日）予定は既定の 09:00-10:00 を補う（時刻編集時のプレースホルダ）。
+export function eventToDraft(ev: CalendarEvent): EventDraft {
+  return {
+    calendarId: ev.calendarId,
+    title: ev.title,
+    location: ev.location,
+    description: ev.description,
+    allDay: ev.allDay,
+    startDate: ev.startDateStr,
+    endDate: ev.endDateStr,
+    startTime: ev.startTimeStr ?? '09:00',
+    endTime: ev.endTimeStr ?? '10:00',
+  }
+}
+
 type EventTimePoint = { date?: string | null; dateTime?: string | null; timeZone?: string | null }
 
 // 下書きを events.insert/patch のボディ（start/end）に変換する。

@@ -18,6 +18,7 @@ import {
   updateTask,
 } from './api'
 import type { TaskItem } from './api'
+import { tempId } from '../../tempId'
 
 // タスク一覧クエリのキー（useTasks と一致させる）。
 const TASKS_KEY = ['tasks', 'all'] as const
@@ -94,7 +95,7 @@ export function useInsertTask() {
       await qc.cancelQueries({ queryKey: TASKS_KEY })
       const dueStr = input.dueDateStr ?? null
       const optimistic: TaskItem = {
-        id: `temp-${Date.now()}`,
+        id: tempId(),
         title: input.title,
         listId: input.listId ?? '@default',
         listName: input.listName ?? '',

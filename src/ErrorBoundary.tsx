@@ -7,6 +7,7 @@
 
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { toUserMessage } from './errorMessage'
 
 // 取得エラーの表示（再試行ボタン付き）。各パネルの isError 分岐から使う。
 // message は「予定の取得に失敗しました」等の日本語プレフィックス。
@@ -23,7 +24,7 @@ export function PanelError({
     <div className="panel__note panel__note--error" role="alert">
       <span>
         {message}
-        {error != null && `: ${String(error)}`}
+        {error != null && `: ${toUserMessage(error)}`}
       </span>
       {onRetry && (
         <button className="btn btn--small panel__retry" onClick={onRetry}>

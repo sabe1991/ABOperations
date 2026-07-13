@@ -16,6 +16,7 @@ import {
   updateEvent,
 } from './api'
 import type { CalendarEvent, EventDraft } from './api'
+import { tempId } from '../../tempId'
 
 // 予定一覧クエリのキー（useCalendarEvents と一致させる）。
 const CAL_KEY = ['calendar', 'upcoming'] as const
@@ -42,7 +43,7 @@ export function useCreateEvent() {
       createEvent(input.draft),
     onMutate: async ({ draft, calendarName, calendarColor }) => {
       await qc.cancelQueries({ queryKey: CAL_KEY })
-      const temp = draftToLocalEvent(draft, `temp-${Date.now()}`, calendarName, calendarColor, {
+      const temp = draftToLocalEvent(draft, tempId(), calendarName, calendarColor, {
         pending: true,
       })
       const prev = isWithinUpcomingWindow(temp.startMs)

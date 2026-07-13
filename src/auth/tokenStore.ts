@@ -93,6 +93,24 @@ export function addGrantedScopes(scopes: string[]): string[] {
   return merged
 }
 
+// 同意済みスコープの記録を「上書き」する（union ではなく置き換え）。#62
+// addGrantedScopes は積み増しのみなので、ユーザーが Google 側の設定で権限を取り消しても
+// 記録が古いまま残り、実際には持っていない権限を「持っている」と誤判定してしまう。
+// トークン応答の response.scope は「今この端末が実際に許可されている権限」を表すので、
+// それで丸ごと置き換えることで権限の縮小（失効）も正しく反映できる。
+// 本アプリは常に「欲しい権限の全集合」を要求する（INITIAL_SCOPES か、Gmail 込みの
+// GMAIL_SCOPES のどちらか）ため、response.scope が要求分より狭ければ = ユーザーが一部を
+// 拒否/取り消した、と解釈してよい。
+export function setGrantedScopes(scopes: string[]): string[] {
+  const unique = Array.from(new Set(scopes.filter((s) => typeof s === 'string' && s !== '')))
+  try {
+    localStorage.setItem(GRANTED_SCOPES_KEY, JSON.stringify(unique))
+  } catch {
+    // localStorage が使えない環境（プライベートモード等）でも致命的ではない
+  }
+  return unique
+}
+
 // 同意済みスコープの記録を消す（ログアウト時）。次回は通常のログインからやり直す。
 export function clearGrantedScopes(): void {
   try {

@@ -4,9 +4,16 @@
 // 成功済みクエリの中で最も新しい取得時刻（＝一番最近データが更新された時刻）を返す。
 // R キーやポーリング・画面復帰での再取得で値が進むと、ヘッダー表示も自動で更新される。
 import { useSyncExternalStore } from 'react'
+import type { QueryCacheNotifyEvent } from '@tanstack/react-query'
 import { queryClient } from './queryClient'
 
-function getSnapshot(): number {
+// 最終更新時刻のキャッシュ値と「再計算が必要か」のフラグ。
+// キャッシュ全体の走査（O(n)）は「実際にデータが更新された/クエリが消えた」ときだけに限定し、
+// 取得中・オブザーバ増減など大量に飛ぶイベントのたびに全走査しないようにする（#66）。
+let cached = 0
+let dirty = true
+
+function recompute(): number {
   let max = 0
   for (const q of queryClient.getQueryCache().getAll()) {
     // 成功して実データを持つクエリのみを対象にする（エラー・未取得は無視）。
@@ -14,11 +21,32 @@ function getSnapshot(): number {
       max = q.state.dataUpdatedAt
     }
   }
-  return max // ミリ秒。数値なので参照は毎回同じ値なら安定（useSyncExternalStore の再描画抑制が効く）。
+  return max
+}
+
+function getSnapshot(): number {
+  // dirty のときだけ再計算する。それ以外は前回値をそのまま返すので参照が安定し、
+  // useSyncExternalStore の再描画抑制が効く（値はミリ秒の数値）。
+  if (dirty) {
+    cached = recompute()
+    dirty = false
+  }
+  return cached
+}
+
+// 最終更新時刻に影響するイベントか。データ更新の成功、またはクエリ削除のときだけ再計算対象にする。
+function affectsLastUpdated(event: QueryCacheNotifyEvent): boolean {
+  if (event.type === 'removed') return true
+  return event.type === 'updated' && event.action.type === 'success'
 }
 
 function subscribe(onChange: () => void): () => void {
-  return queryClient.getQueryCache().subscribe(onChange)
+  return queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
+    if (affectsLastUpdated(event)) {
+      dirty = true
+      onChange()
+    }
+  })
 }
 
 // 最終更新時刻（epoch ミリ秒）。まだ何も取得できていなければ 0。

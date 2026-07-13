@@ -23,10 +23,13 @@ export default defineConfig({
     // 満たすには Service Worker が事実上必要なため導入する。
     // オフライン対応は最小限（アプリシェルのプリキャッシュのみ）。Google API はキャッシュしない。
     VitePWA({
-      // 新しいSWが用意できたら自動更新する
-      registerType: 'autoUpdate',
-      // SW登録コードを index.html に自動注入（自前で登録コードを書かない）
-      injectRegister: 'auto',
+      // 新しいSWが用意できても即座に自動置換せず、ユーザーに「更新があります・再読み込み」を
+      // 促してから適用する（#15）。autoUpdate は Android の WebAPK でプロセスが保持されると
+      // 古いキャッシュのまま動き続けることがあり、新バージョンへ切り替わったか分かりにくかった。
+      // prompt にして明示リロード＋フォアグラウンド復帰時の更新チェック（src/pwaUpdate.ts）を組む。
+      registerType: 'prompt',
+      // SW登録は自前で行う（src/pwaUpdate.ts の registerSW）。自動注入は無効化して二重登録を防ぐ。
+      injectRegister: null,
       // マニフェストに含めない静的アセットもプリキャッシュ対象に加える
       includeAssets: ['apple-touch-icon.png'],
       // start_url / scope は Vite の base(/ABOperations/) からプラグインが自動設定する

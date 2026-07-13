@@ -246,12 +246,107 @@ export interface MessageBody {
   text: string | null
 }
 
+// ---- インライン画像（cid:）対応（#11） ----
+// HTMLメールは埋め込み画像を <img src="cid:XXX"> で参照し、実体は Content-ID: <XXX> を持つ
+// 画像パーツとして同梱される（メール署名のロゴなど）。これを attachments.get で取得して
+// data: URI（画像バイトを本文に埋め込んだURL）に変換し、本文HTMLの cid: 参照を差し替える。
+// data: 画像は自己完結で外部通信を伴わない（＝開封トラッキングの心配が無い）ため、
+// 外部画像ブロック（既定で画像を止める仕組み）の対象外として既定で表示してよい。
+
+// 1メールあたりに取り込むインライン画像の上限。悪意ある/巨大なメールで大量取得しないための保険。
+const MAX_INLINE_IMAGES = 20
+
+interface InlineImage {
+  cid: string // Content-ID（山括弧 < > を除いたもの）
+  attachmentId: string
+  mimeType: string
+}
+
+// payload を再帰的に辿り、Content-ID を持つ画像パーツ（＝インライン画像）を集める。
+function collectInlineImages(part: MessagePart | undefined, acc: InlineImage[]): void {
+  if (!part) return
+  const cidRaw = headerValue(part.headers, 'Content-ID')
+  const attachmentId = part.body?.attachmentId
+  const mime = (part.mimeType ?? '').toLowerCase()
+  if (cidRaw && attachmentId && mime.startsWith('image/')) {
+    acc.push({ cid: cidRaw.replace(/^<|>$/g, '').trim(), attachmentId, mimeType: part.mimeType as string })
+  }
+  for (const child of part.parts ?? []) collectInlineImages(child, acc)
+}
+
+// 添付データ（base64url）を取得し、data: URI に変換する。取得できなければ空文字。
+async function fetchInlineDataUri(messageId: string, img: InlineImage): Promise<string> {
+  const res = await fetchJson<{ data?: string }>(
+    `${GMAIL_BASE}/messages/${messageId}/attachments/${img.attachmentId}`,
+  )
+  const data = res.data ?? ''
+  if (!data) return ''
+  // data: URI は標準 base64（+ /）を使うので、Gmail の base64url（- _）から戻す。
+  const b64 = data.replace(/-/g, '+').replace(/_/g, '/')
+  return `data:${img.mimeType};base64,${b64}`
+}
+
+function decodeUriSafe(s: string): string {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
+
+// 本文HTML内の cid: 参照（<img src> と style の background url()）を data: URI に置き換える。
+// DOMParser の不活性ドキュメント上で属性を書き換えるので、文字列 replace より壊れにくい。
+function replaceCidReferences(html: string, cidMap: Map<string, string>): string {
+  if (cidMap.size === 0) return html
+  const lookup = (id: string): string | undefined => {
+    const key = id.replace(/^<|>$/g, '').trim()
+    return cidMap.get(key) ?? cidMap.get(decodeUriSafe(key))
+  }
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('[src]').forEach((el) => {
+    const m = /^\s*cid:(.+)$/i.exec(el.getAttribute('src') ?? '')
+    if (!m) return
+    const uri = lookup(m[1])
+    if (uri) el.setAttribute('src', uri)
+  })
+  doc.querySelectorAll('[style]').forEach((el) => {
+    const style = el.getAttribute('style') ?? ''
+    if (!/url\(\s*['"]?cid:/i.test(style)) return
+    el.setAttribute(
+      'style',
+      style.replace(/url\(\s*['"]?cid:([^'")]+)['"]?\s*\)/gi, (whole, id) => {
+        const uri = lookup(id)
+        return uri ? `url("${uri}")` : whole
+      }),
+    )
+  })
+  return doc.body.innerHTML
+}
+
 // 1通の本文を取得する（format=full で全パーツを取得し、text/html 優先で抜き出す）。
 export async function fetchMessageBody(id: string): Promise<MessageBody> {
   const params = new URLSearchParams({ format: 'full' })
   const m = await fetchJson<MessageResponse>(`${GMAIL_BASE}/messages/${id}?${params.toString()}`)
+  let html = findPart(m.payload, 'text/html')
+  // HTML本文がある場合だけ、埋め込み画像(cid:)を data: URI に差し替える（#11）。
+  if (html) {
+    const inline: InlineImage[] = []
+    collectInlineImages(m.payload, inline)
+    const targets = inline.slice(0, MAX_INLINE_IMAGES)
+    if (targets.length > 0) {
+      const cidMap = new Map<string, string>()
+      // 個別取得の失敗は握る（その画像は cid: のまま残り、外部画像扱いでブロックされるだけ）。
+      const settled = await mapPool(targets, GMAIL_FETCH_CONCURRENCY, (img) =>
+        fetchInlineDataUri(id, img),
+      )
+      settled.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value) cidMap.set(targets[i].cid, r.value)
+      })
+      html = replaceCidReferences(html, cidMap)
+    }
+  }
   return {
-    html: findPart(m.payload, 'text/html'),
+    html,
     text: findPart(m.payload, 'text/plain'),
   }
 }

@@ -38,9 +38,17 @@ export function WeatherPanel() {
           <span className="weather__cond">{cur.label}</span>
           {today && (
             <span className="weather__hilo">
-              <span className="weather__hi">{Math.round(today.tempMax)}°</span>
-              <span className="weather__sep"> / </span>
-              <span className="weather__lo">{Math.round(today.tempMin)}°</span>
+              {/* 最高/最低は色（赤/青）だけで区別しているので、読み上げ用にラベルを付ける（#57）。 */}
+              <span className="weather__hi" aria-label={`最高 ${Math.round(today.tempMax)}度`}>
+                {Math.round(today.tempMax)}°
+              </span>
+              <span className="weather__sep" aria-hidden="true">
+                {' '}
+                /{' '}
+              </span>
+              <span className="weather__lo" aria-label={`最低 ${Math.round(today.tempMin)}度`}>
+                {Math.round(today.tempMin)}°
+              </span>
             </span>
           )}
         </span>
@@ -54,12 +62,17 @@ export function WeatherPanel() {
           return (
             <div key={d.date} className="weather__day" title={info.label}>
               <span className="weather__day-label">{dayLabel(d.date, i)}</span>
-              <span className="weather__day-emoji" aria-hidden="true">
+              {/* 天気は絵文字だけだと読み上げられないので、日本語ラベルを画像扱いで持たせる（#57）。 */}
+              <span className="weather__day-emoji" role="img" aria-label={info.label}>
                 {info.emoji}
               </span>
               <span className="weather__day-temp">
-                <span className="weather__hi">{Math.round(d.tempMax)}°</span>
-                <span className="weather__lo">{Math.round(d.tempMin)}°</span>
+                <span className="weather__hi" aria-label={`最高 ${Math.round(d.tempMax)}度`}>
+                  {Math.round(d.tempMax)}°
+                </span>
+                <span className="weather__lo" aria-label={`最低 ${Math.round(d.tempMin)}度`}>
+                  {Math.round(d.tempMin)}°
+                </span>
               </span>
             </div>
           )

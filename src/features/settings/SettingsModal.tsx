@@ -4,6 +4,8 @@
 //  - 情報     … アプリ情報（ビルド版＝コミットハッシュ・ビルド日時）
 
 import { useState } from 'react'
+import { useDialog } from '../../useDialog'
+import { handleTablistKeyDown } from '../../roving'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, disconnect, useAuth } from '../../auth/useAuth'
 import { desiredScopes } from '../../auth/scopes'
@@ -45,10 +47,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const weekStart = useWeekStart()
   const theme = useTheme()
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
+  // メール枠に「メール」を出しているか（＝ニュースは出していない）。ニュースソース選択の要否に使う。
+  const gmailActive = gmailEnabled && gmailHasScope
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // 開いている区画（既定は「表示」＝一番よく触る端末表示設定）。
   const [activeTab, setActiveTab] = useState<SettingsTab>('display')
+
+  // ダイアログ共通挙動（Esc で閉じる・フォーカストラップ・スクロールロック・初期フォーカス）。
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   function handleLogout() {
     // 確認なしで即実行しない: 誤タップ防止に確認を挟む
@@ -105,6 +112,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -122,21 +131,46 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {error && <p className="welcome__error">{error}</p>}
 
         {/* 区分タブ（表示 / アカウント / 情報）。 */}
-        <div className="settings__tabs" role="tablist" aria-label="設定の区分">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={activeTab === t.key}
-              className={`settings__tab${activeTab === t.key ? ' settings__tab--active' : ''}`}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div
+          className="settings__tabs"
+          role="tablist"
+          aria-label="設定の区分"
+          onKeyDown={(e) =>
+            handleTablistKeyDown(
+              e,
+              TABS.map((t) => t.key),
+              activeTab,
+              setActiveTab,
+            )
+          }
+        >
+          {TABS.map((t) => {
+            const active = activeTab === t.key
+            return (
+              <button
+                key={t.key}
+                id={`settings-tab-${t.key}`}
+                data-tabkey={t.key}
+                role="tab"
+                aria-selected={active}
+                aria-controls="settings-tabpanel"
+                // roving tabindex: 選択中タブだけタブ順に入れ、他は矢印キーで移動する。
+                tabIndex={active ? 0 : -1}
+                className={`settings__tab${active ? ' settings__tab--active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            )
+          })}
         </div>
 
-        <div className="settings__panel">
+        <div
+          className="settings__panel"
+          id="settings-tabpanel"
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${activeTab}`}
+        >
           {/* 表示: この端末の表示設定 */}
           {activeTab === 'display' && (
             <section className="settings__section">
@@ -158,10 +192,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   onChange={handleToggleGmail}
                 />
               </label>
-              <p className="settings__note">
-                OFF にすると、メール枠の代わりにニュースを表示します。表示するソースは下で選べます。
-              </p>
-              <NewsSourceSetting />
+              {/* Gmail 表示中はメール枠にニュースを出さないので、ニュースのソース選択は畳んでおく（#58）。
+                  OFF のとき（＝ニュースを表示中）だけソース選択を出す。 */}
+              {gmailActive ? (
+                <p className="settings__note">
+                  OFF にすると、メール枠の代わりにニュースを表示します（ソースはそのとき選べます）。
+                </p>
+              ) : (
+                <>
+                  <p className="settings__note">
+                    メール枠にはニュースを表示中です。表示するソースは下で選べます。
+                  </p>
+                  <NewsSourceSetting />
+                </>
+              )}
               <label className="settings__row">
                 <span>予定・タスクの出典名を表示</span>
                 <input
@@ -213,14 +257,38 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {/* 情報: アプリのビルド版 */}
+          {/* 情報: アプリのビルド版・キーボードショートカット */}
           {activeTab === 'about' && (
-            <section className="settings__section">
-              <h3 className="settings__heading">アプリ情報</h3>
-              <p className="settings__value settings__value--mono">
-                版 {__COMMIT_HASH__} / ビルド {buildText}
-              </p>
-            </section>
+            <>
+              <section className="settings__section">
+                <h3 className="settings__heading">アプリ情報</h3>
+                <p className="settings__value settings__value--mono">
+                  版 {__COMMIT_HASH__} / ビルド {buildText}
+                </p>
+              </section>
+
+              {/* PC でのキーボードショートカットの案内（見つけにくいので明記・#60）。 */}
+              <section className="settings__section">
+                <h3 className="settings__heading">キーボードショートカット（PC）</h3>
+                <ul className="settings__shortcuts">
+                  <li>
+                    <kbd className="settings__kbd">R</kbd>
+                    <span>すべてのデータを更新</span>
+                  </li>
+                  <li>
+                    <kbd className="settings__kbd">/</kbd>
+                    <span>タスクのクイック追加へ移動</span>
+                  </li>
+                  <li>
+                    <kbd className="settings__kbd">Esc</kbd>
+                    <span>開いているモーダル・シートを閉じる</span>
+                  </li>
+                </ul>
+                <p className="settings__note">
+                  入力中は無効です。スマホでは画面右上の更新ボタン（↻）をお使いください。
+                </p>
+              </section>
+            </>
           )}
         </div>
       </div>

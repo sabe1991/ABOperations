@@ -7,8 +7,10 @@
 // どちらも CalendarPanel の既存シート／ミューテーションへシグナル（calendarSheetSignal）で委譲する。
 import { useEffect, useRef, useState } from 'react'
 import { useCalendarEvents } from './useCalendarEvents'
+import { useUpdateEvent } from './useCalendarMutations'
 import { requestCreateEventAt, requestEditEvent } from './calendarSheetSignal'
 import { useSelectedDate } from './selectedDate'
+import { eventToDraft } from './api'
 import type { CalendarEvent } from './api'
 import { TimelineSkeleton } from '../../Skeleton'
 
@@ -16,6 +18,9 @@ const HOUR_PX = 48 // 1時間あたりの高さ(px)
 const GUTTER = 34 // 左の時刻ラベル幅(px)。ラベル("24:00")が収まる範囲でできるだけ詰めて、
 // ラベルとドラッグ範囲（予定・選択矩形）の隙間を小さくする。
 const SNAP_MIN = 15 // ドラッグ作成の時刻スナップ幅(分)
+const RESIZE_GRIP_PX = 10 // 予定ブロック下端の「リサイズ掴み代」の高さ(px)。ここを掴むと終了時刻を伸縮できる。
+const MAX_COMMIT_END_MIN = 23 * 60 + 45 // 保存する終了時刻の上限(23:45)。24:00 は type=time / API に載らないため避ける。
+const EVENT_DRAG_THRESHOLD_PX = 4 // これ以上動いたら「クリック」ではなく「ドラッグ」とみなす生ピクセル量。
 
 // 分(0〜1440)を 'HH:mm' に整形する。type=time / EventDraft がそのまま受け取れる値にする。
 function minToHHmm(min: number): string {
@@ -103,8 +108,24 @@ function layout(timed: { ev: CalendarEvent; startMin: number; endMin: number }[]
   return result
 }
 
+// 既存予定のドラッグ（移動/リサイズ・#17 Phase B）の途中経過。
+// startMin/endMin はスナップ済みの分。プレビュー表示に使う。
+type EventDrag = { id: string; mode: 'move' | 'resize'; startMin: number; endMin: number }
+// ドラッグ中に ref で保持する詳細（描画に使わない可変値。onPointerUp で確定値を読む）。
+type EventDragRef = {
+  ev: CalendarEvent
+  mode: 'move' | 'resize'
+  origStartMin: number
+  origEndMin: number
+  pointerStartY: number
+  moved: boolean
+  curStartMin: number
+  curEndMin: number
+}
+
 export function TodayTimeline() {
   const { data: events, isLoading, isError } = useCalendarEvents()
+  const update = useUpdateEvent()
   // 時間軸のスクロール領域（この要素だけを内部スクロールさせる。終日チップは外＝固定ヘッダ）。
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const axisRef = useRef<HTMLDivElement | null>(null)
@@ -116,6 +137,11 @@ export function TodayTimeline() {
   const [drag, setDrag] = useState<{ startMin: number; curMin: number } | null>(null)
   // クリック（微小移動）と本当のドラッグを弁別するための押下位置の生の clientY。
   const dragStartYRef = useRef<number | null>(null)
+  // 既存予定のドラッグ（移動/リサイズ・#17 Phase B）。プレビュー用の state と、確定値を読むための ref。
+  const [evDrag, setEvDrag] = useState<EventDrag | null>(null)
+  const evDragRef = useRef<EventDragRef | null>(null)
+  // ドラッグ完了直後に発火する click を無視するためのフラグ（ドラッグ移動とクリック編集の取り違え防止）。
+  const suppressClickRef = useRef(false)
 
   const now = new Date()
   const todayStr = fmtDate(now)
@@ -237,6 +263,108 @@ export function TodayTimeline() {
     requestCreateEventAt(selectedDate, minToHHmm(startMin), minToHHmm(endMin))
   }
 
+  // --- 既存予定のドラッグ移動/リサイズ（#17 Phase B。マウス/ペンのみ・当日内で完結する時刻あり予定に限る） ---
+  // 日をまたぐ（クランプ済み）予定・終日・書込不可・仮(pending)はドラッグ対象外にする。
+  function isDraggable(p: Placed): boolean {
+    const ev = p.ev
+    return (
+      ev.writable &&
+      !ev.pending &&
+      !ev.allDay &&
+      ev.startDateStr === selectedDate &&
+      ev.endDateStr === selectedDate
+    )
+  }
+
+  function eventPointerDown(e: React.PointerEvent<HTMLDivElement>, p: Placed) {
+    if (!isDraggable(p)) return
+    // タッチは編集シートを開くタップに委ねる（ドラッグはマウス/ペンのみ）。
+    if (e.pointerType === 'touch' || e.button !== 0) return
+    const el = e.currentTarget
+    const rect = el.getBoundingClientRect()
+    // 下端の掴み代を押していればリサイズ（終了時刻の伸縮）、それ以外は移動。
+    const mode: 'move' | 'resize' = rect.bottom - e.clientY <= RESIZE_GRIP_PX ? 'resize' : 'move'
+    evDragRef.current = {
+      ev: p.ev,
+      mode,
+      origStartMin: p.startMin,
+      origEndMin: p.endMin,
+      pointerStartY: e.clientY,
+      moved: false,
+      curStartMin: p.startMin,
+      curEndMin: p.endMin,
+    }
+    setEvDrag({ id: p.ev.id, mode, startMin: p.startMin, endMin: p.endMin })
+    el.setPointerCapture(e.pointerId)
+    // 軸の「空き時間ドラッグ作成」を起動させない。
+    e.stopPropagation()
+  }
+
+  function eventPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = evDragRef.current
+    if (!d) return
+    const deltaRaw = e.clientY - d.pointerStartY
+    if (Math.abs(deltaRaw) >= EVENT_DRAG_THRESHOLD_PX) d.moved = true
+    const deltaMin = Math.round(deltaRaw / HOUR_PX / (SNAP_MIN / 60)) * SNAP_MIN
+    const duration = d.origEndMin - d.origStartMin
+    let startMin = d.origStartMin
+    let endMin = d.origEndMin
+    if (d.mode === 'move') {
+      // 移動: 長さを保ったまま 0:00〜24:00 の範囲に収める。
+      startMin = Math.max(0, Math.min(24 * 60 - duration, d.origStartMin + deltaMin))
+      endMin = startMin + duration
+    } else {
+      // リサイズ: 終了だけ動かす。最短は開始+15分、最長は 24:00。
+      endMin = Math.max(d.origStartMin + SNAP_MIN, Math.min(24 * 60, d.origEndMin + deltaMin))
+    }
+    d.curStartMin = startMin
+    d.curEndMin = endMin
+    setEvDrag((prev) =>
+      prev && prev.startMin === startMin && prev.endMin === endMin
+        ? prev // スナップ値が変わらなければ再描画しない
+        : { id: d.ev.id, mode: d.mode, startMin, endMin },
+    )
+  }
+
+  function eventPointerUp() {
+    const d = evDragRef.current
+    evDragRef.current = null
+    setEvDrag(null)
+    if (!d) return
+    // 実質クリック（ほぼ動いていない）なら移動・保存はしない。編集シートは onClick 側で開く。
+    if (!d.moved) return
+    // ドラッグ確定: 直後の click（編集オープン）は無視する。
+    suppressClickRef.current = true
+    // 24:00 は API/type=time に載らないので上限でクランプし、開始<終了を保証する。
+    let commitEnd = Math.min(d.curEndMin, MAX_COMMIT_END_MIN)
+    let commitStart = d.curStartMin
+    if (d.mode === 'move') {
+      // 移動は長さ維持を優先。終了を上限で削った分だけ開始も前へ寄せる。
+      const duration = d.origEndMin - d.origStartMin
+      commitStart = Math.max(0, Math.min(commitStart, commitEnd - duration))
+    }
+    if (commitEnd <= commitStart) commitEnd = commitStart + SNAP_MIN
+    // 変化が無ければ保存しない（同じ時刻での無駄な PATCH を避ける）。
+    if (commitStart === d.origStartMin && commitEnd === d.origEndMin) return
+    const draft = {
+      ...eventToDraft(d.ev),
+      startDate: selectedDate,
+      endDate: selectedDate,
+      startTime: minToHHmm(commitStart),
+      endTime: minToHHmm(commitEnd),
+    }
+    update.mutate({ event: d.ev, draft })
+  }
+
+  // 予定クリックで編集シートを開く。ただしドラッグ確定直後の click は無視する（移動と取り違えない）。
+  function handleEventClick(ev: CalendarEvent) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    requestEditEvent(ev)
+  }
+
   if (isError)
     return <p className="panel__note panel__note--error">今日の予定の取得に失敗しました。</p>
   if (isLoading && !events) return <TimelineSkeleton />
@@ -294,8 +422,12 @@ export function TodayTimeline() {
             )
           })}
           {placed.map((p) => {
-            const top = ((p.startMin - winStart) / 60) * HOUR_PX
-            const height = Math.max(18, ((p.endMin - p.startMin) / 60) * HOUR_PX - 1)
+            // ドラッグ中の予定は、確定前でも移動/伸縮の途中位置をプレビュー表示する。
+            const dragging = evDrag?.id === p.ev.id
+            const dispStartMin = dragging ? evDrag.startMin : p.startMin
+            const dispEndMin = dragging ? evDrag.endMin : p.endMin
+            const top = ((dispStartMin - winStart) / 60) * HOUR_PX
+            const height = Math.max(18, ((dispEndMin - dispStartMin) / 60) * HOUR_PX - 1)
             const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
             const width = `calc((100% - ${GUTTER}px) / ${p.lanes} - 2px)`
             // 時刻＋タイトルの2行が枠内に収まらない高さ（約32px未満）は「短い予定」とし、
@@ -304,10 +436,13 @@ export function TodayTimeline() {
             const short = height < 32
             // 書き込み可能で確定済み（pending でない）予定だけ、クリックで編集シートを開ける（#18）。
             const editable = p.ev.writable && !p.ev.pending
+            // 当日内で完結する時刻あり予定は、ドラッグで移動・下端で長さ変更ができる（#17 Phase B）。
+            const draggable = isDraggable(p)
+            const timeText = dragging ? minToHHmm(dispStartMin) : p.ev.startTimeStr
             return (
               <div
                 key={p.ev.id}
-                className={`timeline__event${editable ? ' timeline__event--editable' : ''}${short ? ' timeline__event--short' : ''}`}
+                className={`timeline__event${editable ? ' timeline__event--editable' : ''}${short ? ' timeline__event--short' : ''}${draggable ? ' timeline__event--draggable' : ''}${dragging ? ' timeline__event--dragging' : ''}`}
                 // 短い予定は固定 height ではなく minHeight にして、中身が入りきるよう下へ伸ばす。
                 style={{
                   top,
@@ -316,8 +451,23 @@ export function TodayTimeline() {
                   width,
                   borderColor: p.ev.calendarColor,
                 }}
-                title={`${p.ev.startTimeStr ?? ''} ${p.ev.title}`}
-                onClick={editable ? () => requestEditEvent(p.ev) : undefined}
+                title={
+                  draggable
+                    ? `${p.ev.startTimeStr ?? ''} ${p.ev.title}（ドラッグで移動／下端で長さ変更）`
+                    : `${p.ev.startTimeStr ?? ''} ${p.ev.title}`
+                }
+                onClick={editable ? () => handleEventClick(p.ev) : undefined}
+                onPointerDown={draggable ? (e) => eventPointerDown(e, p) : undefined}
+                onPointerMove={draggable ? eventPointerMove : undefined}
+                onPointerUp={draggable ? eventPointerUp : undefined}
+                onPointerCancel={
+                  draggable
+                    ? () => {
+                        evDragRef.current = null
+                        setEvDrag(null)
+                      }
+                    : undefined
+                }
                 role={editable ? 'button' : undefined}
                 tabIndex={editable ? 0 : undefined}
                 onKeyDown={
@@ -331,8 +481,10 @@ export function TodayTimeline() {
                     : undefined
                 }
               >
-                <span className="timeline__event-time">{p.ev.startTimeStr}</span>
+                <span className="timeline__event-time">{timeText}</span>
                 <span className="timeline__event-title">{p.ev.title}</span>
+                {/* 下端のリサイズ掴み代（マウスを乗せるとカーソルが変わり、掴めることが分かる・#61）。 */}
+                {draggable && <span className="timeline__event-grip" aria-hidden />}
               </div>
             )
           })}

@@ -30,7 +30,9 @@ function isGmailUrl(url: string | undefined): boolean {
   return !!url && url.includes('gmail.googleapis.com')
 }
 
-export const queryClient = new QueryClient({
+// 明示的に QueryClient 型を注釈する。refetchOnWindowFocus の関数内で queryClient 自身を
+// 参照するため、型注釈が無いと「自身の初期化子で自身を参照している」で implicit any になる。
+export const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: handleAuthError,
   }),
@@ -47,8 +49,11 @@ export const queryClient = new QueryClient({
         if (error instanceof AuthError || error instanceof ScopeError) return false
         return failureCount < 2
       },
-      // 画面復帰時の再取得は既定で有効（visibilitychange 相当）。明示しておく。
-      refetchOnWindowFocus: true,
+      // 画面復帰時の再取得は既定で有効（visibilitychange 相当）。
+      // ただし書き込み(mutation)の実行中は抑止する。楽観更新でUIを先に書き換えている最中に
+      // 画面復帰の再取得が走ると、サーバー未反映の古いデータで一瞬上書きされてちらつくため（#33）。
+      // 関数を渡すと再取得の判定時に評価される（この時点では queryClient は初期化済み）。
+      refetchOnWindowFocus: (): boolean => queryClient.isMutating() === 0,
       // 取得済みデータを5分間は新鮮とみなす
       staleTime: 5 * 60 * 1000,
     },

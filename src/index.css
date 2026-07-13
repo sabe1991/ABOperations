@@ -653,6 +653,19 @@ body {
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
+/* 空状態（予定・タスクが0件）。案内文の下に「次の一手」ボタン(CTA)を縦に置く（#67）。 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+.empty-state__text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
 .panel__note--error {
   color: var(--danger);
 }
@@ -754,6 +767,38 @@ body {
 .timeline__event:hover {
   z-index: 5;
 }
+/* ドラッグで移動できる予定は「掴めるカーソル」を出す（#61）。実際の掴み中は握ったカーソルに変え、
+   少し浮かせて（影＋不透明度）動かしている感を出す。 */
+.timeline__event--draggable {
+  cursor: grab;
+}
+.timeline__event--dragging {
+  cursor: grabbing;
+  opacity: 0.9;
+  z-index: 6;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.28);
+}
+/* 予定ブロック下端の「リサイズ掴み代」。ホバー時に細いバーを出して「ここで長さを変えられる」と伝える。
+   掴み代の上ではカーソルを上下リサイズにする（#61）。 */
+.timeline__event-grip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+}
+.timeline__event--draggable:hover .timeline__event-grip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+}
 /* 空き時間ドラッグ（#17 Phase A）の選択範囲プレビュー。 */
 .timeline__drag-sel {
   position: absolute;
@@ -774,6 +819,9 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* タイトルは予定の主情報なので、時刻(fs-2xs)より一段大きくして読みやすくする（#59）。 */
+  font-size: var(--fs-xs);
+  font-weight: 500;
   /* 同上。圧縮を許すと枠内に押し込められ、タイトル自身の overflow:hidden で縦に切れてしまう。 */
   flex-shrink: 0;
 }
@@ -811,6 +859,12 @@ body {
   /* 曜日見出し行(auto) + 5週(残りを等分)。中身で押し広げないよう minmax(0, …)。 */
   grid-template-rows: auto repeat(5, minmax(0, 1fr));
   gap: 1px;
+}
+/* ARIA の行(role="row")・セル(role="gridcell")ラッパーは display:contents で箱を消し、
+   実際のグリッドアイテム（.month__dow / .month__cell）を .month__grid 直下と同じに扱わせる。 */
+.month__row,
+.month__gridcell {
+  display: contents;
 }
 .month__dow {
   text-align: center;
@@ -1545,6 +1599,52 @@ body {
   cursor: pointer;
   padding: 0.2rem 0.3rem;
 }
+/* スマホ（下端タブバーが出る ~799px 以下）では、スナックバーをタブバーの上に浮かせて
+   重ならないようにする（#26）。タブバー高さ(約2.5rem)＋安全余白＋少しの隙間ぶん持ち上げる。
+   PC(≥800px)ではタブバーが無いので既定の bottom:1.25rem のまま。 */
+@media (max-width: 799px) {
+  .snackbar {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* PWA の新バージョン通知トースト（#15）。Undo スナックバー（下端）と競合しないよう
+   画面上部中央に出す。地色・ボタン色はスナックバーと同系の暖色でそろえる。 */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.9rem 0.6rem 1.1rem;
+  border-radius: var(--radius);
+  background: light-dark(#332b22, #efe7d9);
+  color: light-dark(#f7f1e8, #26201a);
+  box-shadow: 0 8px 28px rgba(40, 26, 12, 0.35);
+  animation: sheet-rise 0.16s ease-out;
+}
+.update-toast__text {
+  font-size: var(--fs-sm);
+}
+.update-toast__action {
+  flex-shrink: 0;
+  font: inherit;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: light-dark(#e8a94e, #c15a30);
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-toast {
+    animation: none;
+  }
+}
 
 /* --- 編集ボトムシート（下から出る小モーダル） --- */
 .sheet-backdrop {
@@ -1576,6 +1676,12 @@ body {
   .sheet-backdrop {
     align-items: center;
   }
+}
+/* ダイアログのコンテナ（.sheet / .modal）は初期フォーカスをプログラム的に受け取るが、
+   コンテナ自体にフォーカスリングは出さない（中の各操作要素には従来どおり表示される）。 */
+.sheet:focus,
+.modal:focus {
+  outline: none;
 }
 .sheet__title {
   margin: 0 0 0.25rem;
@@ -1744,6 +1850,34 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
   font-size: var(--fs-xs);
+}
+/* キーボードショートカット一覧（情報タブ・#60）。キー名＋説明を左右に並べる。 */
+.settings__shortcuts {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.settings__shortcuts li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--fs-sm);
+}
+.settings__kbd {
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  text-align: center;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-2, var(--surface));
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs);
+  color: var(--text);
 }
 .settings__row {
   display: flex;
@@ -1960,4 +2094,59 @@ body {
 }
 .skel-weather__line--narrow {
   width: 40%;
+}
+
+/* --- 登場トランジション（#68） --- */
+/* モーダル/シート/スナックバーが開いた瞬間に、フェード＋少しの移動でやわらかく現れるようにする。
+   いずれも「マウント時に1回」再生される。動きが苦手な人向けには下の reduced-motion で無効化する。 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.sheet-backdrop,
+.modal-overlay {
+  animation: fade-in 0.16s ease-out;
+}
+.sheet {
+  animation: sheet-rise 0.2s ease-out;
+}
+.modal {
+  animation: modal-pop 0.18s ease-out;
+}
+.snackbar {
+  animation: sheet-rise 0.2s ease-out;
+}
+/* 動きが苦手な人向け: 登場アニメーションを止める（表示自体は残す）。 */
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .modal-overlay,
+  .sheet,
+  .modal,
+  .snackbar {
+    animation: none;
+  }
 }

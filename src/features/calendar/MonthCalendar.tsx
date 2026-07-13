@@ -46,72 +46,91 @@ export function MonthCalendar() {
   const last = cells[34]
   const rangeLabel = `${first.getMonth() + 1}/${first.getDate()} 〜 ${last.getMonth() + 1}/${last.getDate()}`
 
+  // 5週×7日を週ごとの行に分割する（グリッドの ARIA 行構造のため）。
+  const weeks: Date[][] = Array.from({ length: 5 }, (_, w) => cells.slice(w * 7, w * 7 + 7))
+
   return (
     <div className="month">
-      <div className="month__grid" role="grid" aria-label={`${rangeLabel} のカレンダー`}>
-        {Array.from({ length: 7 }, (_, i) => {
-          // 列 i が表す実際の曜日番号。週開始が月曜(1)なら列0=月, 列6=日 になる。
-          const dow = (weekStart + i) % 7
-          return (
-            <div
-              key={dow}
-              className={`month__dow${dow === 0 ? ' month__dow--sun' : ''}${dow === 6 ? ' month__dow--sat' : ''}`}
-            >
-              {WEEKDAYS[dow]}
-            </div>
-          )
-        })}
-        {cells.map((d, idx) => {
-          const ds = fmt(d)
-          const isToday = ds === todayStr
-          const isPast = ds < todayStr
-          const has = eventDays?.has(ds) ?? false
-          const dow = d.getDay()
-          // 先頭セル（表示の最初の日付）は、範囲キャプションを消した代わりに月が分かるよう「M/D」表記にする。
-          // 月初(1日)も月をまたいだ目印として「M/1」表記にする（今日は塗るので数字のみ）。
-          const showMonth = idx === 0 || (d.getDate() === 1 && !isToday)
-          const numText = showMonth ? `${d.getMonth() + 1}/${d.getDate()}` : String(d.getDate())
-          const isSelected = ds === selectedStr
-          const cls = [
-            'month__cell',
-            isToday ? 'month__cell--today' : '',
-            isSelected ? 'month__cell--selected' : '',
-            isPast ? 'month__cell--past' : '',
-            dow === 0 ? 'month__cell--sun' : '',
-            dow === 6 ? 'month__cell--sat' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
-
-          // 過去日はクリックできない（予定パネルは今日以降しか出さない）。div で描画。
-          if (isPast) {
+      {/* role="grid" は行(role="row")→セル(role="gridcell"/columnheader) の入れ子を要求するが、
+          CSS はフラットな7列グリッドで組んでいる。行・セルのラッパーには display:contents を当て、
+          レイアウトを崩さずに ARIA の行構造だけを与える（.month__row / .month__gridcell）。
+          データ取得中は aria-busy を立てる（日付マスは即表示され、予定ドットだけ後から入る・#39）。 */}
+      <div
+        className="month__grid"
+        role="grid"
+        aria-label={`${rangeLabel} のカレンダー`}
+        aria-busy={isLoading || undefined}
+      >
+        <div className="month__row" role="row">
+          {Array.from({ length: 7 }, (_, i) => {
+            // 列 i が表す実際の曜日番号。週開始が月曜(1)なら列0=月, 列6=日 になる。
+            const dow = (weekStart + i) % 7
             return (
-              <div key={ds} className={cls}>
-                <span className="month__num">{numText}</span>
-                {has && <span className="month__dot" aria-label="予定あり" />}
+              <div
+                key={dow}
+                role="columnheader"
+                className={`month__dow${dow === 0 ? ' month__dow--sun' : ''}${dow === 6 ? ' month__dow--sat' : ''}`}
+              >
+                {WEEKDAYS[dow]}
               </div>
             )
-          }
-          return (
-            <button
-              key={ds}
-              type="button"
-              className={cls}
-              // クリックでタイムラインの表示日を切り替え、あわせて予定リストもその日へスクロールする。
-              onClick={() => {
-                setSelectedDate(ds)
-                requestScrollToDate(ds)
-              }}
-              title={`${d.getMonth() + 1}月${d.getDate()}日の予定を表示`}
-            >
-              <span className="month__num">{numText}</span>
-              {has && <span className="month__dot" aria-label="予定あり" />}
-            </button>
-          )
-        })}
+          })}
+        </div>
+        {weeks.map((week, w) => (
+          <div className="month__row" role="row" key={w}>
+            {week.map((d, j) => {
+              const idx = w * 7 + j
+              const ds = fmt(d)
+              const isToday = ds === todayStr
+              const isPast = ds < todayStr
+              const has = eventDays?.has(ds) ?? false
+              const dow = d.getDay()
+              // 先頭セル（表示の最初の日付）は、範囲キャプションを消した代わりに月が分かるよう「M/D」表記にする。
+              // 月初(1日)も月をまたいだ目印として「M/1」表記にする（今日は塗るので数字のみ）。
+              const showMonth = idx === 0 || (d.getDate() === 1 && !isToday)
+              const numText = showMonth ? `${d.getMonth() + 1}/${d.getDate()}` : String(d.getDate())
+              const isSelected = ds === selectedStr
+              const cls = [
+                'month__cell',
+                isToday ? 'month__cell--today' : '',
+                isSelected ? 'month__cell--selected' : '',
+                isPast ? 'month__cell--past' : '',
+                dow === 0 ? 'month__cell--sun' : '',
+                dow === 6 ? 'month__cell--sat' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+
+              return (
+                <div className="month__gridcell" role="gridcell" key={ds}>
+                  {isPast ? (
+                    // 過去日はクリックできない（予定パネルは今日以降しか出さない）。div で描画。
+                    <div className={cls}>
+                      <span className="month__num">{numText}</span>
+                      {has && <span className="month__dot" aria-label="予定あり" />}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className={cls}
+                      // クリックでタイムラインの表示日を切り替え、予定リストもその日へスクロールする。
+                      onClick={() => {
+                        setSelectedDate(ds)
+                        requestScrollToDate(ds)
+                      }}
+                      title={`${d.getMonth() + 1}月${d.getDate()}日の予定を表示`}
+                    >
+                      <span className="month__num">{numText}</span>
+                      {has && <span className="month__dot" aria-label="予定あり" />}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
       {isError && <p className="panel__note panel__note--error">予定の取得に失敗しました。</p>}
-      {isLoading && !eventDays && <p className="panel__note">読み込み中…</p>}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { NEWS_SOURCES, setNewsSource, useNewsSource, useSelectedNewsSources } fr
 import type { NewsItem } from './api'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
+import { handleTablistKeyDown } from '../../roving'
 
 // キー → タブ表示名の対応表（カタログから引く）。
 const LABELS = new Map(NEWS_SOURCES.map((s) => [s.key, s.label]))
@@ -37,18 +38,29 @@ export function NewsPanel() {
     <div className="news">
       {/* ソース切替タブ（設定で選んだソースだけ出す。1つだけならタブは省く）。 */}
       {selected.length > 1 && (
-        <div className="news__tabs" role="tablist" aria-label="ニュースソース切替">
-          {selected.map((key) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={source === key}
-              className={`news__tab${source === key ? ' news__tab--active' : ''}`}
-              onClick={() => setNewsSource(key)}
-            >
-              {LABELS.get(key) ?? key}
-            </button>
-          ))}
+        <div
+          className="news__tabs"
+          role="tablist"
+          aria-label="ニュースソース切替"
+          onKeyDown={(e) => handleTablistKeyDown(e, selected, source, setNewsSource)}
+        >
+          {selected.map((key) => {
+            const active = source === key
+            return (
+              <button
+                key={key}
+                data-tabkey={key}
+                role="tab"
+                aria-selected={active}
+                // roving tabindex: 選択中タブだけタブ順に入れ、他は矢印キーで移動する（#40）。
+                tabIndex={active ? 0 : -1}
+                className={`news__tab${active ? ' news__tab--active' : ''}`}
+                onClick={() => setNewsSource(key)}
+              >
+                {LABELS.get(key) ?? key}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -89,8 +101,17 @@ function NewsList({
           <a className="news__link" href={it.url} target="_blank" rel="noopener noreferrer">
             <span className="news__title">{it.title}</span>
             <span className="news__meta">
-              {it.points != null && <span className="news__pts">▲{it.points}</span>}
-              {it.comments != null && <span className="news__cmt">💬{it.comments}</span>}
+              {/* ▲=人気度(ポイント)、💬=コメント数。記号だけだと意味が伝わらないので読み上げラベルを付ける（#57）。 */}
+              {it.points != null && (
+                <span className="news__pts" aria-label={`${it.points} ポイント`}>
+                  ▲{it.points}
+                </span>
+              )}
+              {it.comments != null && (
+                <span className="news__cmt" aria-label={`コメント ${it.comments} 件`}>
+                  💬{it.comments}
+                </span>
+              )}
               {it.author && <span className="news__author">{it.author}</span>}
               {it.dateMs > 0 && <span className="news__when">{formatRelative(it.dateMs)}</span>}
             </span>

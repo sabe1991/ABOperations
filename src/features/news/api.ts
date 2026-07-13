@@ -8,6 +8,7 @@
 //   - 宇宙ニュース   … 宇宙開発の英語ニュース（Spaceflight News API v4・鍵なし・CORS 対応）
 // 追加する場合は newsSource.ts の NEWS_SOURCES にキー・表示名を足し、ここの fetchNews に分岐を足す。
 import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
+import { asArray, asObject, fetchWithTimeout } from '../../fetchTimeout'
 import type { NewsSource } from './newsSource'
 
 // Hacker News の各記事詳細を取る同時実行数の上限。20件を一斉に投げず少数ずつ流す。
@@ -55,11 +56,11 @@ interface QiitaItem {
 
 async function fetchQiita(): Promise<NewsItem[]> {
   // 未認証でも公開記事の一覧は取得できる（新着順・IPあたり60req/h）。鍵は付けない。
-  const res = await fetch('https://qiita.com/api/v2/items?page=1&per_page=20', {
+  const res = await fetchWithTimeout('https://qiita.com/api/v2/items?page=1&per_page=20', {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error(`Qiita の取得に失敗しました (HTTP ${res.status})`)
-  const items = (await res.json()) as QiitaItem[]
+  const items = asArray<QiitaItem>(await res.json(), 'Qiita')
   return items.map((it) => ({
     id: `qiita-${it.id}`,
     title: it.title,
@@ -85,14 +86,14 @@ interface HnItem {
 
 async function fetchHackerNews(): Promise<NewsItem[]> {
   // 1) トップ記事のID一覧（先頭20件だけ使う）。2) 各IDの詳細を並列取得。
-  const topRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json')
+  const topRes = await fetchWithTimeout('https://hacker-news.firebaseio.com/v0/topstories.json')
   if (!topRes.ok) throw new Error(`Hacker News の取得に失敗しました (HTTP ${topRes.status})`)
-  const ids = ((await topRes.json()) as number[]).slice(0, 20)
+  const ids = asArray<number>(await topRes.json(), 'Hacker News').slice(0, 20)
 
   // 各記事の詳細を同時実行数を絞って取得する。1件の瞬断（fetch 失敗）で20件全体を
   // 落とさないよう、部分失敗を許容して成功分だけ採用する（元のトップ順は保たれる）。
   const settled = await mapPool(ids, HN_FETCH_CONCURRENCY, async (id): Promise<NewsItem | null> => {
-    const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
+    const r = await fetchWithTimeout(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
     if (!r.ok) throw new Error(`HN item ${id} の取得に失敗 (HTTP ${r.status})`)
     const it = (await r.json()) as HnItem | null
     if (!it || !it.title) return null // タイトルの無い項目（削除済み等）はスキップ
@@ -151,12 +152,12 @@ function wikiItem(a: WikiArticle, dateMs: number): NewsItem | null {
 
 async function fetchWikipedia(): Promise<NewsItem[]> {
   // 日本語版ウィキペディアの「注目のコンテンツ」フィード（鍵不要・CORS 対応）。
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://ja.wikipedia.org/api/rest_v1/feed/featured/${wikiFeedDate()}`,
     { headers: { Accept: 'application/json' } },
   )
   if (!res.ok) throw new Error(`Wikipedia の取得に失敗しました (HTTP ${res.status})`)
-  const data = (await res.json()) as WikiFeatured
+  const data = asObject<WikiFeatured>(await res.json(), 'Wikipedia')
   // mostread の集計日を投稿日として使う（無ければ 0＝時刻非表示）。
   const dateMs = data.mostread?.date ? Date.parse(data.mostread.date) || 0 : 0
   const out: NewsItem[] = []
@@ -200,11 +201,11 @@ const JMA_INTENSITY: Record<string, string> = {
 
 async function fetchQuakes(): Promise<NewsItem[]> {
   // 気象庁の防災情報 JSON（鍵不要・CORS 対応）。最近の地震が新しい順に並ぶ。
-  const res = await fetch('https://www.jma.go.jp/bosai/quake/data/list.json', {
+  const res = await fetchWithTimeout('https://www.jma.go.jp/bosai/quake/data/list.json', {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error(`地震情報の取得に失敗しました (HTTP ${res.status})`)
-  const list = (await res.json()) as JmaQuake[]
+  const list = asArray<JmaQuake>(await res.json(), '地震情報')
   const seen = new Set<string>()
   const out: NewsItem[] = []
   for (const q of list) {
@@ -243,11 +244,11 @@ interface SpaceResponse {
 
 async function fetchSpace(): Promise<NewsItem[]> {
   // 宇宙開発の英語ニュース集約 API v4（鍵不要・CORS 対応）。
-  const res = await fetch('https://api.spaceflightnewsapi.net/v4/articles/?limit=20', {
+  const res = await fetchWithTimeout('https://api.spaceflightnewsapi.net/v4/articles/?limit=20', {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error(`宇宙ニュースの取得に失敗しました (HTTP ${res.status})`)
-  const data = (await res.json()) as SpaceResponse
+  const data = asObject<SpaceResponse>(await res.json(), '宇宙ニュース')
   return (data.results ?? []).map((it) => ({
     id: `space-${it.id}`,
     title: it.title,

@@ -18,11 +18,12 @@ import {
 } from './useTaskMutations'
 import { localDateStrPlusDays, localNextMondayStr, localTodayStr } from './api'
 import type { TaskItem } from './api'
-import { useQuickAddFocusSignal } from './quickAddFocus'
+import { requestQuickAddFocus, useQuickAddFocusSignal } from './quickAddFocus'
 import { useAuth } from '../../auth/useAuth'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
+import { useDialog } from '../../useDialog'
 
 // 表示用のバケツ（api の TaskGroup とは別に、表示側で due から細かく分ける）。
 type Bucket = 'overdue' | 'today' | 'tomorrow' | 'later' | 'noDue'
@@ -255,7 +256,15 @@ function TaskList({
     return <PanelError message="タスクの取得に失敗しました" error={error} onRetry={onRetry} />
   }
   if (!tasks || tasks.length === 0) {
-    return <p className="panel__note">タスクはありません。すべて順調です。</p>
+    // 空のときは、常設のクイック追加入力へ誘導する CTA を出す（#67）。
+    return (
+      <div className="empty-state">
+        <p className="empty-state__text">タスクはありません。すべて順調です。</p>
+        <button className="btn btn--small btn--primary" onClick={() => requestQuickAddFocus()}>
+          ＋ タスクを追加
+        </button>
+      </div>
+    )
   }
 
   const groups = bucketTasks(tasks)
@@ -390,6 +399,9 @@ function EditSheet({
     initialMode === 'custom' && task.dueStr ? task.dueStr : today,
   )
 
+  // ダイアログ共通挙動（Esc で閉じる・フォーカストラップ・スクロールロック・端末に応じた初期フォーカス）。
+  const dialogRef = useDialog<HTMLFormElement>(onClose)
+
   function resolveDue(): string | null {
     switch (dueMode) {
       case 'none':
@@ -423,10 +435,13 @@ function EditSheet({
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <form
+        ref={dialogRef}
+        tabIndex={-1}
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         role="dialog"
+        aria-modal="true"
         aria-label="タスクを編集"
       >
         <h3 className="sheet__title">タスクを編集</h3>
@@ -440,7 +455,6 @@ function EditSheet({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
         />
 
         <div className="sheet__label">期限</div>

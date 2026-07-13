@@ -20,6 +20,7 @@ import { useScrollToDateSignal } from './scrollTarget'
 import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
+import { useDialog } from '../../useDialog'
 
 // 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
 type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
@@ -188,6 +189,7 @@ export function CalendarPanel() {
           error={error}
           onRetry={() => refetch()}
           onSelect={openEdit}
+          onCreate={calendars && calendars.length > 0 ? () => openCreate(null) : undefined}
         />
       </div>
 
@@ -236,6 +238,7 @@ function EventList({
   error,
   onRetry,
   onSelect,
+  onCreate,
 }: {
   events: CalendarEvent[] | undefined
   isLoading: boolean
@@ -243,6 +246,7 @@ function EventList({
   error: unknown
   onRetry: () => void
   onSelect: (ev: CalendarEvent) => void
+  onCreate?: () => void
 }) {
   // 出典名（カレンダー名 / 主カレンダーはメールアドレス）を表示するかは端末ローカルの設定に従う（既定は非表示）。
   const showLabels = useShowSourceLabels()
@@ -253,7 +257,17 @@ function EventList({
     return <PanelError message="予定の取得に失敗しました" error={error} onRetry={onRetry} />
   }
   if (!events || events.length === 0) {
-    return <p className="panel__note">今後の予定はありません。</p>
+    // 空のときは、次の一手（予定作成）へ誘導する CTA を出す（#67）。
+    return (
+      <div className="empty-state">
+        <p className="empty-state__text">今後の予定はありません。</p>
+        {onCreate && (
+          <button className="btn btn--small btn--primary" onClick={onCreate}>
+            ＋ 予定を作成
+          </button>
+        )}
+      </div>
+    )
   }
 
   const todayStr = fmtLocalDate(new Date())
@@ -347,6 +361,9 @@ function EventSheet({
   const [endTime, setEndTime] = useState(initial.endTime)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  // ダイアログ共通挙動（Esc で閉じる・フォーカストラップ・スクロールロック・端末に応じた初期フォーカス）。
+  const dialogRef = useDialog<HTMLFormElement>(onClose)
+
   // 開始日を変えたら、終了日が前になっていれば開始日に合わせる（終了日<開始日を作らせない）。
   function handleStartDateChange(value: string) {
     setStartDate(value)
@@ -383,10 +400,13 @@ function EventSheet({
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <form
+        ref={dialogRef}
+        tabIndex={-1}
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         role="dialog"
+        aria-modal="true"
         aria-label={mode === 'create' ? '予定を作成' : readOnly ? '予定の詳細' : '予定を編集'}
       >
         <h3 className="sheet__title">
@@ -404,7 +424,6 @@ function EventSheet({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="予定のタイトル"
           disabled={readOnly}
-          autoFocus={!readOnly}
         />
 
         {mode === 'create' && calendars.length > 1 && (
@@ -437,53 +456,58 @@ function EventSheet({
           終日
         </label>
 
-        <label className="sheet__label" htmlFor="ev-start-date">
-          開始日
-        </label>
-        <input
-          id="ev-start-date"
-          className="tasks__add-input"
-          type="date"
-          value={startDate}
-          // 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
-          min={mode === 'create' ? todayStr : undefined}
-          onChange={(e) => handleStartDateChange(e.target.value)}
-          disabled={readOnly}
-        />
-
-        <label className="sheet__label" htmlFor="ev-end-date">
-          終了日
-        </label>
-        <input
-          id="ev-end-date"
-          className="tasks__add-input"
-          type="date"
-          value={endDate}
-          min={startDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          disabled={readOnly}
-        />
+        {/* 日付は「開始日｜終了日」、時刻は「開始時刻｜終了時刻」を左右2列に並べる。
+            終了日の真下に終了時刻が来るので、終了の日時が視覚的にまとまる（ユーザー要望）。 */}
+        <div className="sheet__times">
+          <label className="sheet__time-field">
+            <span className="sheet__label">開始日</span>
+            <input
+              className="tasks__add-input"
+              type="date"
+              value={startDate}
+              // 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
+              min={mode === 'create' ? todayStr : undefined}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              disabled={readOnly}
+              aria-label="開始日"
+            />
+          </label>
+          <label className="sheet__time-field">
+            <span className="sheet__label">終了日</span>
+            <input
+              className="tasks__add-input"
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              disabled={readOnly}
+              aria-label="終了日"
+            />
+          </label>
+        </div>
 
         {!allDay && (
           <div className="sheet__times">
             <label className="sheet__time-field">
-              <span className="sheet__label">開始</span>
+              <span className="sheet__label">開始時刻</span>
               <input
                 className="tasks__add-input"
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 disabled={readOnly}
+                aria-label="開始時刻"
               />
             </label>
             <label className="sheet__time-field">
-              <span className="sheet__label">終了</span>
+              <span className="sheet__label">終了時刻</span>
               <input
                 className="tasks__add-input"
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={readOnly}
+                aria-label="終了時刻"
               />
             </label>
           </div>

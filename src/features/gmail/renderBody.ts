@@ -138,18 +138,24 @@ function afterSanitizeAttributes(node: Element): void {
     node.setAttribute('rel', 'noopener noreferrer')
   }
   // 画像などの src を退避してブロック（後で「画像を表示」で戻す）。
+  // ただし data: URI（インライン画像・#11 で cid: から変換したもの）は外部通信を伴わず
+  // 開封トラッキングの心配が無いので、ブロックせず既定で表示する。
   if (node.hasAttribute('src')) {
     const src = node.getAttribute('src') ?? ''
-    node.removeAttribute('src')
-    node.setAttribute('data-blocked-src', src)
+    if (!/^\s*data:/i.test(src)) {
+      node.removeAttribute('src')
+      node.setAttribute('data-blocked-src', src)
+    }
   }
 }
 
 // サニタイズ済みHTMLにブロックした画像が含まれるか（「画像を表示」ボタンの出し分け用）。
+// data: の背景画像（インライン画像・#11）は既定で表示され「画像を表示」の対象ではないので、
+// url() が data: で始まる場合は除外する（不要なボタンを出さないため）。
 export function hasBlockedImages(sanitized: string): boolean {
   return (
     sanitized.includes('data-blocked-src') ||
-    /background(-image)?\s*:\s*url\(/i.test(sanitized)
+    /background(-image)?\s*:\s*url\(\s*['"]?(?!data:)/i.test(sanitized)
   )
 }
 

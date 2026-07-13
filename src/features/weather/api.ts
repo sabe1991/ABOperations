@@ -5,6 +5,7 @@
 // 地点は設定モーダルから変更できる（端末ローカル保存。既定は東京）。地点の型・既定値・ストアは
 // location.ts にまとめ、ここでは fetchWeather が地点を引数で受け取る。
 import type { WeatherLocation } from './location'
+import { asObject, fetchWithTimeout } from '../../fetchTimeout'
 
 // Open-Meteo のレスポンス（必要な部分だけ型付け）。
 interface OpenMeteoResponse {
@@ -110,9 +111,9 @@ export async function fetchWeather(loc: WeatherLocation): Promise<Weather> {
     timezone: 'auto',
     forecast_days: '3', // 今日＋明日・明後日
   })
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
+  const res = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
   if (!res.ok) throw new Error(`天気の取得に失敗しました (HTTP ${res.status})`)
-  const json = (await res.json()) as OpenMeteoResponse
+  const json = asObject<OpenMeteoResponse>(await res.json(), '天気')
 
   const times = json.daily?.time ?? []
   const codes = json.daily?.weather_code ?? []
@@ -152,9 +153,11 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult[]> {
     language: 'ja',
     format: 'json',
   })
-  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`)
+  const res = await fetchWithTimeout(
+    `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`,
+  )
   if (!res.ok) throw new Error(`地名の検索に失敗しました (HTTP ${res.status})`)
-  const json = (await res.json()) as {
+  const json = asObject<{
     results?: {
       name: string
       latitude: number
@@ -162,7 +165,7 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult[]> {
       admin1?: string
       country?: string
     }[]
-  }
+  }>(await res.json(), '地名の検索')
   return (json.results ?? []).map((r) => ({
     name: r.name,
     latitude: r.latitude,

@@ -23,6 +23,7 @@ import type { GmailMessage } from './api'
 import { useEffectiveDark } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
+import { toUserMessage } from '../../errorMessage'
 
 // Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
 type Snack = { text: string; undo: () => void }
@@ -63,6 +64,25 @@ export function GmailPanel() {
     if (snack) snack.undo()
     window.clearTimeout(snackTimer.current)
     setSnack(null)
+  }
+
+  // 既読化・アーカイブのミューテーションは、行ごとに作らず親でまとめて1組だけ持つ（#45）。
+  // 行が消えても Undo を出し続けられるよう、通知（notify）とセットにしてここで定義する。
+  const markRead = useMarkRead()
+  const markUnread = useMarkUnread()
+  const archive = useArchive()
+  const unarchive = useUnarchive()
+  function handleMarkRead(m: GmailMessage) {
+    markRead.mutate(m)
+    notify('既読にしました', () => markUnread.mutate(m))
+  }
+  function handleMarkUnread(m: GmailMessage) {
+    markUnread.mutate(m)
+    notify('未読にしました', () => markRead.mutate(m))
+  }
+  function handleArchive(m: GmailMessage) {
+    archive.mutate(m)
+    notify('アーカイブしました', () => unarchive.mutate(m))
   }
 
   function handleEnable() {
@@ -111,7 +131,9 @@ export function GmailPanel() {
         error={queryError}
         onRetry={() => refetch()}
         formatWhen={formatWhen}
-        notify={notify}
+        onMarkRead={handleMarkRead}
+        onMarkUnread={handleMarkUnread}
+        onArchive={handleArchive}
       />
 
       {/* Undo スナックバー（画面下部固定・5秒） */}
@@ -134,7 +156,9 @@ function GmailList({
   error,
   onRetry,
   formatWhen,
-  notify,
+  onMarkRead,
+  onMarkUnread,
+  onArchive,
 }: {
   messages: GmailMessage[] | undefined
   isLoading: boolean
@@ -142,7 +166,9 @@ function GmailList({
   error: unknown
   onRetry: () => void
   formatWhen: (ms: number) => string
-  notify: (text: string, undo: () => void) => void
+  onMarkRead: (m: GmailMessage) => void
+  onMarkUnread: (m: GmailMessage) => void
+  onArchive: (m: GmailMessage) => void
 }) {
   if (isLoading) {
     return <ListSkeleton rows={6} />
@@ -166,7 +192,13 @@ function GmailList({
               既読
             </li>
           )}
-          <GmailRow m={m} formatWhen={formatWhen} notify={notify} />
+          <GmailRow
+            m={m}
+            formatWhen={formatWhen}
+            onMarkRead={onMarkRead}
+            onMarkUnread={onMarkUnread}
+            onArchive={onArchive}
+          />
         </Fragment>
       ))}
     </ul>
@@ -177,29 +209,30 @@ function GmailList({
 function GmailRow({
   m,
   formatWhen,
-  notify,
+  onMarkRead,
+  onMarkUnread,
+  onArchive,
 }: {
   m: GmailMessage
   formatWhen: (ms: number) => string
-  notify: (text: string, undo: () => void) => void
+  onMarkRead: (m: GmailMessage) => void
+  onMarkUnread: (m: GmailMessage) => void
+  onArchive: (m: GmailMessage) => void
 }) {
   const [open, setOpen] = useState(false)
-  const markRead = useMarkRead()
-  const markUnread = useMarkUnread()
-  const archive = useArchive()
-  const unarchive = useUnarchive()
 
   function handleMarkRead() {
-    markRead.mutate(m)
-    notify('既読にしました', () => markUnread.mutate(m))
+    // 既読/未読を切り替えたら行を閉じる。開いたまま既読セクションへ移動すると
+    // 開閉状態と並び順がちぐはぐに見えるため（ユーザー要望）。ミューテーションは親に集約（#45）。
+    setOpen(false)
+    onMarkRead(m)
   }
   function handleMarkUnread() {
-    markUnread.mutate(m)
-    notify('未読にしました', () => markRead.mutate(m))
+    setOpen(false)
+    onMarkUnread(m)
   }
   function handleArchive() {
-    archive.mutate(m)
-    notify('アーカイブしました', () => unarchive.mutate(m))
+    onArchive(m)
   }
 
   return (
@@ -251,7 +284,7 @@ function MessageBody({ id }: { id: string }) {
   if (isError)
     return (
       <p className="panel__note panel__note--error gmail__bodynote">
-        本文の取得に失敗しました: {String(error)}
+        本文の取得に失敗しました: {toUserMessage(error)}
       </p>
     )
   if (!data) return null
@@ -348,6 +381,13 @@ function HtmlBody({ html }: { html: string }) {
         //  - allow-popups: リンク(target="_blank")で新規タブを開けるようにするため。
         //  - allow-popups-to-escape-sandbox: 開いた外部サイトが sandbox（スクリプト無効）を
         //    継承して壊れるのを防ぐため必要。外すとリンク先が正しく表示できない。
+        // 【設計判断・#43】より厳格にするなら allow-same-origin を外し、高さ計測を
+        // iframe 内スクリプトからの postMessage に切り替える案がある。ただし本アプリは
+        //   (1) allow-scripts を付けない方針（本文JSを一切実行しない多層防御）なので iframe 内から
+        //       postMessage を送る手段が無く、
+        //   (2) Android の外部リンク横取り（#14）が本体側からの contentDocument 参照に依存している
+        // ため、allow-same-origin を外すと成立しない。よって現時点では allow-same-origin を維持し、
+        // 高さは本体側の ResizeObserver（handleLoad）で計測する。#14 の実機検証後に再検討する。
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         // iframe 自身のスクロールを無効化し、スクロールを親パネルへ流す（ひっかかり防止）。
         // 高さは handleLoad の ResizeObserver で中身に追従させるので内部スクロールは不要。
