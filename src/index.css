@@ -1563,9 +1563,6 @@ body {
 .gmail__bodynote {
   padding: 0.4rem 0;
 }
-.gmail__imgbtn {
-  margin-bottom: 0.5rem;
-}
 .gmail__frame {
   width: 100%;
   min-height: 8rem;
@@ -1945,9 +1942,30 @@ body {
   line-height: 1;
   cursor: pointer;
 }
-/* メール本文モーダル。パネル内展開より広くして本文を読みやすくする。 */
+/* メール本文モーダル。パネル内展開より広くして本文を読みやすくする。
+   件名・×の見出しを上部に固定し、本文はその下だけがスクロールするよう縦フレックスにする。 */
 .gmail-modal {
   max-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  /* .modal の内側パディング・全体スクロールを解除し、見出し固定＋本文スクロールに置き換える。 */
+  padding: 0;
+  overflow: hidden;
+}
+/* 上部に固定される見出し（件名＋×）。スクロールしても常に見える。 */
+.gmail-modal__header {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  padding: 1.1rem 1.5rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+/* 見出しの下のスクロール領域（メタ・操作・本文・添付）。 */
+.gmail-modal__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.8rem 1.5rem 1.6rem;
 }
 /* 件名は折り返して全文表示（一覧のような省略はしない）。閉じるボタンを押し出さないよう縮小可に。 */
 .gmail-modal__subject {

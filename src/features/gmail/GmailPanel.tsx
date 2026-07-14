@@ -322,6 +322,19 @@ function MessageModal({
 }) {
   const dialogRef = useDialog<HTMLDivElement>(onClose)
   const when = m.dateMs ? new Date(m.dateMs).toLocaleString('ja-JP') : ''
+  // 外部画像の表示状態はモーダル側で持ち、「画像を表示」ボタンを本文の上ではなく
+  // 操作ボタン列（返信・既読/未読・アーカイブ）に並べる（本文の上に単独行で出ると浮くため）。
+  // imagesBlocked は本文が読み込まれてブロック画像を含むと HtmlBody から通知される。
+  const [showImages, setShowImages] = useState(false)
+  const [imagesBlocked, setImagesBlocked] = useState(false)
+  // メールが変わったら「画像を表示」の解禁状態だけリセットする。
+  // imagesBlocked は本文（HtmlBody/MessageBody）からの通知が唯一のソースなのでここでは触らない
+  // （ここで false にすると、キャッシュ即描画時に子の true 通知を同一コミットで打ち消してしまい、
+  //   一度見た HTML メールの再オープンでボタンが出なくなる。Fable 指摘）。
+  useEffect(() => {
+    setShowImages(false)
+  }, [m.id])
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -333,39 +346,52 @@ function MessageModal({
         aria-modal="true"
         aria-label="メール"
       >
-        <div className="modal__header">
+        {/* 件名と×は上部に固定（本文を下にスクロールしても常に見える）。 */}
+        <div className="modal__header gmail-modal__header">
           <h3 className="modal__title gmail-modal__subject">{m.subject}</h3>
           <button className="modal__close" onClick={onClose} aria-label="閉じる" title="閉じる">
             ×
           </button>
         </div>
-        <div className="gmail-modal__meta">
-          <span className="gmail-modal__from">{m.fromName}</span>
-          {m.fromEmail && m.fromEmail !== m.fromName && (
-            <span className="gmail-modal__email">{m.fromEmail}</span>
-          )}
-          {when && <span className="gmail-modal__when">{when}</span>}
-        </div>
-        <div className="gmail__actions">
-          {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
-          <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
-            返信
-          </button>
-          {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
-          {m.unread ? (
-            <button className="btn btn--small" onClick={() => onMarkRead(m)}>
-              既読にする
+        <div className="gmail-modal__scroll">
+          <div className="gmail-modal__meta">
+            <span className="gmail-modal__from">{m.fromName}</span>
+            {m.fromEmail && m.fromEmail !== m.fromName && (
+              <span className="gmail-modal__email">{m.fromEmail}</span>
+            )}
+            {when && <span className="gmail-modal__when">{when}</span>}
+          </div>
+          <div className="gmail__actions">
+            {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
+            <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
+              返信
             </button>
-          ) : (
-            <button className="btn btn--small" onClick={() => onMarkUnread(m)}>
-              未読にする
+            {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
+            {m.unread ? (
+              <button className="btn btn--small" onClick={() => onMarkRead(m)}>
+                既読にする
+              </button>
+            ) : (
+              <button className="btn btn--small" onClick={() => onMarkUnread(m)}>
+                未読にする
+              </button>
+            )}
+            <button className="btn btn--small" onClick={() => onArchive(m)}>
+              アーカイブ
             </button>
-          )}
-          <button className="btn btn--small" onClick={() => onArchive(m)}>
-            アーカイブ
-          </button>
+            {/* 外部画像がブロックされている本文でのみ、操作列に「画像を表示」を並べる。 */}
+            {imagesBlocked && !showImages && (
+              <button className="btn btn--small" onClick={() => setShowImages(true)}>
+                画像を表示
+              </button>
+            )}
+          </div>
+          <MessageBody
+            id={m.id}
+            showImages={showImages}
+            onImagesBlockedChange={setImagesBlocked}
+          />
         </div>
-        <MessageBody id={m.id} />
       </div>
     </div>
   )
@@ -374,8 +400,24 @@ function MessageModal({
 // 本文プレビュー本体。HTML はサニタイズして sandbox iframe に隔離表示、
 // プレーンテキストのみなら <pre> にそのまま出す（HTML でないので iframe 不要）。
 // 本文の下に添付ファイル一覧（#13）を出す。
-function MessageBody({ id }: { id: string }) {
+// 「画像を表示」ボタンはモーダルの操作列に置くため、表示状態(showImages)は親から受け取り、
+// ブロック画像の有無(onImagesBlockedChange)を親へ通知する。
+function MessageBody({
+  id,
+  showImages,
+  onImagesBlockedChange,
+}: {
+  id: string
+  showImages: boolean
+  onImagesBlockedChange: (blocked: boolean) => void
+}) {
   const { data, isLoading, isError, error } = useMessageBody(id)
+  // HTML 本文でない（プレーン/本文なし）ときはブロック画像も無いので false を通知する。
+  const html = data?.html ?? null
+  useEffect(() => {
+    if (!html) onImagesBlockedChange(false)
+  }, [html, onImagesBlockedChange])
+
   if (isLoading) return <p className="panel__note gmail__bodynote">本文を読み込み中…</p>
   if (isError)
     return (
@@ -387,7 +429,11 @@ function MessageBody({ id }: { id: string }) {
   return (
     <>
       {data.html ? (
-        <HtmlBody html={data.html} />
+        <HtmlBody
+          html={data.html}
+          showImages={showImages}
+          onImagesBlockedChange={onImagesBlockedChange}
+        />
       ) : data.text ? (
         <PlainTextBody text={data.text} />
       ) : data.attachments.length === 0 ? (
@@ -486,9 +532,17 @@ function PlainTextBody({ text }: { text: string }) {
 }
 
 // サニタイズ済みHTMLを sandbox iframe で表示。外部画像は既定でブロックし、
-// 「画像を表示」で解禁する（CSP を緩めた srcdoc に差し替えて iframe を再生成）。
-function HtmlBody({ html }: { html: string }) {
-  const [showImages, setShowImages] = useState(false)
+// 「画像を表示」（モーダルの操作列にある）で解禁する（CSP を緩めた srcdoc に差し替え）。
+// showImages は親（モーダル）から受け取り、ブロック画像の有無は親へ通知する。
+function HtmlBody({
+  html,
+  showImages,
+  onImagesBlockedChange,
+}: {
+  html: string
+  showImages: boolean
+  onImagesBlockedChange: (blocked: boolean) => void
+}) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   // 中身の高さを監視するオブザーバ。srcDoc 差し替え時に前の監視を止めて張り直す。
   const observerRef = useRef<ResizeObserver | null>(null)
@@ -496,6 +550,11 @@ function HtmlBody({ html }: { html: string }) {
   const sanitized = useMemo(() => sanitizeEmailHtml(html), [html])
   const imagesBlocked = useMemo(() => hasBlockedImages(sanitized), [sanitized])
   const srcDoc = useMemo(() => buildSrcDoc(sanitized, showImages, dark), [sanitized, showImages, dark])
+
+  // ブロック画像の有無を親（モーダル）へ通知し、操作列の「画像を表示」の出し分けに使わせる。
+  useEffect(() => {
+    onImagesBlockedChange(imagesBlocked)
+  }, [imagesBlocked, onImagesBlockedChange])
 
   // アンマウント時に高さ監視を止める（監視が残るとメモリリークになる）。
   useEffect(() => () => observerRef.current?.disconnect(), [])
@@ -535,15 +594,6 @@ function HtmlBody({ html }: { html: string }) {
 
   return (
     <div className="gmail__body">
-      {imagesBlocked && !showImages && (
-        <button
-          type="button"
-          className="btn btn--small gmail__imgbtn"
-          onClick={() => setShowImages(true)}
-        >
-          画像を表示
-        </button>
-      )}
       <iframe
         ref={frameRef}
         className="gmail__frame"
