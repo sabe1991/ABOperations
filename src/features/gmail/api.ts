@@ -25,6 +25,7 @@ interface ListResponse {
 // メール本文の1パーツ（multipart の枝）。part は入れ子になりうる。
 interface MessagePart {
   mimeType?: string
+  filename?: string
   headers?: { name: string; value: string }[]
   body?: { data?: string; size?: number; attachmentId?: string }
   parts?: MessagePart[]
@@ -241,9 +242,64 @@ function findPart(part: MessagePart | undefined, mimeType: string): string | nul
 }
 
 // 取り出した本文。html があれば html を、無ければ plain（プレーンテキスト）を使う。
+// attachments は添付ファイル（PDF・画像等）の一覧（#13）。実体は都度 fetchAttachmentBytes で取得する。
 export interface MessageBody {
   html: string | null
   text: string | null
+  attachments: Attachment[]
+}
+
+// 添付ファイル1件のメタ情報（#13）。実データは attachmentId で attachments.get から取る。
+export interface Attachment {
+  attachmentId: string
+  filename: string
+  mimeType: string
+  size: number // バイト数（表示用の目安。0 のこともある）
+}
+
+// MIME タイプから代替のファイル名を作る（filename ヘッダが無い添付・#13）。
+function fallbackAttachmentName(mimeType: string | undefined): string {
+  const ext = (mimeType ?? '').split('/')[1]?.split(';')[0]?.trim() || 'bin'
+  return `添付ファイル.${ext}`
+}
+
+// payload を再帰的に辿り、添付ファイル（attachmentId を持ち、本文にインライン表示されないパーツ）を集める（#13）。
+// 除外するのは「本文に埋め込まれるインライン部品」だけ:
+//   - Content-Disposition: inline のパーツ（署名ロゴ等・#11 で本文内に表示済み）
+//   - Disposition 宣言が無く Content-ID を持つパーツ（cid: 参照される旧来のインライン画像）
+// 逆に Content-Disposition: attachment のものは Content-ID があっても添付として一覧する
+// （Outlook 等は通常添付にも Content-ID を付けるため、cid だけで除外すると添付が消える）。
+// 本文テキスト/HTML 部は attachmentId を持たないので自然に対象外になる。
+function collectAttachments(part: MessagePart | undefined, acc: Attachment[]): void {
+  if (!part) return
+  const attachmentId = part.body?.attachmentId
+  if (attachmentId) {
+    const disposition = headerValue(part.headers, 'Content-Disposition').toLowerCase()
+    const hasCid = Boolean(headerValue(part.headers, 'Content-ID'))
+    const isInline = disposition.startsWith('inline') || (!disposition && hasCid)
+    // filename も disposition も無い（＝添付と断定できない）パーツは拾わない（本文断片の誤検出防止）。
+    const looksLikeAttachment = Boolean(part.filename) || disposition.startsWith('attachment')
+    if (!isInline && looksLikeAttachment) {
+      acc.push({
+        attachmentId,
+        filename: part.filename || fallbackAttachmentName(part.mimeType),
+        mimeType: part.mimeType ?? 'application/octet-stream',
+        size: part.body?.size ?? 0,
+      })
+    }
+  }
+  for (const child of part.parts ?? []) collectAttachments(child, acc)
+}
+
+// 添付ファイルの実データ（生バイト列）を取得する（#13）。ダウンロード時に呼ぶ。
+export async function fetchAttachmentBytes(
+  messageId: string,
+  attachmentId: string,
+): Promise<Uint8Array> {
+  const res = await fetchJson<{ data?: string }>(
+    `${GMAIL_BASE}/messages/${messageId}/attachments/${attachmentId}`,
+  )
+  return base64UrlToBytes(res.data ?? '')
 }
 
 // ---- インライン画像（cid:）対応（#11） ----
@@ -345,9 +401,12 @@ export async function fetchMessageBody(id: string): Promise<MessageBody> {
       html = replaceCidReferences(html, cidMap)
     }
   }
+  const attachments: Attachment[] = []
+  collectAttachments(m.payload, attachments)
   return {
     html,
     text: findPart(m.payload, 'text/plain'),
+    attachments,
   }
 }
 

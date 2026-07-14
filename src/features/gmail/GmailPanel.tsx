@@ -5,12 +5,16 @@
 //   各メールを既読化・アーカイブでき、いずれも「元に戻す」で取り消せる。
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
 import { connect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
 import { useArchive, useMarkRead, useMarkUnread, useUnarchive } from './useGmailMutations'
+import { useSendMessage } from './useSendMessage'
+import { fetchReplyRefs, quoteBody, replySubject } from './compose'
+import type { OutgoingMessage } from './compose'
 import {
   IS_ANDROID,
   buildSrcDoc,
@@ -19,14 +23,30 @@ import {
   tokenizeLinks,
   toIntentUrl,
 } from './renderBody'
-import type { GmailMessage } from './api'
+import { fetchAttachmentBytes } from './api'
+import type { Attachment, GmailMessage } from './api'
+import { AuthError } from '../../google/fetchJson'
+import { markExpired } from '../../auth/authStore'
 import { useEffectiveDark } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
 import { toUserMessage } from '../../errorMessage'
+import { useDialog } from '../../useDialog'
 
-// Undo スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
-type Snack = { text: string; undo: () => void }
+// スナックバー1件分。直近1件のみ・Query キャッシュ外のローカル state。
+// undo が null のとき（送信完了の通知など）は「元に戻す」ボタンを出さない。
+type Snack = { text: string; undo: (() => void) | null }
+
+// 作成シートの状態: 新規作成 / 返信（元メール付き） / 閉じている（null）。
+type ComposeState = { mode: 'new' } | { mode: 'reply'; message: GmailMessage } | null
+
+// バイト数を読みやすい単位にする（添付ファイルサイズ表示・#13）。
+function formatBytes(n: number): string {
+  if (!n) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
 
 // 受信時刻の短い表示（今日は時刻、それ以外は M/D）。
 function formatWhen(dateMs: number): string {
@@ -51,17 +71,17 @@ export function GmailPanel() {
   const active = enabled && hasScope
   const { data: messages, isLoading, isError, error: queryError, refetch } = useGmail(active)
 
-  // スナックバー（既読化/アーカイブの Undo）。行が消えても残るよう親（このパネル）で管理する。
+  // スナックバー（既読化/アーカイブの Undo・送信完了の通知）。行が消えても残るよう親で管理する。
   const [snack, setSnack] = useState<Snack | null>(null)
   const snackTimer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(snackTimer.current), [])
-  function notify(text: string, undo: () => void) {
+  function notify(text: string, undo: (() => void) | null) {
     window.clearTimeout(snackTimer.current)
     setSnack({ text, undo })
     snackTimer.current = window.setTimeout(() => setSnack(null), 5000)
   }
   function handleSnackUndo() {
-    if (snack) snack.undo()
+    if (snack?.undo) snack.undo()
     window.clearTimeout(snackTimer.current)
     setSnack(null)
   }
@@ -83,6 +103,25 @@ export function GmailPanel() {
   function handleArchive(m: GmailMessage) {
     archive.mutate(m)
     notify('アーカイブしました', () => unarchive.mutate(m))
+  }
+
+  // 作成シート（新規作成・返信）と送信ミューテーション（#4）。
+  const [compose, setCompose] = useState<ComposeState>(null)
+  const [composeError, setComposeError] = useState<string | null>(null)
+  const send = useSendMessage()
+  function openCompose(state: ComposeState) {
+    setComposeError(null)
+    setCompose(state)
+  }
+  function handleSend(msg: OutgoingMessage) {
+    setComposeError(null)
+    send.mutate(msg, {
+      onSuccess: () => {
+        setCompose(null)
+        notify('メールを送信しました', null)
+      },
+      onError: (e) => setComposeError(toUserMessage(e)),
+    })
   }
 
   function handleEnable() {
@@ -124,6 +163,14 @@ export function GmailPanel() {
 
   return (
     <div className="gmail">
+      {/* 見出し行に「作成」ボタンを置く（新規メール作成）。 */}
+      <div className="gmail__toolbar">
+        <h2 className="panel__title">受信トレイ</h2>
+        <button className="btn btn--small btn--primary" onClick={() => openCompose({ mode: 'new' })}>
+          ✎ 作成
+        </button>
+      </div>
+
       <GmailList
         messages={messages}
         isLoading={isLoading}
@@ -134,15 +181,28 @@ export function GmailPanel() {
         onMarkRead={handleMarkRead}
         onMarkUnread={handleMarkUnread}
         onArchive={handleArchive}
+        onReply={(m) => openCompose({ mode: 'reply', message: m })}
       />
 
-      {/* Undo スナックバー（画面下部固定・5秒） */}
+      {compose && (
+        <ComposeSheet
+          state={compose}
+          sending={send.isPending}
+          error={composeError}
+          onClose={() => setCompose(null)}
+          onSend={handleSend}
+        />
+      )}
+
+      {/* スナックバー（画面下部固定・5秒）。Undo が無い通知（送信完了など）はボタンを出さない。 */}
       {snack && (
         <div className="snackbar" role="status">
           <span className="snackbar__text">{snack.text}</span>
-          <button className="snackbar__action" onClick={handleSnackUndo}>
-            元に戻す
-          </button>
+          {snack.undo && (
+            <button className="snackbar__action" onClick={handleSnackUndo}>
+              元に戻す
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -159,6 +219,7 @@ function GmailList({
   onMarkRead,
   onMarkUnread,
   onArchive,
+  onReply,
 }: {
   messages: GmailMessage[] | undefined
   isLoading: boolean
@@ -169,6 +230,7 @@ function GmailList({
   onMarkRead: (m: GmailMessage) => void
   onMarkUnread: (m: GmailMessage) => void
   onArchive: (m: GmailMessage) => void
+  onReply: (m: GmailMessage) => void
 }) {
   if (isLoading) {
     return <ListSkeleton rows={6} />
@@ -198,6 +260,7 @@ function GmailList({
             onMarkRead={onMarkRead}
             onMarkUnread={onMarkUnread}
             onArchive={onArchive}
+            onReply={onReply}
           />
         </Fragment>
       ))}
@@ -212,12 +275,14 @@ function GmailRow({
   onMarkRead,
   onMarkUnread,
   onArchive,
+  onReply,
 }: {
   m: GmailMessage
   formatWhen: (ms: number) => string
   onMarkRead: (m: GmailMessage) => void
   onMarkUnread: (m: GmailMessage) => void
   onArchive: (m: GmailMessage) => void
+  onReply: (m: GmailMessage) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -255,6 +320,10 @@ function GmailRow({
       {open && (
         <>
           <div className="gmail__actions">
+            {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
+            <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
+              返信
+            </button>
             {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
             {m.unread ? (
               <button className="btn btn--small" onClick={handleMarkRead}>
@@ -278,6 +347,7 @@ function GmailRow({
 
 // 本文プレビュー本体。HTML はサニタイズして sandbox iframe に隔離表示、
 // プレーンテキストのみなら <pre> にそのまま出す（HTML でないので iframe 不要）。
+// 本文の下に添付ファイル一覧（#13）を出す。
 function MessageBody({ id }: { id: string }) {
   const { data, isLoading, isError, error } = useMessageBody(id)
   if (isLoading) return <p className="panel__note gmail__bodynote">本文を読み込み中…</p>
@@ -288,9 +358,86 @@ function MessageBody({ id }: { id: string }) {
       </p>
     )
   if (!data) return null
-  if (data.html) return <HtmlBody html={data.html} />
-  if (data.text) return <PlainTextBody text={data.text} />
-  return <p className="panel__note gmail__bodynote">本文を表示できません</p>
+  return (
+    <>
+      {data.html ? (
+        <HtmlBody html={data.html} />
+      ) : data.text ? (
+        <PlainTextBody text={data.text} />
+      ) : data.attachments.length === 0 ? (
+        <p className="panel__note gmail__bodynote">本文を表示できません</p>
+      ) : null}
+      {data.attachments.length > 0 && <AttachmentList messageId={id} attachments={data.attachments} />}
+    </>
+  )
+}
+
+// 添付ファイル一覧（#13）。各行タップで attachments.get から実データを取得し、ブラウザ保存を起こす。
+function AttachmentList({
+  messageId,
+  attachments,
+}: {
+  messageId: string
+  attachments: Attachment[]
+}) {
+  // ダウンロード中の attachmentId（多重クリック防止・進捗表示用）と直近のエラー。
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [errorId, setErrorId] = useState<string | null>(null)
+
+  async function download(att: Attachment) {
+    setBusyId(att.attachmentId)
+    setErrorId(null)
+    try {
+      const bytes = await fetchAttachmentBytes(messageId, att.attachmentId)
+      // Uint8Array から Blob を作り、一時 <a download> でブラウザの保存を起こす。
+      const blob = new Blob([bytes as BlobPart], { type: att.mimeType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = att.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      // 認証切れ(401)は共通の再接続UXへ流す（この経路は TanStack Query を通らないため手動で連携）。
+      if (e instanceof AuthError) markExpired()
+      setErrorId(att.attachmentId)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div className="gmail__attachments">
+      <div className="gmail__attachments-title">添付ファイル（{attachments.length}）</div>
+      <ul className="gmail__attachment-list">
+        {attachments.map((att) => (
+          <li key={att.attachmentId}>
+            <button
+              type="button"
+              className="gmail__attachment"
+              onClick={() => download(att)}
+              disabled={busyId === att.attachmentId}
+            >
+              <span className="gmail__attachment-icon" aria-hidden>
+                📎
+              </span>
+              <span className="gmail__attachment-name">{att.filename}</span>
+              <span className="gmail__attachment-meta">
+                {busyId === att.attachmentId ? '取得中…' : formatBytes(att.size)}
+              </span>
+            </button>
+            {errorId === att.attachmentId && (
+              <p className="panel__note panel__note--error gmail__bodynote">
+                添付ファイルの取得に失敗しました
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 // プレーンテキスト本文。改行・空白は <pre> で保ちつつ、生の URL はリンク化して押せるようにする
@@ -395,6 +542,168 @@ function HtmlBody({ html }: { html: string }) {
         srcDoc={srcDoc}
         onLoad={handleLoad}
       />
+    </div>
+  )
+}
+
+// メール作成・返信シート（#4）。宛先・件名・本文を入力して送信する。
+// 返信のときは差出人宛・件名 Re:・本文引用をプリフィルし、スレッド・参照ヘッダで会話にぶら下げる。
+function ComposeSheet({
+  state,
+  sending,
+  error,
+  onClose,
+  onSend,
+}: {
+  state: Exclude<ComposeState, null>
+  sending: boolean
+  error: string | null
+  onClose: () => void
+  onSend: (msg: OutgoingMessage) => void
+}) {
+  const isReply = state.mode === 'reply'
+  const replyTo = state.mode === 'reply' ? state.message : null
+
+  // 返信の引用用に元本文（プレーンテキスト）を取得（一覧で開いた本文がキャッシュ済みなら再取得しない）。
+  const bodyQuery = useMessageBody(isReply ? (replyTo as GmailMessage).id : null)
+  // 返信のスレッド化に使う In-Reply-To / References を取得。
+  const refsQuery = useQuery({
+    queryKey: ['gmail', 'replyRefs', replyTo?.id],
+    queryFn: () => fetchReplyRefs((replyTo as GmailMessage).id),
+    enabled: isReply && !!replyTo,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const [to, setTo] = useState(isReply ? (replyTo as GmailMessage).fromEmail : '')
+  const [cc, setCc] = useState('')
+  const [subject, setSubject] = useState(
+    isReply ? replySubject((replyTo as GmailMessage).subject) : '',
+  )
+  const [body, setBody] = useState('')
+  // 返信本文（引用）は元本文の取得完了後に一度だけ差し込む（ユーザーが打ち始めたら上書きしない）。
+  const quotedRef = useRef(false)
+  // 宛先・件名の確定プリフィル（Reply-To 優先・生件名）も、メタ取得完了後に一度だけ反映する。
+  const metaRef = useRef(false)
+
+  const dialogRef = useDialog<HTMLFormElement>(onClose)
+
+  useEffect(() => {
+    if (!isReply || quotedRef.current || !bodyQuery.isSuccess) return
+    quotedRef.current = true
+    const rt = replyTo as GmailMessage
+    setBody(quoteBody(rt.fromName, rt.dateMs, bodyQuery.data?.text ?? ''))
+  }, [isReply, bodyQuery.isSuccess, bodyQuery.data, replyTo])
+
+  useEffect(() => {
+    if (!isReply || metaRef.current || !refsQuery.isSuccess) return
+    metaRef.current = true
+    const rt = replyTo as GmailMessage
+    // Reply-To 指定があればそれを宛先にする（メーリングリスト等で From と返信先が違う場合の対応）。
+    if (refsQuery.data.replyToAddress) setTo(refsQuery.data.replyToAddress)
+    // 生件名で Re: を作り直す（一覧の表示用プレースホルダ「(件名なし)」が件名に漏れるのを防ぐ）。
+    setSubject(replySubject(refsQuery.data.subject || rt.subject))
+  }, [isReply, refsQuery.isSuccess, refsQuery.data, replyTo])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!to.trim() || sending) return
+    onSend({
+      to: to.trim(),
+      cc: cc.trim() || undefined,
+      subject: subject.trim(),
+      body,
+      threadId: replyTo?.threadId,
+      inReplyTo: refsQuery.data?.inReplyTo,
+      references: refsQuery.data?.references,
+    })
+  }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <form
+        ref={dialogRef}
+        tabIndex={-1}
+        className="sheet"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isReply ? 'メールに返信' : 'メールを作成'}
+      >
+        <h3 className="sheet__title">{isReply ? '返信' : 'メールを作成'}</h3>
+
+        <label className="sheet__label" htmlFor="cmp-to">
+          宛先
+        </label>
+        <input
+          id="cmp-to"
+          className="tasks__add-input"
+          type="text"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          placeholder="宛先メールアドレス（カンマ区切りで複数可）"
+          autoComplete="off"
+        />
+
+        <label className="sheet__label" htmlFor="cmp-cc">
+          Cc（任意）
+        </label>
+        <input
+          id="cmp-cc"
+          className="tasks__add-input"
+          type="text"
+          value={cc}
+          onChange={(e) => setCc(e.target.value)}
+          placeholder="Cc（任意）"
+          autoComplete="off"
+        />
+
+        <label className="sheet__label" htmlFor="cmp-subject">
+          件名
+        </label>
+        <input
+          id="cmp-subject"
+          className="tasks__add-input"
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="件名"
+        />
+
+        <label className="sheet__label" htmlFor="cmp-body">
+          本文
+        </label>
+        <textarea
+          id="cmp-body"
+          className="tasks__add-input sheet__textarea gmail__compose-body"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="本文を入力"
+          rows={8}
+        />
+
+        {isReply && refsQuery.isError && (
+          <p className="panel__note gmail__bodynote">
+            ※ 元メール情報を取得できなかったため、返信がスレッドに紐づかない場合があります。
+          </p>
+        )}
+        {error && <p className="welcome__error">{error}</p>}
+
+        <div className="sheet__buttons">
+          <button type="button" className="btn btn--small" onClick={onClose}>
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            className="btn btn--small btn--primary"
+            // 返信はスレッド化メタ（In-Reply-To/References）の取得完了まで送信を待つ
+            // （未取得のまま送るとスレッドに紐づかないため）。
+            disabled={!to.trim() || sending || (isReply && refsQuery.isPending)}
+          >
+            {sending ? '送信中…' : '送信'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

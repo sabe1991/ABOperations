@@ -6,15 +6,18 @@
 // - 繰り返し予定は「この回のみ」を対象にする（シリーズ全体の編集は純正へ）。
 
 import { useEffect, useRef, useState } from 'react'
-import { useCalendarEvents, useWritableCalendars } from './useCalendarEvents'
+import { useCalendarEvents, useEventRecurrence, useWritableCalendars } from './useCalendarEvents'
 import {
   useCreateEvent,
   useDeleteEvent,
   useRestoreEvent,
   useUpdateEvent,
+  useUpdateRecurrence,
 } from './useCalendarMutations'
 import { isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
+import { defaultRule } from './recurrence'
+import type { Freq, RecurrenceRule } from './recurrence'
 import { useShowSourceLabels } from '../settings/displayPrefs'
 import { useScrollToDateSignal } from './scrollTarget'
 import { useCalendarSheetSignal } from './calendarSheetSignal'
@@ -78,6 +81,8 @@ export function CalendarPanel() {
 
   // シート: 'create'（新規） / 編集対象の予定 / null（閉じる）
   const [sheet, setSheet] = useState<'create' | CalendarEvent | null>(null)
+  // 繰り返しルール編集シートの対象（繰り返し予定のマスターに対して編集する・#3）。
+  const [recurrenceTarget, setRecurrenceTarget] = useState<CalendarEvent | null>(null)
   // 作成シートの時刻プリフィル（タイムラインのドラッグ作成時のみ設定。＋予定ボタンでは null）。
   const [createPrefill, setCreatePrefill] = useState<CreatePrefill>(null)
   // シートを開くたびに増やす通し番号。EventSheet の key に使い、開き直し・対象差し替え時に
@@ -158,6 +163,12 @@ export function CalendarPanel() {
     setSheet(null)
   }
 
+  // 繰り返しルール編集を開く（編集シートを閉じてから繰り返しシートを出す・#3）。
+  function openRecurrence(event: CalendarEvent) {
+    setSheet(null)
+    setRecurrenceTarget(event)
+  }
+
   function handleDelete(event: CalendarEvent) {
     del.mutate(event)
     setSheet(null)
@@ -214,6 +225,23 @@ export function CalendarPanel() {
           onClose={() => setSheet(null)}
           onSubmit={(draft) => handleEditSave(sheet, draft)}
           onDelete={sheet.writable ? () => handleDelete(sheet) : undefined}
+          // 書き込み可能な繰り返し予定でのみ「繰り返しルールを編集」を出す（#3）。
+          onEditRecurrence={
+            sheet.isRecurringInstance && sheet.writable && sheet.recurringEventId
+              ? () => openRecurrence(sheet)
+              : undefined
+          }
+        />
+      )}
+
+      {recurrenceTarget && (
+        <RecurrenceSheet
+          event={recurrenceTarget}
+          onClose={() => setRecurrenceTarget(null)}
+          onSaved={() => {
+            setRecurrenceTarget(null)
+            showSnack('繰り返しルールを変更しました', null)
+          }}
         />
       )}
 
@@ -319,6 +347,7 @@ function EventSheet({
   onClose,
   onSubmit,
   onDelete,
+  onEditRecurrence,
 }: {
   mode: 'create' | 'edit'
   event?: CalendarEvent
@@ -328,6 +357,8 @@ function EventSheet({
   onClose: () => void
   onSubmit: (draft: EventDraft) => void
   onDelete?: () => void
+  // 繰り返し予定のとき、シリーズ全体の繰り返しルールを編集する導線（#3）。
+  onEditRecurrence?: () => void
 }) {
   // 初期値。編集は既存予定から。作成は既定「次の正時から1時間」だが、
   // タイムラインのドラッグ作成（createPrefill）があればその日付・時刻で上書きする（#17 Phase A）。
@@ -539,6 +570,20 @@ function EventSheet({
           disabled={readOnly}
         />
 
+        {/* 繰り返し予定の編集導線（#3）。上の各項目は「この回のみ」に効くのに対し、
+            こちらはシリーズ全体の繰り返し方（毎週→隔週など）を変える別操作であることを明示する。 */}
+        {onEditRecurrence && !readOnly && (
+          <div className="sheet__recurrence">
+            <p className="panel__note sheet__recurrence-note">
+              上の変更は「この回のみ」に適用されます。繰り返し方（毎週・隔週など）自体を変えるには
+              下のボタンから編集してください。
+            </p>
+            <button type="button" className="btn btn--small" onClick={onEditRecurrence}>
+              🔁 繰り返しルールを編集…
+            </button>
+          </div>
+        )}
+
         {errorMsg && <p className="welcome__error">{errorMsg}</p>}
 
         <div className="sheet__buttons">
@@ -578,6 +623,167 @@ function applyPrefill(draft: EventDraft, prefill?: CreatePrefill): EventDraft {
     startTime: prefill.startTime,
     endTime: prefill.endTime,
   }
+}
+
+// 繰り返しルール編集シート（#3）。マスター予定の RRULE を読み、頻度・間隔・終了条件を
+// 編集してシリーズ全体に適用する。「毎週→隔週」などをアプリ内で完結させるのが狙い。
+function RecurrenceSheet({
+  event,
+  onClose,
+  onSaved,
+}: {
+  event: CalendarEvent
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const masterId = event.recurringEventId as string
+  const { data: rule, isLoading, isError } = useEventRecurrence(event.calendarId, masterId)
+  const update = useUpdateRecurrence()
+  const dialogRef = useDialog<HTMLFormElement>(onClose)
+
+  // 編集中のルール。取得完了後に一度だけ初期値を入れる（ユーザーの編集を上書きしない）。
+  const [draft, setDraft] = useState<RecurrenceRule | null>(null)
+  const initRef = useRef(false)
+  useEffect(() => {
+    if (initRef.current || isLoading) return
+    initRef.current = true
+    // rule が null（=このアプリでは扱えない複雑な RRULE）のときは編集不可として扱う。
+    setDraft(rule ?? null)
+  }, [isLoading, rule])
+
+  // このアプリで扱えない繰り返し設定（rule=null かつ取得成功）か。
+  const unsupported = !isLoading && !isError && rule == null
+
+  function patch(part: Partial<RecurrenceRule>) {
+    setDraft((d) => ({ ...(d ?? defaultRule()), ...part }))
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!draft) return
+    update.mutate(
+      { calendarId: event.calendarId, masterEventId: masterId, rule: draft, allDay: event.allDay },
+      { onSuccess: onSaved },
+    )
+  }
+
+  const end = draft?.end ?? { type: 'never' }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <form
+        ref={dialogRef}
+        tabIndex={-1}
+        className="sheet"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+        role="dialog"
+        aria-modal="true"
+        aria-label="繰り返しルールを編集"
+      >
+        <h3 className="sheet__title">繰り返しルールを編集</h3>
+        <p className="panel__note">「{event.title}」の繰り返し方をシリーズ全体で変更します。</p>
+
+        {isLoading && <p className="panel__note">繰り返しルールを読み込み中…</p>}
+        {isError && <p className="welcome__error">繰り返しルールの取得に失敗しました。</p>}
+        {unsupported && (
+          <p className="panel__note">
+            この予定は、このアプリでは編集できない繰り返し設定（曜日指定など）です。変更は Google
+            カレンダー本家で行ってください。
+          </p>
+        )}
+
+        {draft && !unsupported && (
+          <>
+            <label className="sheet__label" htmlFor="rec-freq">
+              繰り返し
+            </label>
+            <select
+              id="rec-freq"
+              className="tasks__add-input"
+              value={draft.freq}
+              onChange={(e) => patch({ freq: e.target.value as Freq })}
+            >
+              <option value="DAILY">日ごと</option>
+              <option value="WEEKLY">週ごと</option>
+              <option value="MONTHLY">月ごと</option>
+              <option value="YEARLY">年ごと</option>
+            </select>
+
+            <label className="sheet__label" htmlFor="rec-interval">
+              間隔（1=毎回・2=1つおき …）
+            </label>
+            <input
+              id="rec-interval"
+              className="tasks__add-input"
+              type="number"
+              min={1}
+              max={99}
+              value={draft.interval}
+              onChange={(e) => patch({ interval: Math.max(1, Number(e.target.value) || 1) })}
+            />
+
+            <label className="sheet__label" htmlFor="rec-end">
+              終了
+            </label>
+            <select
+              id="rec-end"
+              className="tasks__add-input"
+              value={end.type}
+              onChange={(e) => {
+                const t = e.target.value
+                if (t === 'never') patch({ end: { type: 'never' } })
+                else if (t === 'count') patch({ end: { type: 'count', count: 10 } })
+                else patch({ end: { type: 'until', date: event.startDateStr } })
+              }}
+            >
+              <option value="never">終了日なし</option>
+              <option value="count">回数で終了</option>
+              <option value="until">日付で終了</option>
+            </select>
+
+            {end.type === 'count' && (
+              <input
+                className="tasks__add-input"
+                type="number"
+                min={1}
+                max={999}
+                value={end.count}
+                onChange={(e) =>
+                  patch({ end: { type: 'count', count: Math.max(1, Number(e.target.value) || 1) } })
+                }
+                aria-label="繰り返し回数"
+              />
+            )}
+            {end.type === 'until' && (
+              <input
+                className="tasks__add-input"
+                type="date"
+                value={end.date}
+                onChange={(e) => patch({ end: { type: 'until', date: e.target.value } })}
+                aria-label="繰り返しの終了日"
+              />
+            )}
+          </>
+        )}
+
+        <div className="sheet__buttons">
+          <button type="button" className="btn btn--small" onClick={onClose}>
+            {unsupported || isError ? '閉じる' : 'キャンセル'}
+          </button>
+          {draft && !unsupported && (
+            <button
+              type="submit"
+              className="btn btn--small btn--primary"
+              disabled={update.isPending}
+            >
+              {update.isPending ? '保存中…' : '保存'}
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  )
 }
 
 // 作成の初期下書き: 次の正時から1時間の予定。

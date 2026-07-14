@@ -1480,6 +1480,88 @@ body {
   gap: 0.5rem;
   padding: 0.1rem 0 0.5rem;
 }
+/* Gmail パネル上部のツールバー（見出し＋「作成」ボタン）。カレンダーと同じ両端揃え（#4）。 */
+.gmail__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.gmail__toolbar .panel__title {
+  margin: 0;
+}
+/* 添付ファイル一覧（#13）。本文の下に置き、各行タップでダウンロードする。 */
+.gmail__attachments {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.gmail__attachments-title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+.gmail__attachment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.gmail__attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.gmail__attachment:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.gmail__attachment:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.gmail__attachment-icon {
+  flex-shrink: 0;
+}
+.gmail__attachment-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gmail__attachment-meta {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* 作成・返信の本文入力欄はやや高めに（#4）。 */
+.gmail__compose-body {
+  min-height: 8rem;
+}
+/* 繰り返しルール編集への導線ブロック（#3）。「この回のみ」と「シリーズ全体」の違いを注記で示す。 */
+.sheet__recurrence {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.sheet__recurrence-note {
+  margin: 0 0 0.4rem;
+}
 .gmail__body {
   padding: 0 0 0.6rem;
 }

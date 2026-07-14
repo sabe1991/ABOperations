@@ -14,8 +14,11 @@ import {
   isWithinUpcomingWindow,
   restoreEvent,
   updateEvent,
+  updateEventRecurrence,
 } from './api'
 import type { CalendarEvent, EventDraft } from './api'
+import { buildRecurrence } from './recurrence'
+import type { RecurrenceRule } from './recurrence'
 import { tempId } from '../../tempId'
 
 // 予定一覧クエリのキー（useCalendarEvents と一致させる）。
@@ -101,6 +104,33 @@ export function useDeleteEvent() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: CAL_KEY })
+    },
+  })
+}
+
+// 繰り返しルール（毎週→隔週など）をシリーズ全体に対して変更する（#3）。
+// マスター予定の recurrence を差し替える。展開後の各インスタンスが総入れ替えになるため
+// 楽観的更新はせず、成功後にカレンダー系クエリ（一覧・月ドット）をまとめて invalidate する。
+export function useUpdateRecurrence() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      calendarId,
+      masterEventId,
+      rule,
+      allDay,
+    }: {
+      calendarId: string
+      masterEventId: string
+      rule: RecurrenceRule
+      allDay: boolean
+    }) => updateEventRecurrence(calendarId, masterEventId, buildRecurrence(rule, allDay)),
+    onSettled: (_data, _err, { calendarId, masterEventId }) => {
+      // 一覧・月ドットはインスタンスが総入れ替えなので全カレンダー系を無効化。
+      qc.invalidateQueries({ queryKey: ['calendar', 'upcoming'] })
+      qc.invalidateQueries({ queryKey: ['calendar', 'monthDays'] })
+      // 開いているルール取得キャッシュも更新する。
+      qc.invalidateQueries({ queryKey: ['calendar', 'recurrence', calendarId, masterEventId] })
     },
   })
 }

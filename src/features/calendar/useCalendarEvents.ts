@@ -10,9 +10,12 @@ import { useIsMutating, useQuery } from '@tanstack/react-query'
 import {
   fetchCalendarList,
   fetchEventDaysInRange,
+  fetchEventRecurrence,
   fetchUpcomingEvents,
   toWritableCalendars,
 } from './api'
+import { parseRecurrence } from './recurrence'
+import type { RecurrenceRule } from './recurrence'
 import { useAuth } from '../../auth/useAuth'
 
 // カレンダー構成はあまり変わらないので長めに保持する。
@@ -70,6 +73,20 @@ export function useMonthEventDays(gridStartStr: string, gridEndExclusiveStr: str
     queryFn: () => fetchEventDaysInRange(calendars ?? [], gridStartStr, gridEndExclusiveStr),
     enabled: isConnected && !needsReconnect && !!calendars,
     refetchInterval: mutating ? false : 5 * 60 * 1000,
+  })
+}
+
+// 繰り返しマスター予定の現在の繰り返しルール（RRULE）を取得する（#3・編集シート用）。
+// 開いている繰り返し予定のマスターだけを都度取得する。null（未指定）の間は動かさない。
+// アプリで扱えない複雑な RRULE のときは parseRecurrence が null を返す（＝アプリ内編集不可の判定に使う）。
+export function useEventRecurrence(calendarId: string | null, masterEventId: string | null) {
+  const { isConnected, needsReconnect } = useAuth()
+  return useQuery<string[], Error, RecurrenceRule | null>({
+    queryKey: ['calendar', 'recurrence', calendarId, masterEventId],
+    queryFn: () => fetchEventRecurrence(calendarId as string, masterEventId as string),
+    enabled: isConnected && !needsReconnect && !!calendarId && !!masterEventId,
+    staleTime: 5 * 60 * 1000,
+    select: parseRecurrence,
   })
 }
 

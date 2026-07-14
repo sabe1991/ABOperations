@@ -99,6 +99,9 @@ export interface CalendarEvent {
   endTimeStr: string | null // 'HH:mm'（終日は null）
   // 繰り返し予定の1回（インスタンス）か。編集・削除の扱いを分けるのに使う。
   isRecurringInstance: boolean
+  // 繰り返しの親（マスター）予定のID。繰り返しルール自体（毎週→隔週など）の編集に使う（#3）。
+  // 単発予定では undefined。
+  recurringEventId?: string
   // このカレンダーに書き込み権限（owner/writer）があるか。編集・削除ボタンの出し分けに使う。
   writable: boolean
   // 楽観的作成でまだサーバーIDが無い仮の予定。true の間は編集・削除を不可にする。
@@ -177,6 +180,7 @@ async function fetchEventsForCalendar(
       startTimeStr,
       endTimeStr,
       isRecurringInstance: Boolean(ev.recurringEventId),
+      recurringEventId: ev.recurringEventId,
       writable,
     })
   }
@@ -394,6 +398,36 @@ export async function deleteEvent(calendarId: string, eventId: string): Promise<
     if (e instanceof ApiError && (e.status === 404 || e.status === 410)) return
     throw e
   }
+}
+
+// --- 繰り返しルール（RRULE）の取得・更新（#3） ---
+
+// 繰り返しマスター予定の recurrence 配列（['RRULE:FREQ=WEEKLY;...'] 等）を取得する。
+// 対象は「この回」のインスタンスIDではなく、親（マスター）のIDであること。
+export async function fetchEventRecurrence(
+  calendarId: string,
+  masterEventId: string,
+): Promise<string[]> {
+  const ev = await fetchJson<{ recurrence?: string[] }>(eventUrl(calendarId, masterEventId))
+  return ev.recurrence ?? []
+}
+
+// 繰り返しマスター予定の RRULE（繰り返しルール）だけを差し替える（シリーズ全体に適用）。
+// recurrence 配列には RRULE 以外に EXDATE（除外日）/RDATE（追加日）が含まれることがあるため、
+// それらは温存し、RRULE 行だけを新しいものに置き換える（丸ごと差し替えると除外日が消え、
+// 消していた回が復活してしまう）。recurrence キーだけ patch するので他項目は変わらない。
+export async function updateEventRecurrence(
+  calendarId: string,
+  masterEventId: string,
+  rruleLines: string[],
+): Promise<void> {
+  const current = await fetchEventRecurrence(calendarId, masterEventId)
+  const preserved = current.filter((line) => !line.toUpperCase().startsWith('RRULE'))
+  await fetchJson(eventUrl(calendarId, masterEventId), {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ recurrence: [...rruleLines, ...preserved] }),
+  })
 }
 
 // 削除した予定を復元する（Undo）。Calendar の削除はソフトデリート（status が cancelled に

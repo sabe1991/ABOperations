@@ -16,12 +16,9 @@
 
 ## 優先度: 低
 
-- **#3** 繰り返し予定のルール自体の編集(毎週→隔週など)への対応。初期バージョンでは Google カレンダー本家で行う運用。頻度が低いため UI の複雑さに見合うか使いながら判断する。
-- **#4** Gmail の返信・新規作成機能。現状 Gmail を連絡用途に使っていないため未実装。必要になったら追加を検討する。
 - **#5** 設定の端末間同期。現状は各端末の localStorage に個別保存(会社PCだけ Gmail オフにする等、端末別が都合良い面もある)。設定項目が増えて手動設定が煩雑になったら、Google Drive の隠し領域(appDataFolder)への保存を検討する。
 - **#6** オフライン対応(データのキャッシュ)。Android の PWA インストール(WebAPK 化)に Service Worker が事実上必要だったため、`vite-plugin-pwa` による最小 Service Worker を導入済み(アプリシェル=HTML/JS/CSS のみプリキャッシュ)。これにより「アプリの枠は電波が無くても開く」ようになったが、**取得データ(予定・タスク・メール)のオフラインキャッシュは未対応**。移動中の閲覧ニーズが強ければ「最後に取得したデータのキャッシュ表示+『オフラインです』バナー」を追加検討する(書き込み操作のオフライン対応はしない)。
 - **#14** Android でメール本文のリンクを Chrome 本体で開く(intent 方式)の実機検証。`IS_ANDROID` のときリンククリックを本文 iframe の外(本体側)で横取りし、`intent://…;package=com.android.chrome;S.browser_fallback_url=…;end` で Chrome 本体を起動する実装は入れてあるが、Android 実機で新コードが動いていなかった(旧 #15 のキャッシュ問題)ため未検証。#15 の PWA 更新プロンプト対応で新コードが動く状態になったので、(1)リンクが Custom Tab でなく Chrome 本体で開くか、(2)開かない場合は intent 起動側の調整(package 指定の要否、`window.location.href` 方式への変更、TWA 化の要否)を検討する。Mac/通常タブでは従来どおり `target="_blank"` で問題なし。
-- **#13** メール添付ファイルの表示・ダウンロード。本文プレビューは本文テキスト/HTMLのみで、添付ファイル(PDF・画像等)は一覧も表示していない。添付を確認したいニーズが出たら、ヘッダのファイル名一覧表示→`attachments.get` でのダウンロードを検討する。
 - **#8** 再ログイン頻度の対策。テストモード運用では「約1時間ごとに再接続1クリック+各端末で週1回フル同意」が発生する(`README.md` の「再ログインの頻度」参照)。なお、ページ更新でメモリが消えて毎回ログインになる問題は sessionStorage 採用で解消済み(同タブ内は維持)だが、1時間のトークン失効・7日の同意失効・新規タブ/タブ閉じ後の再ログインは残る。第1週の運用で苦痛と判明したら、(1) Cloudflare Workers 等の無料枠で動く極小の中継サーバー(トークン交換のみ)を追加して認可コードフローに移行、(2) アプリの本番公開(Gmail の制限付きスコープは審査が必要な点に注意)、のいずれかを検討する。
 - **#65** 手書きの重複ボイラープレートが多く、事故の温床になっている。(1)購読ストア(`gmail/enabled.ts`・`settings/displayPrefs.ts` の theme/weekStart/showSourceLabels・`news/newsSource.ts`)が `let 値 + Set<listener> + subscribe + useSyncExternalStore` をほぼ同一に手書き。(2)楽観的更新(`useTaskMutations`・`useCalendarMutations`・`useGmailMutations`)が `onMutate(cancel→snapshot)→onError(rollback)→onSettled(invalidate)` を各所でコピー。対策案: (1)は `createLocalStore(key, parse, serialize)`、(2)は `optimistic(key, updater)` のような共通ファクトリ/フックに集約し、ロールバック忘れ等の事故を構造的に防ぐ。(2026-07-13 シニアエンジニアレビュー)
 - **#69** TanStack Query のキャッシュを永続化(`persistQueryClient` 等)してコールドスタートの体感を改善する。PWA なのに起動直後は全パネルがスピナーになるため、前回取得データを即表示→背後で更新、にするとダッシュボードの体感が大きく変わる。#51(鮮度表示)や #6(オフライン時のキャッシュ表示)とセットで効く(#6 はオフライン閲覧が動機、本項は常時のコールドスタート体感が動機)。対策案: `@tanstack/query-persist-client` で localStorage/IndexedDB に永続化し、`staleTime` と組み合わせて即表示＋自動再取得。(2026-07-13 Fable レビュー指摘)
