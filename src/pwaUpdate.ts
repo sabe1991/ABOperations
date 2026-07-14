@@ -37,8 +37,17 @@ export function useNeedRefresh(): boolean {
 }
 
 // 「再読み込み」ボタンから呼ぶ。新SWを有効化してページをリロードし、最新版に切り替える。
+// updateSW(true) は通常 controllerchange を受けて自動でリロードするが、環境によっては
+// それが発火せずリロードしないことがある。押しても何も起きない状態を避けるため、
+// (1) updateSW が無ければ即リロード、(2) ある場合も一定時間内にリロードしなければ強制リロード、
+// の保険を掛ける（既にリロードが始まっていれば setTimeout は破棄されるので二重にはならない）。
 export function applyUpdate(): void {
-  void updateSW?.(true)
+  if (!updateSW) {
+    window.location.reload()
+    return
+  }
+  void updateSW(true)
+  window.setTimeout(() => window.location.reload(), 2000)
 }
 
 // 「×」ボタンから呼ぶ。今回は更新を適用せずトーストだけ閉じる（このセッション中は再表示しない）。

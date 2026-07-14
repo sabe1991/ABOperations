@@ -1730,8 +1730,16 @@ body {
   z-index: 70;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  max-width: calc(100vw - 2rem);
+  /* 狭い画面ではボタンを次の行へ折り返して必ず画面内に収める（横1行だと content が
+     max-width を超えて右にはみ出し、「更新して再読み込み」ボタンが画面外に出て押せなくなる）。 */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 1rem;
+  row-gap: 0.5rem;
+  /* 画面幅ぴったりまで使えるようにして、はみ出しを防ぐ。 */
+  width: calc(100vw - 1.5rem);
+  max-width: 32rem;
+  box-sizing: border-box;
   padding: 0.6rem 0.9rem 0.6rem 1.1rem;
   border-radius: var(--radius);
   background: light-dark(#332b22, #efe7d9);
@@ -1741,16 +1749,21 @@ body {
 }
 .update-toast__text {
   font-size: var(--fs-sm);
+  /* テキストは伸縮して1行目を占有し、収まらないぶんのボタンを次行へ押し出す。 */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .update-toast__action {
   flex-shrink: 0;
   font: inherit;
   font-weight: 600;
-  border: none;
+  /* 押せるボタンだと分かるよう枠を付ける（テキストのみだとリンクに見えて気づきにくい）。 */
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
   background: none;
   color: light-dark(#e8a94e, #c15a30);
   cursor: pointer;
-  padding: 0.2rem 0.3rem;
+  padding: 0.35rem 0.7rem;
 }
 /* 「×」閉じるボタン。控えめな地色なじみの色で、再読み込みボタンの右に置く。 */
 .update-toast__close {
