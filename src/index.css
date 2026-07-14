@@ -1559,6 +1559,9 @@ body {
 }
 .gmail__body {
   padding: 0 0 0.6rem;
+  /* 横フィットで iframe を自然幅に広げて縮小表示するとき、占有領域は自然幅のまま残る。
+     枠からはみ出す分を隠して横スクロールを出さない（高さは JS で縮小後の値に設定）。 */
+  overflow: hidden;
 }
 .gmail__bodynote {
   padding: 0.4rem 0;
@@ -1960,11 +1963,13 @@ body {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-/* 見出しの下のスクロール領域（メタ・操作・本文・添付）。 */
+/* 見出しの下のスクロール領域（メタ・操作・本文・添付）。
+   縦だけスクロールし、横は出さない（HTML メールは iframe 側で枠幅に縮小して収める）。 */
 .gmail-modal__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.8rem 1.5rem 1.6rem;
 }
 /* 件名は折り返して全文表示（一覧のような省略はしない）。閉じるボタンを押し出さないよう縮小可に。 */

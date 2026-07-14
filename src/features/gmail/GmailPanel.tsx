@@ -546,6 +546,10 @@ function HtmlBody({
   const frameRef = useRef<HTMLIFrameElement>(null)
   // 中身の高さを監視するオブザーバ。srcDoc 差し替え時に前の監視を止めて張り直す。
   const observerRef = useRef<ResizeObserver | null>(null)
+  // 横はみ出し時の縮小率（1=等倍）。高さ計算はこの倍率を掛ける。
+  const scaleRef = useRef(1)
+  // 画面幅変更（端末回転など）で測り直すため、最新の再フィット関数を保持する。
+  const refitRef = useRef<(() => void) | null>(null)
   const dark = useEffectiveDark()
   const sanitized = useMemo(() => sanitizeEmailHtml(html), [html])
   const imagesBlocked = useMemo(() => hasBlockedImages(sanitized), [sanitized])
@@ -558,6 +562,13 @@ function HtmlBody({
 
   // アンマウント時に高さ監視を止める（監視が残るとメモリリークになる）。
   useEffect(() => () => observerRef.current?.disconnect(), [])
+
+  // 画面幅が変わったら（端末回転・ウィンドウリサイズ）縮小率を測り直す。
+  useEffect(() => {
+    const onResize = () => refitRef.current?.()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   // iframe の中身の高さに合わせて iframe 自体の高さを「常時」追従させる。
   // 一度きりの測定だと、画像や Web フォントが後から読み込まれて中身が伸びたとき iframe が
@@ -572,12 +583,48 @@ function HtmlBody({
     try {
       const doc = f?.contentDocument
       if (!doc || !doc.body) return
+      // 高さ追従: 縮小時は縮小後の高さを iframe と枠(.gmail__body)に反映する。
+      // iframe 自体の style.height は「中身の実寸」にして内部スクロールを無くし、外側の枠の高さを
+      // 縮小後の見た目の高さに合わせる（transform は占有領域を変えないため枠側で確保する）。
       const syncHeight = () => {
+        const scale = scaleRef.current
         const h = doc.body.scrollHeight
-        if (h > 0) f!.style.height = `${h + 16}px`
+        if (h <= 0) return
+        if (scale < 1) {
+          f!.style.height = `${h}px`
+          if (f!.parentElement) f!.parentElement.style.height = `${Math.ceil(h * scale)}px`
+        } else {
+          f!.style.height = `${h + 16}px`
+          if (f!.parentElement) f!.parentElement.style.height = ''
+        }
       }
-      syncHeight()
-      // 前の本文の監視を止めてから、現在の本文を監視する（画像読み込み・折返しで再計測）。
+      // 横フィット: 本文の自然な横幅が枠を超える（固定幅の HTML メール）ときは、iframe をその
+      // 自然幅まで広げてから transform: scale で全体を縮小し、横スクロール無しで枠内に収める
+      // （スマホで非対応メールを見たときのズームアウト表示と同じ挙動）。レスポンシブなメールは
+      // そのまま等倍で表示する。
+      const applyLayout = () => {
+        // まず等倍・幅100%に戻して自然な横幅を測る。
+        f!.style.transform = 'none'
+        f!.style.width = '100%'
+        const container = f!.clientWidth
+        const natural = Math.max(doc.documentElement.scrollWidth, doc.body.scrollWidth)
+        if (container > 0 && natural > container + 4) {
+          const scale = container / natural
+          scaleRef.current = scale
+          f!.style.width = `${natural}px`
+          f!.style.transformOrigin = 'top left'
+          f!.style.transform = `scale(${scale})`
+        } else {
+          scaleRef.current = 1
+          f!.style.width = '100%'
+          f!.style.transform = 'none'
+        }
+        syncHeight()
+      }
+      refitRef.current = applyLayout
+      applyLayout()
+      // 画像・フォントの後読みで中身が伸びたら高さだけ追従する（幅・縮小率は測り直さない＝
+      // 幅を変えると再びリフローして無限ループになりうるため、高さ同期に限定する）。
       observerRef.current?.disconnect()
       const ro = new ResizeObserver(syncHeight)
       ro.observe(doc.body)
