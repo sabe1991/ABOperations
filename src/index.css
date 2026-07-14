@@ -1405,11 +1405,6 @@ body {
 .gmail__item:first-child {
   border-top: none;
 }
-/* 展開中（本文を表示中）のメールは背景を薄いアクセント色で塗り、選択中と分かるようにする。 */
-.gmail__item--open {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-  border-radius: var(--radius);
-}
 /* 既読メールは差出人・件名の強調を弱めて未読と区別する。 */
 .gmail__item--read .gmail__from {
   font-weight: 400;
@@ -1949,6 +1944,40 @@ body {
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
+}
+/* メール本文モーダル。パネル内展開より広くして本文を読みやすくする。 */
+.gmail-modal {
+  max-width: 40rem;
+}
+/* 件名は折り返して全文表示（一覧のような省略はしない）。閉じるボタンを押し出さないよう縮小可に。 */
+.gmail-modal__subject {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-lg);
+  overflow-wrap: anywhere;
+}
+/* 差出人名・アドレス・受信日時のメタ行。 */
+.gmail-modal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  margin-bottom: 0.6rem;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.gmail-modal__from {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.gmail-modal__email {
+  overflow-wrap: anywhere;
+}
+.gmail-modal__when {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 /* 設定の区分タブ（表示 / アカウント / 情報）。細い下線でアクティブを示す。 */
 .settings__tabs {

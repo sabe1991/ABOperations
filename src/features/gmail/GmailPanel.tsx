@@ -105,6 +105,9 @@ export function GmailPanel() {
     notify('アーカイブしました', () => unarchive.mutate(m))
   }
 
+  // 選択中のメール（本文モーダルで開く）。null なら閉じている。
+  const [selected, setSelected] = useState<GmailMessage | null>(null)
+
   // 作成シート（新規作成・返信）と送信ミューテーション（#4）。
   const [compose, setCompose] = useState<ComposeState>(null)
   const [composeError, setComposeError] = useState<string | null>(null)
@@ -178,11 +181,32 @@ export function GmailPanel() {
         error={queryError}
         onRetry={() => refetch()}
         formatWhen={formatWhen}
-        onMarkRead={handleMarkRead}
-        onMarkUnread={handleMarkUnread}
-        onArchive={handleArchive}
-        onReply={(m) => openCompose({ mode: 'reply', message: m })}
+        onOpen={setSelected}
       />
+
+      {/* メール本文はパネル内展開ではなくモーダルで開く（読みやすさ・操作しやすさのため）。 */}
+      {selected && (
+        <MessageModal
+          message={selected}
+          onClose={() => setSelected(null)}
+          onMarkRead={(m) => {
+            handleMarkRead(m)
+            setSelected(null)
+          }}
+          onMarkUnread={(m) => {
+            handleMarkUnread(m)
+            setSelected(null)
+          }}
+          onArchive={(m) => {
+            handleArchive(m)
+            setSelected(null)
+          }}
+          onReply={(m) => {
+            setSelected(null)
+            openCompose({ mode: 'reply', message: m })
+          }}
+        />
+      )}
 
       {compose && (
         <ComposeSheet
@@ -216,10 +240,7 @@ function GmailList({
   error,
   onRetry,
   formatWhen,
-  onMarkRead,
-  onMarkUnread,
-  onArchive,
-  onReply,
+  onOpen,
 }: {
   messages: GmailMessage[] | undefined
   isLoading: boolean
@@ -227,10 +248,7 @@ function GmailList({
   error: unknown
   onRetry: () => void
   formatWhen: (ms: number) => string
-  onMarkRead: (m: GmailMessage) => void
-  onMarkUnread: (m: GmailMessage) => void
-  onArchive: (m: GmailMessage) => void
-  onReply: (m: GmailMessage) => void
+  onOpen: (m: GmailMessage) => void
 }) {
   if (isLoading) {
     return <ListSkeleton rows={6} />
@@ -254,94 +272,102 @@ function GmailList({
               既読
             </li>
           )}
-          <GmailRow
-            m={m}
-            formatWhen={formatWhen}
-            onMarkRead={onMarkRead}
-            onMarkUnread={onMarkUnread}
-            onArchive={onArchive}
-            onReply={onReply}
-          />
+          <GmailRow m={m} formatWhen={formatWhen} onOpen={onOpen} />
         </Fragment>
       ))}
     </ul>
   )
 }
 
-// 1件のメール行。タップで本文プレビューを開閉し、開いた行では既読化・アーカイブができる。
+// 1件のメール行。タップで本文モーダルを開く（本文・操作はモーダル側）。
 function GmailRow({
   m,
   formatWhen,
-  onMarkRead,
-  onMarkUnread,
-  onArchive,
-  onReply,
+  onOpen,
 }: {
   m: GmailMessage
   formatWhen: (ms: number) => string
-  onMarkRead: (m: GmailMessage) => void
-  onMarkUnread: (m: GmailMessage) => void
-  onArchive: (m: GmailMessage) => void
-  onReply: (m: GmailMessage) => void
+  onOpen: (m: GmailMessage) => void
 }) {
-  const [open, setOpen] = useState(false)
-
-  function handleMarkRead() {
-    // 既読/未読を切り替えたら行を閉じる。開いたまま既読セクションへ移動すると
-    // 開閉状態と並び順がちぐはぐに見えるため（ユーザー要望）。ミューテーションは親に集約（#45）。
-    setOpen(false)
-    onMarkRead(m)
-  }
-  function handleMarkUnread() {
-    setOpen(false)
-    onMarkUnread(m)
-  }
-  function handleArchive() {
-    onArchive(m)
-  }
-
   return (
-    <li
-      className={`gmail__item${m.unread ? '' : ' gmail__item--read'}${open ? ' gmail__item--open' : ''}`}
-    >
-      <button
-        type="button"
-        className="gmail__row"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
+    <li className={`gmail__item${m.unread ? '' : ' gmail__item--read'}`}>
+      <button type="button" className="gmail__row" onClick={() => onOpen(m)}>
         <div className="gmail__line1">
           <span className="gmail__from">{m.fromName}</span>
           <span className="gmail__when">{formatWhen(m.dateMs)}</span>
         </div>
         <div className="gmail__subject">{m.subject}</div>
-        {!open && <div className="gmail__snippet">{m.snippet}</div>}
+        <div className="gmail__snippet">{m.snippet}</div>
       </button>
-      {open && (
-        <>
-          <div className="gmail__actions">
-            {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
-            <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
-              返信
-            </button>
-            {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
-            {m.unread ? (
-              <button className="btn btn--small" onClick={handleMarkRead}>
-                既読にする
-              </button>
-            ) : (
-              <button className="btn btn--small" onClick={handleMarkUnread}>
-                未読にする
-              </button>
-            )}
-            <button className="btn btn--small" onClick={handleArchive}>
-              アーカイブ
-            </button>
-          </div>
-          <MessageBody id={m.id} />
-        </>
-      )}
     </li>
+  )
+}
+
+// メール本文モーダル。差出人・件名・日時のヘッダ＋操作（返信・既読/未読・アーカイブ）＋本文を、
+// パネル内展開ではなく画面中央の広いモーダルで開く（読みやすさ・操作しやすさのため）。
+function MessageModal({
+  message: m,
+  onClose,
+  onMarkRead,
+  onMarkUnread,
+  onArchive,
+  onReply,
+}: {
+  message: GmailMessage
+  onClose: () => void
+  onMarkRead: (m: GmailMessage) => void
+  onMarkUnread: (m: GmailMessage) => void
+  onArchive: (m: GmailMessage) => void
+  onReply: (m: GmailMessage) => void
+}) {
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
+  const when = m.dateMs ? new Date(m.dateMs).toLocaleString('ja-JP') : ''
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="modal gmail-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="メール"
+      >
+        <div className="modal__header">
+          <h3 className="modal__title gmail-modal__subject">{m.subject}</h3>
+          <button className="modal__close" onClick={onClose} aria-label="閉じる" title="閉じる">
+            ×
+          </button>
+        </div>
+        <div className="gmail-modal__meta">
+          <span className="gmail-modal__from">{m.fromName}</span>
+          {m.fromEmail && m.fromEmail !== m.fromName && (
+            <span className="gmail-modal__email">{m.fromEmail}</span>
+          )}
+          {when && <span className="gmail-modal__when">{when}</span>}
+        </div>
+        <div className="gmail__actions">
+          {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
+          <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
+            返信
+          </button>
+          {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
+          {m.unread ? (
+            <button className="btn btn--small" onClick={() => onMarkRead(m)}>
+              既読にする
+            </button>
+          ) : (
+            <button className="btn btn--small" onClick={() => onMarkUnread(m)}>
+              未読にする
+            </button>
+          )}
+          <button className="btn btn--small" onClick={() => onArchive(m)}>
+            アーカイブ
+          </button>
+        </div>
+        <MessageBody id={m.id} />
+      </div>
+    </div>
   )
 }
 
