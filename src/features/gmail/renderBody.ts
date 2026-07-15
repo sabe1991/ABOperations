@@ -159,22 +159,18 @@ export function hasBlockedImages(sanitized: string): boolean {
   )
 }
 
-// 退避した data-blocked-src を src に戻す（「画像を表示」時）。DOMParser 経由で安全に置換。
-function restoreImages(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('[data-blocked-src]').forEach((el) => {
-    const src = el.getAttribute('data-blocked-src') ?? ''
-    el.removeAttribute('data-blocked-src')
-    if (src) el.setAttribute('src', src)
-  })
-  return doc.body.innerHTML
-}
-
 // iframe の srcdoc に流し込む完全なHTML文書を組み立てる。
 // CSP メタタグで、既定は data: 画像のみ許可（＝外部画像ブロック）、
 // showImages 時のみ https: 画像も許可する。default-src 'none' で script/fetch 等は全遮断。
+//
+// ※ showImages でも、外部画像(`data-blocked-src`)は srcDoc の時点では復元しない（本文には
+//   src 空のまま流す）。CSP だけ https: に緩め、実際の src 復元は親コンポーネント(HtmlBody)が
+//   iframe ロード後に「同時数枚まで・1枚ずつ順に」行う。こうすると本文テキストが先に表示され、
+//   画像は順次読み込まれて進捗も出せる（ユーザー要望）。CSP は後から緩められない（meta CSP の
+//   仕様上、厳格化しかできない）ため、緩和はここで済ませておく必要がある。
+//   埋め込み画像(`cid:`→`data:`)は退避対象外なので、この経路とは無関係に即表示される。
 export function buildSrcDoc(sanitizedHtml: string, showImages: boolean, dark = false): string {
-  const body = showImages ? restoreImages(sanitizedHtml) : sanitizedHtml
+  const body = sanitizedHtml
   const imgSrc = showImages ? 'data: https:' : 'data:'
   const csp = `default-src 'none'; img-src ${imgSrc}; style-src 'unsafe-inline'; font-src data:`
   // ダーク時は本文カードの地を純白ではなく穏やかな暖色オフホワイトにして眩しさを抑える（#27）。

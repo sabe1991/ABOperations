@@ -1586,6 +1586,26 @@ body {
   /* 横フィットで iframe を自然幅に広げて縮小表示するとき、占有領域は自然幅のまま残る。
      枠からはみ出す分を隠して横スクロールを出さない（高さは JS で縮小後の値に設定）。 */
   overflow: hidden;
+  /* 画像読み込み中バッジ(.gmail__img-loading)を枠の隅に重ねるための基準。 */
+  position: relative;
+}
+/* 外部画像を順次読み込み中に本文枠の右上へ重ねる進捗バッジ（iframe 内は JS 不可のため親側で出す）。
+   absolute 配置なので iframe の高さ計測(ResizeObserver)には影響しない。操作を邪魔しないよう
+   pointer-events:none にする。 */
+.gmail__img-loading {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs, 0.72rem);
+  line-height: 1.6;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
 }
 .gmail__bodynote {
   padding: 0.4rem 0;
@@ -1783,6 +1803,28 @@ body {
   color: light-dark(#e8a94e, #c15a30);
   cursor: pointer;
   padding: 0.35rem 0.7rem;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    transform 0.05s ease;
+}
+/* ホバー・押下で色を反転させ、押せた手応えを出す（スマホは :active で反応）。 */
+.update-toast__action:hover:not(:disabled) {
+  background: light-dark(#e8a94e, #c15a30);
+  color: light-dark(#26201a, #f7f1e8);
+}
+.update-toast__action:active:not(:disabled) {
+  transform: translateY(1px);
+  background: light-dark(#e8a94e, #c15a30);
+  color: light-dark(#26201a, #f7f1e8);
+}
+/* 「更新中…」の状態: 塗りつぶしにして進行中だと分かるようにする。 */
+.update-toast__action.is-applying,
+.update-toast__action:disabled {
+  background: light-dark(#e8a94e, #c15a30);
+  color: light-dark(#26201a, #f7f1e8);
+  opacity: 0.85;
+  cursor: default;
 }
 /* 「×」閉じるボタン。控えめな地色なじみの色で、再読み込みボタンの右に置く。 */
 .update-toast__close {

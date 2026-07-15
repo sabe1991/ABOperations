@@ -405,17 +405,33 @@ export default function App() {
 // 新しいバージョンが用意できたときだけ、画面上部に「更新があります・再読み込み」を出す（#15）。
 function UpdateToast() {
   const needRefresh = useNeedRefresh()
+  // 更新ボタンは押してから新SW有効化→リロードまで数秒かかり、その間見た目が変わらないと
+  // 「押せたか分からない」。押した瞬間に「更新中…」へ変えて無効化し、押下を確実に伝える。
+  const [applying, setApplying] = useState(false)
   if (!needRefresh) return null
   return (
     <div className="update-toast" role="status" aria-live="polite">
       <span className="update-toast__text">新しいバージョンがあります</span>
       {/* 「再読み込み」だと F5 と同じに見え混乱を招くため、特別な操作だと分かる文言にする。
           通常の再読み込み(F5)では待機中の新SWは有効化されず、このボタンだけが更新を確定できる。 */}
-      <button className="update-toast__action" onClick={applyUpdate}>
-        更新して再読み込み
+      <button
+        className={`update-toast__action${applying ? ' is-applying' : ''}`}
+        onClick={() => {
+          setApplying(true) // 押した瞬間にフィードバック（この後まもなくページがリロードされる）
+          applyUpdate()
+        }}
+        disabled={applying}
+      >
+        {applying ? '更新中…' : '更新して再読み込み'}
       </button>
       {/* 今は適用しないで閉じる（× ボタン）。待機中の新SWは残り、次回起動や再読み込みで適用できる。 */}
-      <button className="update-toast__close" onClick={dismissUpdate} aria-label="閉じる" title="閉じる">
+      <button
+        className="update-toast__close"
+        onClick={dismissUpdate}
+        disabled={applying}
+        aria-label="閉じる"
+        title="閉じる"
+      >
         ×
       </button>
     </div>

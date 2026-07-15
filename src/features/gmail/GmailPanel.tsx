@@ -582,6 +582,10 @@ function HtmlBody({
   const scaleRef = useRef(1)
   // 画面幅変更（端末回転など）で測り直すため、最新の再フィット関数を保持する。
   const refitRef = useRef<(() => void) | null>(null)
+  // 外部画像の順次読み込み進捗（null=読み込み中でない）。本文枠の隅にバッジで出す。
+  const [imgProgress, setImgProgress] = useState<{ done: number; total: number } | null>(null)
+  // 順次読み込みの世代トークン。メール切替・画像OFF・アンマウントで +1 して古いループを止める。
+  const restoreGenRef = useRef(0)
   const dark = useEffectiveDark()
   const sanitized = useMemo(() => sanitizeEmailHtml(html), [html])
   const imagesBlocked = useMemo(() => hasBlockedImages(sanitized), [sanitized])
@@ -592,8 +596,67 @@ function HtmlBody({
     onImagesBlockedChange(imagesBlocked)
   }, [imagesBlocked, onImagesBlockedChange])
 
-  // アンマウント時に高さ監視を止める（監視が残るとメモリリークになる）。
-  useEffect(() => () => observerRef.current?.disconnect(), [])
+  // アンマウント時に高さ監視を止め（監視が残るとメモリリーク）、順次読み込みも打ち切る。
+  useEffect(
+    () => () => {
+      restoreGenRef.current++
+      observerRef.current?.disconnect()
+    },
+    [],
+  )
+
+  // 外部画像(data-blocked-src)を iframe 内で順に読み込む（親から contentDocument 経由で src を戻す）。
+  // iframe には allow-scripts を付けない方針なので中身では JS を動かせないが、allow-same-origin により
+  // 親から img 要素を操作できる（src を親がセットしてもロードは iframe の CSP に従うので https は通る）。
+  // 厳密な1枚ずつ直列は「応答しないトラッキング画像1枚で全部詰まる」ため、同時 CONCURRENCY 枚まで・
+  // 各画像にタイムアウトを付ける（Fable 助言）。data: の埋め込み画像は退避対象外なので順次対象に入らない。
+  function startSequentialImageLoad(doc: Document) {
+    const CONCURRENCY = 3 // 同時に読み込む最大枚数（DOM順で上から埋まりつつ、直列より速い折衷）
+    const PER_IMG_TIMEOUT = 10000 // 1枚あたりの待ち上限(ms)。無応答の画像でキューが止まらないように。
+    const imgs = Array.from(doc.querySelectorAll<HTMLElement>('[data-blocked-src]'))
+    const total = imgs.length
+    const gen = ++restoreGenRef.current // このループの世代（古いループはこの値のズレで停止）
+    if (total === 0) {
+      setImgProgress(null)
+      return
+    }
+    setImgProgress({ done: 0, total })
+    let done = 0
+    let next = 0
+    const startNext = () => {
+      if (gen !== restoreGenRef.current) return // メール切替等で無効化された
+      if (next >= imgs.length) return
+      const el = imgs[next++]
+      const src = el.getAttribute('data-blocked-src') ?? ''
+      el.removeAttribute('data-blocked-src')
+      // `loading="lazy"` の画像は枠の外(下方)にあると load が発火せず、順次キューが各10秒の
+      // タイムアウト待ちで詰まる。ここでは自前で順に読み込むので遅延読み込みは外す（Fable 指摘）。
+      el.removeAttribute('loading')
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        window.clearTimeout(timer)
+        el.removeEventListener('load', finish)
+        el.removeEventListener('error', finish)
+        if (gen !== restoreGenRef.current) return
+        done++
+        if (done >= total) setImgProgress(null)
+        else setImgProgress({ done, total })
+        startNext() // 1枚終わるごとに次を投入して同時枚数を CONCURRENCY に保つ
+      }
+      const timer = window.setTimeout(finish, PER_IMG_TIMEOUT)
+      if (!src) {
+        finish()
+        return
+      }
+      // リスナーを付けてから src をセットする（付ける前にキャッシュ即完了すると load を取りこぼすため）。
+      el.addEventListener('load', finish)
+      el.addEventListener('error', finish)
+      el.setAttribute('src', src)
+    }
+    for (let i = 0; i < Math.min(CONCURRENCY, imgs.length); i++) startNext()
+  }
 
   // 画面幅が変わったら（端末回転・ウィンドウリサイズ）縮小率を測り直す。
   useEffect(() => {
@@ -661,6 +724,13 @@ function HtmlBody({
       const ro = new ResizeObserver(syncHeight)
       ro.observe(doc.body)
       observerRef.current = ro
+      // 画像表示ONなら、外部画像を順に読み込み始める（本文テキストは既に描画済み）。
+      // OFFのときは何も読み込まず、進捗バッジも消す。
+      if (showImages) startSequentialImageLoad(doc)
+      else {
+        restoreGenRef.current++
+        setImgProgress(null)
+      }
       // Android では、外部リンクを本体側で intent:// 起動して Chrome 本体で開く。
       // （iframe 内から直接 intent を投げると sandbox にブロックされうるため本体側で発行する）
       if (IS_ANDROID) {
@@ -673,6 +743,11 @@ function HtmlBody({
 
   return (
     <div className="gmail__body">
+      {imgProgress && (
+        <div className="gmail__img-loading" role="status" aria-live="polite">
+          画像を読み込み中… {imgProgress.done}/{imgProgress.total}
+        </div>
+      )}
       <iframe
         ref={frameRef}
         className="gmail__frame"

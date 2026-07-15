@@ -28,13 +28,28 @@ function bySortKey(a: CalendarEvent, b: CalendarEvent) {
   return a.startMs - b.startMs
 }
 
+// 実際に画面が購読するキーは ['calendar','upcoming', <カレンダー構成の署名>] の3要素（#54で署名を追加）。
+// TanStack Query の setQueryData/getQueryData は「キー完全一致」でしか当たらないため、2要素の CAL_KEY へ
+// 書くと誰も読まない“幽霊エントリ”に書き込んでしまい、楽観的更新が画面へ反映されない（確定が
+// サーバー往復後の再取得まで遅れ、ドラッグ確定時に一瞬元位置へ戻って見える原因になっていた）。
+// 前方一致で引ける getQueriesData で実エントリ（署名違いで複数あってもすべて）を取り、その実キーへ
+// 書き換える。cancelQueries/invalidateQueries は元から前方一致なので CAL_KEY のままでよい。
+type CalSnapshot = [readonly unknown[], CalendarEvent[] | undefined][]
+
 function optimisticUpdate(
   qc: ReturnType<typeof useQueryClient>,
   update: (old: CalendarEvent[]) => CalendarEvent[],
-) {
-  const prev = qc.getQueryData<CalendarEvent[]>(CAL_KEY)
-  qc.setQueryData<CalendarEvent[]>(CAL_KEY, (old) => update(old ?? []))
-  return prev
+): CalSnapshot {
+  const entries = qc.getQueriesData<CalendarEvent[]>({ queryKey: CAL_KEY })
+  for (const [key, old] of entries) {
+    qc.setQueryData<CalendarEvent[]>(key, update(old ?? []))
+  }
+  return entries
+}
+
+// 楽観的更新の巻き戻し（onError）。optimisticUpdate が返したスナップショットを実キーへ書き戻す。
+function rollback(qc: ReturnType<typeof useQueryClient>, snapshot: CalSnapshot) {
+  for (const [key, prev] of snapshot) qc.setQueryData(key, prev)
 }
 
 // 予定を作成する。7日ウィンドウ内なら仮IDで一覧に即挿入し、確定後 invalidate で本物に置換。
@@ -51,11 +66,11 @@ export function useCreateEvent() {
       })
       const prev = isWithinUpcomingWindow(temp.startMs)
         ? optimisticUpdate(qc, (old) => [...old, temp].sort(bySortKey))
-        : qc.getQueryData<CalendarEvent[]>(CAL_KEY)
+        : qc.getQueriesData<CalendarEvent[]>({ queryKey: CAL_KEY })
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CAL_KEY, ctx.prev)
+      if (ctx?.prev) rollback(qc, ctx.prev)
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: CAL_KEY })
@@ -81,7 +96,7 @@ export function useUpdateEvent() {
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CAL_KEY, ctx.prev)
+      if (ctx?.prev) rollback(qc, ctx.prev)
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: CAL_KEY })
@@ -100,7 +115,7 @@ export function useDeleteEvent() {
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CAL_KEY, ctx.prev)
+      if (ctx?.prev) rollback(qc, ctx.prev)
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: CAL_KEY })
@@ -146,7 +161,7 @@ export function useRestoreEvent() {
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CAL_KEY, ctx.prev)
+      if (ctx?.prev) rollback(qc, ctx.prev)
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: CAL_KEY })

@@ -110,7 +110,17 @@ function layout(timed: { ev: CalendarEvent; startMin: number; endMin: number }[]
 
 // 既存予定のドラッグ（移動/リサイズ・#17 Phase B）の途中経過。
 // startMin/endMin はスナップ済みの分。プレビュー表示に使う。
-type EventDrag = { id: string; mode: 'move' | 'resize'; startMin: number; endMin: number }
+// phase: 'drag'=指を動かしている最中（掴んでいる装飾を付ける）、
+//        'commit'=指を離して保存中（位置だけ確定位置に固定し、装飾は外す）。
+// commit を保持し続けることで、楽観的更新がキャッシュに反映されるまでの1フレーム、
+// 予定が元位置へ一瞬戻る「ちらつき」を防ぐ（保存完了時=onSettled で解除する）。
+type EventDrag = {
+  id: string
+  mode: 'move' | 'resize'
+  startMin: number
+  endMin: number
+  phase: 'drag' | 'commit'
+}
 // ドラッグ中に ref で保持する詳細（描画に使わない可変値。onPointerUp で確定値を読む）。
 type EventDragRef = {
   ev: CalendarEvent
@@ -294,7 +304,7 @@ export function TodayTimeline() {
       curStartMin: p.startMin,
       curEndMin: p.endMin,
     }
-    setEvDrag({ id: p.ev.id, mode, startMin: p.startMin, endMin: p.endMin })
+    setEvDrag({ id: p.ev.id, mode, startMin: p.startMin, endMin: p.endMin, phase: 'drag' })
     el.setPointerCapture(e.pointerId)
     // 軸の「空き時間ドラッグ作成」を起動させない。
     e.stopPropagation()
@@ -322,17 +332,22 @@ export function TodayTimeline() {
     setEvDrag((prev) =>
       prev && prev.startMin === startMin && prev.endMin === endMin
         ? prev // スナップ値が変わらなければ再描画しない
-        : { id: d.ev.id, mode: d.mode, startMin, endMin },
+        : { id: d.ev.id, mode: d.mode, startMin, endMin, phase: 'drag' },
     )
   }
 
   function eventPointerUp() {
     const d = evDragRef.current
     evDragRef.current = null
-    setEvDrag(null)
-    if (!d) return
+    if (!d) {
+      setEvDrag(null)
+      return
+    }
     // 実質クリック（ほぼ動いていない）なら移動・保存はしない。編集シートは onClick 側で開く。
-    if (!d.moved) return
+    if (!d.moved) {
+      setEvDrag(null)
+      return
+    }
     // ドラッグ確定: 直後の click（編集オープン）は無視する。
     suppressClickRef.current = true
     // 24:00 は API/type=time に載らないので上限でクランプし、開始<終了を保証する。
@@ -345,7 +360,15 @@ export function TodayTimeline() {
     }
     if (commitEnd <= commitStart) commitEnd = commitStart + SNAP_MIN
     // 変化が無ければ保存しない（同じ時刻での無駄な PATCH を避ける）。
-    if (commitStart === d.origStartMin && commitEnd === d.origEndMin) return
+    if (commitStart === d.origStartMin && commitEnd === d.origEndMin) {
+      setEvDrag(null)
+      return
+    }
+    // プレビューを消さずに確定位置(commit)へ切り替える。ここで null にすると、楽観的更新が
+    // キャッシュへ反映される次のマイクロタスクまでの1フレーム、予定が元位置へ戻ってしまう（ちらつき）。
+    // 保存が終わったら（成功/失敗どちらでも onSettled で）解除する。失敗時はキャッシュが元へ
+    // 巻き戻り、解除と同時に元位置へ戻る。
+    setEvDrag({ id: d.ev.id, mode: d.mode, startMin: commitStart, endMin: commitEnd, phase: 'commit' })
     const draft = {
       ...eventToDraft(d.ev),
       startDate: selectedDate,
@@ -353,7 +376,13 @@ export function TodayTimeline() {
       startTime: minToHHmm(commitStart),
       endTime: minToHHmm(commitEnd),
     }
-    update.mutate({ event: d.ev, draft })
+    update.mutate(
+      { event: d.ev, draft },
+      {
+        onSettled: () =>
+          setEvDrag((cur) => (cur?.id === d.ev.id && cur.phase === 'commit' ? null : cur)),
+      },
+    )
   }
 
   // 予定クリックで編集シートを開く。ただしドラッグ確定直後の click は無視する（移動と取り違えない）。
@@ -422,10 +451,12 @@ export function TodayTimeline() {
             )
           })}
           {placed.map((p) => {
-            // ドラッグ中の予定は、確定前でも移動/伸縮の途中位置をプレビュー表示する。
-            const dragging = evDrag?.id === p.ev.id
-            const dispStartMin = dragging ? evDrag.startMin : p.startMin
-            const dispEndMin = dragging ? evDrag.endMin : p.endMin
+            // ドラッグ中／保存中の予定は、確定前でも移動/伸縮の途中(または確定)位置をプレビュー表示する。
+            const preview = evDrag?.id === p.ev.id ? evDrag : null
+            // 掴んでいる最中(phase==='drag')だけ「持ち上げ」の装飾を付ける。保存中(commit)は位置だけ維持。
+            const dragging = preview?.phase === 'drag'
+            const dispStartMin = preview ? preview.startMin : p.startMin
+            const dispEndMin = preview ? preview.endMin : p.endMin
             const top = ((dispStartMin - winStart) / 60) * HOUR_PX
             const height = Math.max(18, ((dispEndMin - dispStartMin) / 60) * HOUR_PX - 1)
             const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
@@ -438,7 +469,8 @@ export function TodayTimeline() {
             const editable = p.ev.writable && !p.ev.pending
             // 当日内で完結する時刻あり予定は、ドラッグで移動・下端で長さ変更ができる（#17 Phase B）。
             const draggable = isDraggable(p)
-            const timeText = dragging ? minToHHmm(dispStartMin) : p.ev.startTimeStr
+            // プレビュー中(掴み中・保存中とも)は途中/確定位置の開始時刻を表示し、位置と食い違わせない。
+            const timeText = preview ? minToHHmm(dispStartMin) : p.ev.startTimeStr
             return (
               <div
                 key={p.ev.id}
