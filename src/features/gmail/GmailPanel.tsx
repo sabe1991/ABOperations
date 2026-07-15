@@ -92,10 +92,6 @@ export function GmailPanel() {
   const markUnread = useMarkUnread()
   const archive = useArchive()
   const unarchive = useUnarchive()
-  function handleMarkRead(m: GmailMessage) {
-    markRead.mutate(m)
-    notify('既読にしました', () => markUnread.mutate(m))
-  }
   function handleMarkUnread(m: GmailMessage) {
     markUnread.mutate(m)
     notify('未読にしました', () => markRead.mutate(m))
@@ -107,6 +103,19 @@ export function GmailPanel() {
 
   // 選択中のメール（本文モーダルで開く）。null なら閉じている。
   const [selected, setSelected] = useState<GmailMessage | null>(null)
+
+  // 未読メールは開いた瞬間に既読化する（ユーザー要望・Gmail 本家と同じ挙動）。
+  // 成功時は通知を出さず、読まなかったことにしたいときはモーダルの「未読にする」で戻せる。
+  // ただし「既読にする」ボタンを廃したので、失敗（通信断など）が無音だと未読のまま復旧手段が
+  // 無くなる。そのため失敗時だけスナックバーで知らせる（もう一度開けば再試行される・Fable 指摘）。
+  function handleOpen(m: GmailMessage) {
+    setSelected(m)
+    if (m.unread) {
+      markRead.mutate(m, {
+        onError: () => notify('メールを既読にできませんでした（通信状況をご確認ください）', null),
+      })
+    }
+  }
 
   // 作成シート（新規作成・返信）と送信ミューテーション（#4）。
   const [compose, setCompose] = useState<ComposeState>(null)
@@ -181,7 +190,7 @@ export function GmailPanel() {
         error={queryError}
         onRetry={() => refetch()}
         formatWhen={formatWhen}
-        onOpen={setSelected}
+        onOpen={handleOpen}
       />
 
       {/* メール本文はパネル内展開ではなくモーダルで開く（読みやすさ・操作しやすさのため）。 */}
@@ -189,10 +198,6 @@ export function GmailPanel() {
         <MessageModal
           message={selected}
           onClose={() => setSelected(null)}
-          onMarkRead={(m) => {
-            handleMarkRead(m)
-            setSelected(null)
-          }}
           onMarkUnread={(m) => {
             handleMarkUnread(m)
             setSelected(null)
@@ -308,14 +313,12 @@ function GmailRow({
 function MessageModal({
   message: m,
   onClose,
-  onMarkRead,
   onMarkUnread,
   onArchive,
   onReply,
 }: {
   message: GmailMessage
   onClose: () => void
-  onMarkRead: (m: GmailMessage) => void
   onMarkUnread: (m: GmailMessage) => void
   onArchive: (m: GmailMessage) => void
   onReply: (m: GmailMessage) => void
@@ -366,16 +369,11 @@ function MessageModal({
             <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
               返信
             </button>
-            {/* 未読なら「既読にする」、既読なら「未読にする」を出す。どちらもアーカイブ可。 */}
-            {m.unread ? (
-              <button className="btn btn--small" onClick={() => onMarkRead(m)}>
-                既読にする
-              </button>
-            ) : (
-              <button className="btn btn--small" onClick={() => onMarkUnread(m)}>
-                未読にする
-              </button>
-            )}
+            {/* 開いた時点で自動的に既読になるので「既読にする」ボタンは置かない（ユーザー要望）。
+                読まなかったことにしたいとき用に「未読にする」だけ残す。 */}
+            <button className="btn btn--small" onClick={() => onMarkUnread(m)}>
+              未読にする
+            </button>
             <button className="btn btn--small" onClick={() => onArchive(m)}>
               アーカイブ
             </button>

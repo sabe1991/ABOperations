@@ -63,6 +63,9 @@ export function MonthCalendar() {
   const [focusIdx, setFocusIdx] = useState<number | null>(null)
   const tabbableIdx = focusIdx != null && isFocusableIdx(focusIdx) ? focusIdx : defaultIdx
   const gridRef = useRef<HTMLDivElement>(null)
+  // 「今後の予定」リストへスクロールしたい日を一時保持する。キー長押し中はスクロールを溜めておき、
+  // キーを離した時（keyup）に最後の1回だけ実行する（下記 handleGridKeyUp）。
+  const pendingScrollRef = useRef<string | null>(null)
 
   // 指定 index のセル（フォーカス可能なボタン）に DOM フォーカスを移す。
   function focusCell(i: number): void {
@@ -112,10 +115,24 @@ export function MonthCalendar() {
     if (target == null || !isFocusableIdx(target)) return
     setFocusIdx(target)
     focusCell(target)
-    // 矢印キーでも表示日（タイムラインの対象日）を即時に切り替える（ユーザー要望）。
-    // ただし予定リストの自動スクロールはしない（1押下ごとにスクロールすると画面が暴れるため）。
-    // クリック時は従来どおり requestScrollToDate でその日へスクロールする。
-    setSelectedDate(fmt(cells[target]))
+    // 矢印キーでも表示日（タイムラインの対象日）を即時に切り替え、
+    // さらに「今後の予定」リストもその日の見出しへスクロールして連動させる（ユーザー要望）。
+    // その日に予定が無いときは見出しが無いのでスクロールは起きない（＝画面は動かない）。
+    const targetStr = fmt(cells[target])
+    setSelectedDate(targetStr)
+    // スクロールしたい日を控えておき、実行は原則 keyup（キーを離した時）に1回だけ行う。
+    // キー長押しのリピート（e.repeat=true）中に毎回 smooth スクロールすると、アニメーションが
+    // 毎回やり直しになってリストが震えながら進まなくなるため（Fable 指摘）。
+    // 単押し（リピートでない最初の押下）は即スクロールして即応性を保つ。
+    pendingScrollRef.current = targetStr
+    if (!e.repeat) requestScrollToDate(targetStr)
+  }
+
+  // キーを離したら、控えていた最終位置へ1回だけスクロールする（長押しで一気に移動したときの着地）。
+  function handleGridKeyUp(e: React.KeyboardEvent<HTMLDivElement>): void {
+    const NAV_KEYS = ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+    if (!NAV_KEYS.includes(e.key)) return
+    if (pendingScrollRef.current) requestScrollToDate(pendingScrollRef.current)
   }
 
   return (
@@ -131,6 +148,7 @@ export function MonthCalendar() {
         aria-busy={isLoading || undefined}
         ref={gridRef}
         onKeyDown={handleGridKeyDown}
+        onKeyUp={handleGridKeyUp}
       >
         <div className="month__row" role="row">
           {Array.from({ length: 7 }, (_, i) => {

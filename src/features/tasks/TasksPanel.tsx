@@ -213,6 +213,21 @@ export function TasksPanel() {
     setEditing(null)
   }
 
+  // 期限チップ（なし/今日/明日/来週）での即確定用。保存ボタンと違いシートが即閉じて確認の手立てが
+  // 無いので、ドラッグでの期限変更と同様に「元に戻す」スナックバーを出す（Fable 助言）。
+  function handleQuickSaveEdit(
+    task: TaskItem,
+    patch: { title: string; dueDateStr: string | null },
+    label: string,
+  ) {
+    const prev = { title: task.title, dueDateStr: task.dueStr }
+    update.mutate({ task, patch })
+    setEditing(null)
+    showSnack(`「${task.title}」の期限を${label}にしました`, () =>
+      update.mutate({ task, patch: prev }),
+    )
+  }
+
   function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     const title = newTitle.trim()
@@ -279,6 +294,7 @@ export function TasksPanel() {
           task={editing}
           onClose={() => setEditing(null)}
           onSave={handleSaveEdit}
+          onQuickSave={handleQuickSaveEdit}
           onDelete={handleDelete}
           onComplete={(t) => {
             handleComplete(t) // 完了にして Undo スナックを出す
@@ -517,12 +533,18 @@ function EditSheet({
   task,
   onClose,
   onSave,
+  onQuickSave,
   onDelete,
   onComplete,
 }: {
   task: TaskItem
   onClose: () => void
   onSave: (task: TaskItem, patch: { title: string; dueDateStr: string | null }) => void
+  onQuickSave: (
+    task: TaskItem,
+    patch: { title: string; dueDateStr: string | null },
+    label: string,
+  ) => void
   onDelete: (task: TaskItem) => void
   onComplete: (task: TaskItem) => void
 }) {
@@ -551,8 +573,11 @@ function EditSheet({
   // ダイアログ共通挙動（Esc で閉じる・フォーカストラップ・スクロールロック・端末に応じた初期フォーカス）。
   const dialogRef = useDialog<HTMLFormElement>(onClose)
 
-  function resolveDue(): string | null {
-    switch (dueMode) {
+  // 各モードに対応する期限文字列（なし=null）。クリックしたモードから直接引くため関数に切り出す
+  // （setDueMode 直後は state がまだ古い値なので、resolveDue のように現在の dueMode 経由で
+  //  計算すると1つ前のモードで確定してしまう・Fable 指摘）。
+  function dueForMode(mode: DueMode): string | null {
+    switch (mode) {
       case 'none':
         return null
       case 'today':
@@ -566,11 +591,35 @@ function EditSheet({
     }
   }
 
+  // 「なし/今日/明日/来週」は押した時点で期限が一意に定まるので、保存ボタンを押さずに即確定する
+  // （ユーザー要望）。「日付指定」だけは日付を選ぶ手間があるので従来どおり保存ボタンで確定する。
+  const INSTANT_MODES: DueMode[] = ['none', 'today', 'tomorrow', 'nextweek']
+
+  function handleChip(mode: DueMode) {
+    if (!INSTANT_MODES.includes(mode)) {
+      // 日付指定: モードを切り替えて日付入力を出すだけ（確定は保存ボタン）。
+      setDueMode(mode)
+      return
+    }
+    // 即確定チップ: その時点のタイトルも一緒に保存して閉じる。
+    // タイトルが空だと保存できないため、元のタイトルにフォールバックする（期限変更の意図を必ず果たす）。
+    const nextTitle = title.trim() || task.title
+    const nextDue = dueForMode(mode)
+    // タイトルも期限も変わらないなら通信せず閉じるだけ（無駄な更新と再描画を避ける・Fable 助言）。
+    if (nextTitle === task.title && nextDue === task.dueStr) {
+      onClose()
+      return
+    }
+    // 押し間違えても戻せるよう Undo 付きで確定する（onQuickSave 側でスナックバーを出す）。
+    const label = mode === 'none' ? 'なし' : mode === 'today' ? '今日' : mode === 'tomorrow' ? '明日' : '来週'
+    onQuickSave(task, { title: nextTitle, dueDateStr: nextDue }, label)
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = title.trim()
     if (!trimmed) return
-    onSave(task, { title: trimmed, dueDateStr: resolveDue() })
+    onSave(task, { title: trimmed, dueDateStr: dueForMode(dueMode) })
   }
 
   const DUE_CHIPS: { mode: DueMode; label: string }[] = [
@@ -613,7 +662,7 @@ function EditSheet({
               key={mode}
               type="button"
               className={`btn btn--small${dueMode === mode ? ' is-on tasks__add-today' : ''}`}
-              onClick={() => setDueMode(mode)}
+              onClick={() => handleChip(mode)}
               aria-pressed={dueMode === mode}
             >
               {label}
