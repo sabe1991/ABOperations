@@ -4,15 +4,22 @@
 //   - Qiita        … 日本語の技術記事（未認証で 60req/h・CORS 対応）
 //   - Wikipedia    … 日本語版ウィキペディアの「今アクセスの多い記事／今日の秀逸な記事」（一般教養。REST API は CORS 対応）
 //   - 地震情報      … 気象庁の最近の地震（防災 JSON。日本語・CORS 対応）
-//   - Hacker News  … 技術・スタートアップ系の英語ニュース（Firebase API は鍵なし・完全CORS対応）
+//   - Hacker News  … 技術・スタートアップ系の英語ニュース（HN Algolia 検索API・鍵なし・CORS 対応）
+//   - dev.to       … 英語の技術記事（公開APIは鍵なし・CORS 対応）
+//   - GitHub       … 直近1週間で星を集めたリポジトリ（検索APIは鍵なしで 60req/h・CORS 対応）
 //   - 宇宙ニュース   … 宇宙開発の英語ニュース（Spaceflight News API v4・鍵なし・CORS 対応）
 // 追加する場合は newsSource.ts の NEWS_SOURCES にキー・表示名を足し、ここの fetchNews に分岐を足す。
-import { fulfilledValues, mapPool, throwIfAllRejected } from '../../google/pool'
 import { asArray, asObject, fetchWithTimeout } from '../../fetchTimeout'
 import type { NewsSource } from './newsSource'
 
-// Hacker News の各記事詳細を取る同時実行数の上限。20件を一斉に投げず少数ずつ流す。
-const HN_FETCH_CONCURRENCY = 8
+// 各ソースから取る最大件数（パネルは一覧を流し読みする用途なので20件で足りる）。
+const LIMIT = 20
+
+// タイトル中の改行・連続空白を1つの半角スペースへ潰す。dev.to など投稿者が自由入力するソースでは
+// タイトルに改行が混ざることがあり、そのままだと2行クランプの表示が崩れるため。
+function normalizeTitle(s: string): string {
+  return s.replace(/\s+/g, ' ').trim()
+}
 
 // 画面に渡す整形済みニュース1件。ソース差（Qiita/HN/…）を吸収した共通形。
 export interface NewsItem {
@@ -34,6 +41,10 @@ export async function fetchNews(source: NewsSource): Promise<NewsItem[]> {
       return fetchWikipedia()
     case 'quake':
       return fetchQuakes()
+    case 'devto':
+      return fetchDevTo()
+    case 'github':
+      return fetchGitHub()
     case 'space':
       return fetchSpace()
     case 'qiita':
@@ -56,7 +67,7 @@ interface QiitaItem {
 
 async function fetchQiita(): Promise<NewsItem[]> {
   // 未認証でも公開記事の一覧は取得できる（新着順・IPあたり60req/h）。鍵は付けない。
-  const res = await fetchWithTimeout('https://qiita.com/api/v2/items?page=1&per_page=20', {
+  const res = await fetchWithTimeout(`https://qiita.com/api/v2/items?page=1&per_page=${LIMIT}`, {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error(`Qiita の取得に失敗しました (HTTP ${res.status})`)
@@ -74,44 +85,127 @@ async function fetchQiita(): Promise<NewsItem[]> {
 
 // --- Hacker News ---------------------------------------------------------
 
-interface HnItem {
-  id: number
-  title?: string
-  url?: string
-  score?: number
-  by?: string
-  time?: number // 秒
-  descendants?: number
+interface HnHit {
+  objectID: string
+  title?: string | null
+  url?: string | null // 外部URLの無い投稿（Ask HN 等）は null
+  author?: string
+  points?: number | null
+  num_comments?: number | null
+  created_at_i?: number // 秒
+}
+interface HnResponse {
+  hits?: HnHit[]
 }
 
 async function fetchHackerNews(): Promise<NewsItem[]> {
-  // 1) トップ記事のID一覧（先頭20件だけ使う）。2) 各IDの詳細を並列取得。
-  const topRes = await fetchWithTimeout('https://hacker-news.firebaseio.com/v0/topstories.json')
-  if (!topRes.ok) throw new Error(`Hacker News の取得に失敗しました (HTTP ${topRes.status})`)
-  const ids = asArray<number>(await topRes.json(), 'Hacker News').slice(0, 20)
-
-  // 各記事の詳細を同時実行数を絞って取得する。1件の瞬断（fetch 失敗）で20件全体を
-  // 落とさないよう、部分失敗を許容して成功分だけ採用する（元のトップ順は保たれる）。
-  const settled = await mapPool(ids, HN_FETCH_CONCURRENCY, async (id): Promise<NewsItem | null> => {
-    const r = await fetchWithTimeout(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
-    if (!r.ok) throw new Error(`HN item ${id} の取得に失敗 (HTTP ${r.status})`)
-    const it = (await r.json()) as HnItem | null
-    if (!it || !it.title) return null // タイトルの無い項目（削除済み等）はスキップ
-    return {
-      id: `hn-${it.id}`,
+  // HN 公式の Firebase API はトップ記事のID一覧しか返さず、20件表示するのに詳細を20回
+  // 追加取得する必要があった（計21リクエスト）。Algolia の検索APIは同じ内容を1回で返すため
+  // こちらを使う（tags=front_page＝いまトップページに載っている記事）。
+  const res = await fetchWithTimeout(
+    `https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=${LIMIT}`,
+    { headers: { Accept: 'application/json' } },
+  )
+  if (!res.ok) throw new Error(`Hacker News の取得に失敗しました (HTTP ${res.status})`)
+  const data = asObject<HnResponse>(await res.json(), 'Hacker News')
+  const out: NewsItem[] = []
+  for (const it of data.hits ?? []) {
+    if (!it.title) continue // タイトルの無い項目（削除済み等）はスキップ
+    out.push({
+      id: `hn-${it.objectID}`,
+      title: normalizeTitle(it.title),
       // 外部URLが無い投稿（Ask HN 等）はHNのスレッドを開く。
-      title: it.title,
-      url: it.url || `https://news.ycombinator.com/item?id=${it.id}`,
-      author: it.by,
-      points: it.score,
-      comments: it.descendants,
-      dateMs: it.time ? it.time * 1000 : 0,
-    }
+      url: it.url || `https://news.ycombinator.com/item?id=${it.objectID}`,
+      author: it.author,
+      points: it.points ?? undefined,
+      comments: it.num_comments ?? undefined,
+      dateMs: it.created_at_i ? it.created_at_i * 1000 : 0,
+    })
+  }
+  return out
+}
+
+// --- dev.to（英語の技術記事）--------------------------------------------
+
+interface DevToArticle {
+  id: number
+  title?: string
+  url?: string
+  positive_reactions_count?: number
+  comments_count?: number
+  published_at?: string // ISO8601
+  user?: { username?: string }
+}
+
+async function fetchDevTo(): Promise<NewsItem[]> {
+  // 公開記事の一覧は鍵なしで取得できる（CORS 対応）。Qiita の英語版のような位置づけ。
+  const res = await fetchWithTimeout(`https://dev.to/api/articles?per_page=${LIMIT}`, {
+    headers: { Accept: 'application/json' },
   })
-  // 全件失敗（例: ネットワーク全断）のときだけエラーにして、パネルに再試行を出す。
-  throwIfAllRejected(settled)
-  // 取得できた項目のうち、内容のあるもの（null でない）だけを返す。
-  return fulfilledValues(settled).filter((it): it is NewsItem => it !== null)
+  if (!res.ok) throw new Error(`dev.to の取得に失敗しました (HTTP ${res.status})`)
+  const items = asArray<DevToArticle>(await res.json(), 'dev.to')
+  const out: NewsItem[] = []
+  for (const it of items) {
+    if (!it.title || !it.url) continue
+    out.push({
+      id: `devto-${it.id}`,
+      title: normalizeTitle(it.title),
+      url: it.url,
+      author: it.user?.username,
+      points: it.positive_reactions_count,
+      comments: it.comments_count,
+      dateMs: Date.parse(it.published_at || '') || 0,
+    })
+  }
+  return out
+}
+
+// --- GitHub（直近1週間で星を集めたリポジトリ）----------------------------
+
+interface GitHubRepo {
+  id: number
+  full_name?: string
+  html_url?: string
+  description?: string | null
+  stargazers_count?: number
+  language?: string | null
+  created_at?: string // ISO8601
+}
+interface GitHubSearchResponse {
+  items?: GitHubRepo[]
+}
+
+// 「直近1週間」の起点となる日付を YYYY-MM-DD で返す（GitHub 検索の created:>… に渡す形式）。
+function githubSinceDate(): string {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+async function fetchGitHub(): Promise<NewsItem[]> {
+  // GitHub にトレンド用の公式APIは無いため、検索APIで「1週間以内に作られたリポジトリを
+  // 星の多い順」に並べて代用する。鍵なしだとIPあたり 60req/h だが、パネルの更新頻度なら足りる。
+  const q = encodeURIComponent(`created:>${githubSinceDate()}`)
+  const res = await fetchWithTimeout(
+    `https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=${LIMIT}`,
+    { headers: { Accept: 'application/vnd.github+json' } },
+  )
+  if (!res.ok) throw new Error(`GitHub の取得に失敗しました (HTTP ${res.status})`)
+  const data = asObject<GitHubSearchResponse>(await res.json(), 'GitHub')
+  const out: NewsItem[] = []
+  for (const it of data.items ?? []) {
+    if (!it.full_name || !it.html_url) continue
+    // リポジトリ名だけでは何のリポジトリか分からないので、説明文があれば続けて出す
+    // （タイトルはCSSで2行までに省略される）。
+    const desc = it.description?.trim()
+    out.push({
+      id: `gh-${it.id}`,
+      title: desc ? `${it.full_name} — ${normalizeTitle(desc)}` : it.full_name,
+      url: it.html_url,
+      author: it.language ?? undefined, // 主要言語を提供元の位置に出す
+      points: it.stargazers_count, // ▲＝星の数
+      dateMs: Date.parse(it.created_at || '') || 0,
+    })
+  }
+  return out
 }
 
 // --- Wikipedia（日本語・注目記事）----------------------------------------
@@ -140,7 +234,8 @@ function wikiFeedDate(): string {
 function wikiItem(a: WikiArticle, dateMs: number): NewsItem | null {
   const title = a.titles?.normalized || a.title
   if (!title) return null
-  const url = a.content_urls?.desktop?.page || `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`
+  const url =
+    a.content_urls?.desktop?.page || `https://ja.wikipedia.org/wiki/${encodeURIComponent(title)}`
   return {
     id: `wiki-${title}`,
     title,
@@ -170,9 +265,9 @@ async function fetchWikipedia(): Promise<NewsItem[]> {
     const it = wikiItem(a, dateMs)
     if (it) out.push(it)
   }
-  // タイトル重複（tfa と mostread が同じ等）を除いて先頭20件。
+  // タイトル重複（tfa と mostread が同じ等）を除いて先頭 LIMIT 件。
   const seen = new Set<string>()
-  return out.filter((it) => (seen.has(it.id) ? false : (seen.add(it.id), true))).slice(0, 20)
+  return out.filter((it) => (seen.has(it.id) ? false : (seen.add(it.id), true))).slice(0, LIMIT)
 }
 
 // --- 地震情報（気象庁）---------------------------------------------------
@@ -224,7 +319,7 @@ async function fetchQuakes(): Promise<NewsItem[]> {
       author: q.ttl,
       dateMs: Date.parse(q.at || '') || 0,
     })
-    if (out.length >= 20) break
+    if (out.length >= LIMIT) break
   }
   return out
 }
@@ -244,9 +339,12 @@ interface SpaceResponse {
 
 async function fetchSpace(): Promise<NewsItem[]> {
   // 宇宙開発の英語ニュース集約 API v4（鍵不要・CORS 対応）。
-  const res = await fetchWithTimeout('https://api.spaceflightnewsapi.net/v4/articles/?limit=20', {
-    headers: { Accept: 'application/json' },
-  })
+  const res = await fetchWithTimeout(
+    `https://api.spaceflightnewsapi.net/v4/articles/?limit=${LIMIT}`,
+    {
+      headers: { Accept: 'application/json' },
+    },
+  )
   if (!res.ok) throw new Error(`宇宙ニュースの取得に失敗しました (HTTP ${res.status})`)
   const data = asObject<SpaceResponse>(await res.json(), '宇宙ニュース')
   return (data.results ?? []).map((it) => ({

@@ -13,9 +13,15 @@ import { useSyncExternalStore } from 'react'
 // as const で「キーの文字列リテラル型」を保ち、NewsSource 型をここから導出する。
 export const NEWS_SOURCES = [
   { key: 'qiita', label: 'Qiita', description: '日本語の技術記事' },
-  { key: 'wikipedia', label: 'Wikipedia 注目', description: '日本語版のいま話題の記事（一般教養）' },
+  {
+    key: 'wikipedia',
+    label: 'Wikipedia 注目',
+    description: '日本語版のいま話題の記事（一般教養）',
+  },
   { key: 'quake', label: '地震情報', description: '気象庁の最近の地震（日本語）' },
   { key: 'hn', label: 'Hacker News', description: '英語の技術ニュース' },
+  { key: 'devto', label: 'dev.to', description: '英語の技術記事（Qiita の英語版のようなもの）' },
+  { key: 'github', label: 'GitHub', description: '直近1週間で星を集めたリポジトリ（英語）' },
   { key: 'space', label: '宇宙ニュース', description: '宇宙開発の話題（英語）' },
 ] as const
 
