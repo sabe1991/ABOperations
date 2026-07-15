@@ -11,9 +11,11 @@ import { connect, disconnect, useAuth } from '../../auth/useAuth'
 import { desiredScopes } from '../../auth/scopes'
 import { setGmailEnabled, useGmailEnabled } from '../gmail/enabled'
 import {
+  setShowExternalImages,
   setShowSourceLabels,
   setTheme,
   setWeekStart,
+  useShowExternalImages,
   useShowSourceLabels,
   useTheme,
   useWeekStart,
@@ -44,6 +46,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { data: email, isLoading: emailLoading } = useAccountEmail()
   const gmailEnabled = useGmailEnabled()
   const showSourceLabels = useShowSourceLabels()
+  const showExternalImages = useShowExternalImages()
   const weekStart = useWeekStart()
   const theme = useTheme()
   const gmailHasScope = grantedScopes.includes(SCOPES.gmailModify)
@@ -217,6 +220,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               <p className="settings__note">
                 ON
                 にすると、予定にカレンダー名（主カレンダーはメールアドレス）、タスクにリスト名を表示します。既定は非表示です。
+              </p>
+              <label className="settings__row">
+                <span>メールの外部画像を表示</span>
+                <input
+                  type="checkbox"
+                  checked={showExternalImages}
+                  onChange={(e) => setShowExternalImages(e.target.checked)}
+                />
+              </label>
+              <p className="settings__note">
+                ON にすると、メール本文の外部画像を自動で表示します（既定）。OFF
+                にすると外部画像をブロックし、本文の「画像を表示」で都度表示できます。外部画像の自動表示は、送信者に開封（時刻・おおよその所在地など）が伝わる場合があります。なお埋め込み画像（署名ロゴ等）はこの設定に関わらず表示されます。
               </p>
               <label className="settings__row">
                 <span>週の開始曜日</span>

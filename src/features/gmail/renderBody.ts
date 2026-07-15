@@ -188,6 +188,9 @@ export function buildSrcDoc(sanitizedHtml: string, showImages: boolean, dark = f
   return (
     '<!doctype html><html><head><meta charset="utf-8">' +
     `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
+    // 外部画像の取得時に参照元URL（このアプリのURL）を画像サーバーへ送らないようにする。
+    // 開封トラッキングに渡す情報を最小化するためのハードニング（Fable 助言）。
+    '<meta name="referrer" content="no-referrer">' +
     `<style>${reset}</style></head><body>${body}</body></html>`
   )
 }

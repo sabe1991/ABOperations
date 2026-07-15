@@ -2,6 +2,7 @@
 // Qiita（日本語の技術記事）と Hacker News（英語の技術ニュース）をタブで切り替えて一覧表示する。
 // 各記事はクリックで別タブに開く（読むだけの一覧なので操作は最小限）。
 // ※ Gmail を再表示したいときは設定（⚙）の「メール（Gmail）を表示」から切り替える。
+import { useEffect, useState } from 'react'
 import { useNews } from './useNews'
 import { NEWS_SOURCES, setNewsSource, useNewsSource, useSelectedNewsSources } from './newsSource'
 import type { NewsItem } from './api'
@@ -13,6 +14,9 @@ import { handleTablistKeyDown } from '../../roving'
 const LABELS = new Map(NEWS_SOURCES.map((s) => [s.key, s.label]))
 
 // 投稿時刻の相対表示（例: たった今 / 3分前 / 5時間前 / 2日前）。細い列に収まる短い形にする。
+// これは「記事が投稿されてから“今”までの経過時間」で、基準は最終更新時刻ではなく常に現在時刻。
+// 現在時刻基準であることが伝わるよう、1分ごとに再計算し（NewsPanel の分刻みタイマー）、
+// 正確な投稿日時はホバーの補足（title 属性・formatAbsolute）で示す。
 function formatRelative(dateMs: number): string {
   if (!dateMs) return ''
   const diff = Date.now() - dateMs
@@ -27,12 +31,31 @@ function formatRelative(dateMs: number): string {
   return `${Math.floor(day / 7)}週間前`
 }
 
+// ホバー時の補足に出す絶対時刻。「◯分前」が現在時刻からの経過だと分かるよう文言も添える。
+function formatAbsolute(dateMs: number): string {
+  const abs = new Date(dateMs).toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${abs} に投稿（現在時刻からの経過を表示）`
+}
+
 export function NewsPanel() {
   // 設定で選んだソース（最大3つ）をタブに出す。表示中ソースが選択外なら先頭に丸める。
   const selected = useSelectedNewsSources()
   const rawSource = useNewsSource()
   const source = selected.includes(rawSource) ? rawSource : selected[0]
   const { data, isLoading, isError, error, refetch } = useNews(source, true)
+
+  // 「◯分前」を1分ごとに再計算して常に現在時刻基準に保つ（放置で古い経過値が残らないように）。
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 60000)
+    return () => window.clearInterval(id)
+  }, [])
 
   return (
     <div className="news">
@@ -113,7 +136,11 @@ function NewsList({
                 </span>
               )}
               {it.author && <span className="news__author">{it.author}</span>}
-              {it.dateMs > 0 && <span className="news__when">{formatRelative(it.dateMs)}</span>}
+              {it.dateMs > 0 && (
+                <span className="news__when" title={formatAbsolute(it.dateMs)}>
+                  {formatRelative(it.dateMs)}
+                </span>
+              )}
             </span>
           </a>
         </li>

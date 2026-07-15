@@ -46,6 +46,48 @@ export function useShowSourceLabels(): boolean {
   return useSyncExternalStore(subscribe, getShowSourceLabels)
 }
 
+// showExternalImages: メール本文の外部画像（https:）を既定で表示するか。既定は true（表示）。
+// 外部画像の自動読み込みは送信者に開封（時刻・IP＝おおよその所在地・端末情報）を伝える
+// 「開封トラッキング」を許すが、個人利用では見やすさを優先して既定 ON にする（ユーザー要望）。
+// OFF にすると従来どおりブロックし、本文の「画像を表示」ボタンでその場だけ解禁できる。
+// ※埋め込み画像（cid: をデータURI化したもの）はこの設定に関わらず常に表示（外部通信を伴わないため）。
+const SHOW_EXT_IMAGES_KEY = 'abops:showExternalImages'
+
+function readShowExternalImages(): boolean {
+  try {
+    // 既定 true。明示的に '0'（OFF）のときだけ false にする（showSourceLabels とは既定が逆）。
+    return localStorage.getItem(SHOW_EXT_IMAGES_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+let showExternalImages = readShowExternalImages()
+const showExtImagesListeners = new Set<() => void>()
+
+export function getShowExternalImages(): boolean {
+  return showExternalImages
+}
+
+export function setShowExternalImages(value: boolean): void {
+  showExternalImages = value
+  try {
+    localStorage.setItem(SHOW_EXT_IMAGES_KEY, value ? '1' : '0')
+  } catch {
+    // localStorage が使えなくてもメモリ上の値で動作継続
+  }
+  for (const listener of showExtImagesListeners) listener()
+}
+
+function subscribeShowExtImages(listener: () => void): () => void {
+  showExtImagesListeners.add(listener)
+  return () => showExtImagesListeners.delete(listener)
+}
+
+export function useShowExternalImages(): boolean {
+  return useSyncExternalStore(subscribeShowExtImages, getShowExternalImages)
+}
+
 // weekStart: 月ミニカレンダーの週の開始曜日。0=日曜始まり（既定）, 1=月曜始まり。
 export type WeekStart = 0 | 1
 const WEEK_START_KEY = 'abops:weekStart'

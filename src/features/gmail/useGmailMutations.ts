@@ -13,7 +13,9 @@ import {
   archiveMessage,
   markMessageRead,
   markMessageUnread,
+  starMessage,
   unarchiveMessage,
+  unstarMessage,
 } from './api'
 import type { GmailMessage } from './api'
 
@@ -32,6 +34,15 @@ function setUnreadFlag(qc: ReturnType<typeof useQueryClient>, id: string, unread
   const prev = qc.getQueryData<GmailMessage[]>(GMAIL_KEY)
   qc.setQueryData<GmailMessage[]>(GMAIL_KEY, (old) =>
     orderInbox((old ?? []).map((m) => (m.id === id ? { ...m, unread } : m))),
+  )
+  return prev
+}
+
+// 一覧内の1件のスターフラグを切り替える（スターは並び順・在否を変えないので order しない）。
+function setStarredFlag(qc: ReturnType<typeof useQueryClient>, id: string, starred: boolean) {
+  const prev = qc.getQueryData<GmailMessage[]>(GMAIL_KEY)
+  qc.setQueryData<GmailMessage[]>(GMAIL_KEY, (old) =>
+    (old ?? []).map((m) => (m.id === id ? { ...m, starred } : m)),
   )
   return prev
 }
@@ -98,6 +109,27 @@ export function useArchive() {
     onMutate: async (msg) => {
       await qc.cancelQueries({ queryKey: GMAIL_KEY })
       const prev = removeFromList(qc, msg.id)
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(GMAIL_KEY, ctx.prev)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: GMAIL_KEY })
+    },
+  })
+}
+
+// スターの ON/OFF を切り替える。付ける/外すはメールの現在の starred から判定する。
+// 星は一覧上に残り、塗りつぶし☆で状態が一目で分かるため Undo スナックバーは出さない
+// （もう一度押せば戻せる＝トグル自体が取り消しになる）。
+export function useToggleStar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (msg: GmailMessage) => (msg.starred ? unstarMessage(msg.id) : starMessage(msg.id)),
+    onMutate: async (msg) => {
+      await qc.cancelQueries({ queryKey: GMAIL_KEY })
+      const prev = setStarredFlag(qc, msg.id, !msg.starred)
       return { prev }
     },
     onError: (_e, _v, ctx) => {

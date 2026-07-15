@@ -1274,9 +1274,18 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: -1px;
 }
+/* 選択中の期限チップ。白文字を載せるので、明るいアクセント色(--primary)ではなく
+   白文字とのコントラストを確保した専用背景色(--primary-btn)を使う。
+   また .btn:hover は文字色を --primary に変えてしまい、背景と同系色で文字が消えるため、
+   .btn--primary と同様にホバー時も背景を濃くしつつ白文字を維持する。 */
 .tasks__add-today.is-on {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--primary-btn);
+  border-color: var(--primary-btn);
+  color: #fff;
+}
+.tasks__add-today.is-on:hover:not(:disabled) {
+  background: var(--primary-btn-strong);
+  border-color: var(--primary-btn-strong);
   color: #fff;
 }
 .tasks__due {
@@ -1474,6 +1483,21 @@ body {
   display: flex;
   gap: 0.5rem;
   padding: 0.1rem 0 0.5rem;
+  flex-wrap: wrap; /* スター追加でボタンが増えたので狭い幅では折り返す */
+}
+/* 一覧行のスター印（表示のみ）。差出人と受信時刻の間に金色の★を出す。 */
+.gmail__star-mark {
+  flex-shrink: 0;
+  color: var(--amber);
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+/* モーダルのスター切替ボタン。付いているときは金色で強調し、ホバーでも色を保つ
+   （共通の .btn:hover が文字色を --primary に変えるのを打ち消す）。 */
+.gmail__star-btn.is-on,
+.gmail__star-btn.is-on:hover:not(:disabled) {
+  color: var(--amber);
+  border-color: var(--amber);
 }
 /* Gmail パネル上部のツールバー（見出し＋「作成」ボタン）。カレンダーと同じ両端揃え（#4）。 */
 .gmail__toolbar {

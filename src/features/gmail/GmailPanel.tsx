@@ -11,7 +11,13 @@ import { connect, useAuth } from '../../auth/useAuth'
 import { setGmailEnabled, useGmailEnabled } from './enabled'
 import { useGmail } from './useGmail'
 import { useMessageBody } from './useMessageBody'
-import { useArchive, useMarkRead, useMarkUnread, useUnarchive } from './useGmailMutations'
+import {
+  useArchive,
+  useMarkRead,
+  useMarkUnread,
+  useToggleStar,
+  useUnarchive,
+} from './useGmailMutations'
 import { useSendMessage } from './useSendMessage'
 import { fetchReplyRefs, quoteBody, replySubject } from './compose'
 import type { OutgoingMessage } from './compose'
@@ -27,7 +33,7 @@ import { fetchAttachmentBytes } from './api'
 import type { Attachment, GmailMessage } from './api'
 import { AuthError } from '../../google/fetchJson'
 import { markExpired } from '../../auth/authStore'
-import { useEffectiveDark } from '../settings/displayPrefs'
+import { getShowExternalImages, useEffectiveDark } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
 import { toUserMessage } from '../../errorMessage'
@@ -92,6 +98,12 @@ export function GmailPanel() {
   const markUnread = useMarkUnread()
   const archive = useArchive()
   const unarchive = useUnarchive()
+  const toggleStar = useToggleStar()
+  // スターは付けても一覧に残り、塗りつぶし★で状態が分かるので Undo スナックバーは出さない
+  // （もう一度押せば外せる）。渡す m は一覧キャッシュの最新値なので starred の反転で正しく切り替わる。
+  function handleToggleStar(m: GmailMessage) {
+    toggleStar.mutate(m)
+  }
   function handleMarkUnread(m: GmailMessage) {
     markUnread.mutate(m)
     notify('未読にしました', () => markRead.mutate(m))
@@ -193,10 +205,12 @@ export function GmailPanel() {
         onOpen={handleOpen}
       />
 
-      {/* メール本文はパネル内展開ではなくモーダルで開く（読みやすさ・操作しやすさのため）。 */}
+      {/* メール本文はパネル内展開ではなくモーダルで開く（読みやすさ・操作しやすさのため）。
+          スター状態がボタンに即反映されるよう、一覧キャッシュの最新値を渡す（開いた時点の
+          スナップショットだと、既読化やスター切替の結果が反映されないため）。 */}
       {selected && (
         <MessageModal
-          message={selected}
+          message={messages?.find((x) => x.id === selected.id) ?? selected}
           onClose={() => setSelected(null)}
           onMarkUnread={(m) => {
             handleMarkUnread(m)
@@ -206,6 +220,8 @@ export function GmailPanel() {
             handleArchive(m)
             setSelected(null)
           }}
+          // スターはモーダルを閉じずにその場でトグルする（付け外しを続けて確認できる）。
+          onToggleStar={handleToggleStar}
           onReply={(m) => {
             setSelected(null)
             openCompose({ mode: 'reply', message: m })
@@ -299,6 +315,12 @@ function GmailRow({
       <button type="button" className="gmail__row" onClick={() => onOpen(m)}>
         <div className="gmail__line1">
           <span className="gmail__from">{m.fromName}</span>
+          {/* スター付きは一覧でも★で分かるようにする（表示のみ・付け外しはメールを開いて行う）。 */}
+          {m.starred && (
+            <span className="gmail__star-mark" aria-label="スター付き" title="スター付き">
+              ★
+            </span>
+          )}
           <span className="gmail__when">{formatWhen(m.dateMs)}</span>
         </div>
         <div className="gmail__subject">{m.subject}</div>
@@ -315,27 +337,30 @@ function MessageModal({
   onClose,
   onMarkUnread,
   onArchive,
+  onToggleStar,
   onReply,
 }: {
   message: GmailMessage
   onClose: () => void
   onMarkUnread: (m: GmailMessage) => void
   onArchive: (m: GmailMessage) => void
+  onToggleStar: (m: GmailMessage) => void
   onReply: (m: GmailMessage) => void
 }) {
   const dialogRef = useDialog<HTMLDivElement>(onClose)
   const when = m.dateMs ? new Date(m.dateMs).toLocaleString('ja-JP') : ''
   // 外部画像の表示状態はモーダル側で持ち、「画像を表示」ボタンを本文の上ではなく
-  // 操作ボタン列（返信・既読/未読・アーカイブ）に並べる（本文の上に単独行で出ると浮くため）。
+  // 操作ボタン列（返信・未読・アーカイブ）に並べる（本文の上に単独行で出ると浮くため）。
+  // 初期値は端末の設定（既定は表示ON）に従う。設定OFFのときだけブロックし、ボタンで解禁できる。
   // imagesBlocked は本文が読み込まれてブロック画像を含むと HtmlBody から通知される。
-  const [showImages, setShowImages] = useState(false)
+  const [showImages, setShowImages] = useState(() => getShowExternalImages())
   const [imagesBlocked, setImagesBlocked] = useState(false)
-  // メールが変わったら「画像を表示」の解禁状態だけリセットする。
+  // メールが変わったら「画像を表示」の解禁状態を設定値に戻す（前のメールで手動解禁した状態を残さない）。
   // imagesBlocked は本文（HtmlBody/MessageBody）からの通知が唯一のソースなのでここでは触らない
   // （ここで false にすると、キャッシュ即描画時に子の true 通知を同一コミットで打ち消してしまい、
   //   一度見た HTML メールの再オープンでボタンが出なくなる。Fable 指摘）。
   useEffect(() => {
-    setShowImages(false)
+    setShowImages(getShowExternalImages())
   }, [m.id])
 
   return (
@@ -368,6 +393,15 @@ function MessageModal({
             {/* 返信（作成シートを開く）。差出人宛・件名 Re:・本文引用がプリフィルされる。 */}
             <button className="btn btn--small btn--primary" onClick={() => onReply(m)}>
               返信
+            </button>
+            {/* スターのトグル。付いていれば塗りつぶし★、無ければ枠だけの☆で状態を示す。 */}
+            <button
+              className={`btn btn--small gmail__star-btn${m.starred ? ' is-on' : ''}`}
+              onClick={() => onToggleStar(m)}
+              aria-pressed={m.starred}
+              title={m.starred ? 'スターを外す' : 'スターを付ける'}
+            >
+              {m.starred ? '★ スター付き' : '☆ スター'}
             </button>
             {/* 開いた時点で自動的に既読になるので「既読にする」ボタンは置かない（ユーザー要望）。
                 読まなかったことにしたいとき用に「未読にする」だけ残す。 */}

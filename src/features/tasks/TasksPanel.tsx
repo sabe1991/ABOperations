@@ -661,7 +661,7 @@ function EditSheet({
             <button
               key={mode}
               type="button"
-              className={`btn btn--small${dueMode === mode ? ' is-on tasks__add-today' : ''}`}
+              className={`btn btn--small tasks__add-today${dueMode === mode ? ' is-on' : ''}`}
               onClick={() => handleChip(mode)}
               aria-pressed={dueMode === mode}
             >

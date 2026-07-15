@@ -49,6 +49,7 @@ export interface GmailMessage {
   snippet: string
   dateMs: number
   unread: boolean
+  starred: boolean
 }
 
 function headerValue(headers: { name: string; value: string }[] | undefined, name: string): string {
@@ -107,6 +108,7 @@ async function fetchMessageMeta(id: string): Promise<GmailMessage> {
     snippet: decodeHtmlEntities(m.snippet ?? ''),
     dateMs: m.internalDate ? Number(m.internalDate) : 0,
     unread: (m.labelIds ?? []).includes('UNREAD'),
+    starred: (m.labelIds ?? []).includes('STARRED'),
   }
 }
 
@@ -443,4 +445,13 @@ export function archiveMessage(id: string): Promise<void> {
 // アーカイブを取り消す（INBOX を付け直す＝受信トレイに戻す）。
 export function unarchiveMessage(id: string): Promise<void> {
   return modifyMessage(id, ['INBOX'], [])
+}
+
+// スターを付ける（STARRED を付ける）。Undo/解除は unstarMessage。
+export function starMessage(id: string): Promise<void> {
+  return modifyMessage(id, ['STARRED'], [])
+}
+// スターを外す（STARRED を外す）。
+export function unstarMessage(id: string): Promise<void> {
+  return modifyMessage(id, [], ['STARRED'])
 }
