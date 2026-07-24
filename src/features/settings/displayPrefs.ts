@@ -144,8 +144,8 @@ function readTheme(): Theme {
 }
 
 // アプリ背景色（index.html / manifest の theme_color と一致させる）。Android のステータスバー色に反映。
-const THEME_COLOR_LIGHT = '#f7f1e8'
-const THEME_COLOR_DARK = '#1c1815'
+const THEME_COLOR_LIGHT = '#faf9f5'
+const THEME_COLOR_DARK = '#161513'
 
 // Android のステータスバー/ナビ領域の色（theme-color メタ）をテーマに合わせて上書きする。
 // index.html には OS 追従用の media 付きメタが2つある。手動テーマ時は両方を同色にして

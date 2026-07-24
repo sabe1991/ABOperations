@@ -8,56 +8,64 @@
     'Hiragino Sans',
     'Noto Sans JP',
     sans-serif;
-  /* 見出し・強調用フォント。プラットフォーム別に着地先を明示する:
-     - macOS: 丸ゴシック(Hiragino Maru Gothic ProN)＝角が丸く親しみのある書体。
-     - Windows 10/11: Yu Gothic UI(游ゴシック UI)。丸ではないが癖のない標準 UI 書体。
-     - 旧 Windows: Meiryo(メイリオ)。
-     - それ以外: system-ui → sans-serif。
-     丸ゴシックは Windows 標準に無いため、丸みは macOS だけの効果になる(見た目は崩れず、
-     Windows では普通のゴシックで安定表示される)。 */
-  --font-display: 'Hiragino Maru Gothic ProN', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
+  /* 見出し・題字・強調用フォント。朝刊(新聞)リデザインに合わせて明朝体(縦画が太く横画が細い、
+     新聞・書籍で使われる格調のある書体)を指定する。プラットフォーム別に着地先を明示する:
+     - macOS: Hiragino Mincho ProN(ヒラギノ明朝)。
+     - macOS(旧)/一部: YuMincho / Yu Mincho(游明朝)。
+     - Windows: Yu Mincho(游明朝)。無い環境向けに Noto Serif JP。
+     - 最終フォールバック: serif(セリフ＝明朝相当の総称)。
+     明朝が無い環境でも serif に着地して「新聞らしい縦横コントラストのある書体」で安定表示される。 */
+  --font-display: 'Hiragino Mincho ProN', 'YuMincho', 'Yu Mincho', 'Noto Serif JP', serif;
   line-height: 1.6;
 
-  /* --- 配色: 温かみ(クリーム地 × テラコッタ/琥珀の暖色アクセント) ---
-     地・面・罫線・文字はすべて青みではなく黄み寄りのニュートラル(温白色〜こげ茶)にして、
-     全体を柔らかく親しみのある印象にする。冷たい純白・純グレーは使わない。 */
-  --bg: light-dark(#f7f1e8, #1c1815);
-  --surface: light-dark(#fffdf8, #26201a);
-  --border: light-dark(#ece2d3, #3a3128);
-  --text: light-dark(#322c25, #efe7d9);
+  /* --- 配色: 朝刊(新聞紙面) × 朱の見出し ---
+     地・面・罫線・文字は黄み寄りのニュートラル(生成りの紙色〜墨色)でそろえ、新聞紙面の
+     落ち着いた印象にする。アクセントは新聞の見出し朱肉のような朱(しゅ)。冷たい純白は使わない。
+     面(surface)は地(bg)と同色にして「カードで浮かせない=紙面のフラットさ」を出す
+     (奥行きは影ではなく罫線で表現する)。 */
+  --bg: light-dark(#faf9f5, #161513);
+  --surface: light-dark(#faf9f5, #161513);
+  /* 細い仕切り罫(段組みの縦罫・淡い区切り)の色。太い墨罫は別途 --rule-strong を使う。 */
+  --border: light-dark(#dcd7cc, #33302a);
+  --text: light-dark(#1c1a16, #eceae4);
   /* 補助テキスト色。小さな文字（時刻・スニペット・期限など）に広く使うため、
-     WCAG AA(通常文字 4.5:1)を満たす濃さにする（明色は surface 上 5.5:1・bg 上 5.0:1）。 */
-  --text-muted: light-dark(#6f665b, #a89c8b);
-  /* アクセント(操作・選択・今日など): テラコッタ(素焼きの器のような暖かいオレンジ赤)。 */
-  --primary: light-dark(#c15a30, #d9713f);
-  --primary-strong: light-dark(#a54a26, #e58a5c);
-  /* 白文字ボタンの背景専用色。アクセント(--primary)は明るめで白文字とのコントラストが
-     不足する(特にダーク)ため、ボタン背景はより濃いテラコッタに分け、白文字で AA 4.5:1 以上
-     を明暗とも確保する(実測 5.16:1 / hover 6.07:1)。#24 の対策。 */
-  --primary-btn: #b0521c;
-  --primary-btn-strong: #9e4a24;
-  /* 差し色2: 琥珀(あたたかい金茶)。淡いハイライトや装飾に使う。 */
-  --amber: light-dark(#d98e2b, #e8a94e);
+     WCAG AA(通常文字 4.5:1)を満たす濃さにする（地の上で明約6.2:1・暗約6.1:1）。 */
+  --text-muted: light-dark(#5f5a51, #a19b8f);
+  /* アクセント(操作・選択・今日・見出しの強調など): 新聞見出しの朱。
+     文字として地の上で明約5.5:1・暗約4.6:1(いずれも AA 4.5:1 以上)。 */
+  --primary: light-dark(#c0342b, #e26a54);
+  --primary-strong: light-dark(#a52a22, #e8836f);
+  /* 白文字ボタンの背景専用色。明るい朱(--primary)は特にダークで白文字とのコントラストが
+     不足するため、ボタン背景は濃い朱に分け、白文字で AA 4.5:1 以上を明暗とも確保する
+     (単色。白文字コントラスト実測 約7.5:1 / hover 約8.4:1)。 */
+  --primary-btn: #a52a22;
+  --primary-btn-strong: #8f2019;
+  /* 差し色2: 金茶(あたたかい黄土)。淡いハイライトや装飾に使う。 */
+  --amber: light-dark(#8a5a00, #d9a84e);
   /* 寒色(最低気温・土曜など「冷たさ/対比」を意味する箇所だけに使う青)。
-     暖色基調でも意味的に青が要る所は残す。 */
-  --cool: light-dark(#3f7cae, #6ba3d6);
+     新聞基調でも意味的に青が要る所は残す。 */
+  --cool: light-dark(#2f6395, #7fb0dd);
   /* 「明日・これから」を表す落ち着いた緑。 */
-  --success: light-dark(#4f8a5a, #74b07d);
-  /* 危険・注意の赤(暖色寄りの朱)。バッジ(赤地に白文字)にも使うため明暗で同じ濃さにする。 */
-  --danger: #d1493a;
-  --warn-bg: light-dark(#fbeccb, #3a2f14);
-  --warn-text: light-dark(#8a5a12, #fcd34d);
+  --success: light-dark(#3f7350, #7fb98d);
+  /* 危険・注意の赤(＝見出しの朱に統一)。バッジ(赤地に白文字)にも使うため単色にする
+     (白文字コントラスト約5.5:1)。 */
+  --danger: #c0342b;
+  --warn-bg: light-dark(#f3e7c8, #3a2f14);
+  --warn-text: light-dark(#8a5512, #fcd34d);
+  /* 太い墨罫(パネル上の柱罫・題字下の二重罫など「新聞らしい太罫」)専用の色。
+     ライトは本文色そのまま＝しっかり黒い罫。ダークは本文色(ほぼ白)の太罫が並ぶと
+     "檻"のように圧迫するため、一段くすませた墨色にして締まりだけ残す。 */
+  --rule-strong: light-dark(#1c1a16, #837c6e);
 
   /* --- 角丸・影 ---
-     硬い罫線に頼らず、大きめの角丸とやわらかい影でカードを軽く浮かせて温かみを出す。
-     影の色は黒ではなく茶系にして地の暖色となじませる(暗色時は黒で深さを出す)。 */
-  --radius: 12px;
-  --radius-lg: 18px;
+     朝刊(新聞紙面)は角丸・影で浮かせず、罫線でフラットに区切るのが基本。
+     角はほぼ立て(2px)、面の影は廃止する。影が要るのは前面に浮くモーダル(--shadow-md)だけ。
+     --radius-pill(丸ピル)はアバターやトグルなど丸い部品用にそのまま残す。 */
+  --radius: 2px;
+  --radius-lg: 2px;
   --radius-pill: 999px;
-  --shadow-sm: 0 1px 2px light-dark(rgba(80, 54, 28, 0.06), rgba(0, 0, 0, 0.3));
-  --shadow-md:
-    0 1px 2px light-dark(rgba(80, 54, 28, 0.05), rgba(0, 0, 0, 0.25)),
-    0 6px 18px light-dark(rgba(80, 54, 28, 0.08), rgba(0, 0, 0, 0.38));
+  --shadow-sm: none;
+  --shadow-md: 0 10px 30px light-dark(rgba(40, 34, 24, 0.14), rgba(0, 0, 0, 0.4));
 
   /* タイポグラフィ・スケール（文字サイズの段階）。
      以前は 0.66〜2rem まで十数種類が場当たりに散らばっていたので、8段階に整理して
