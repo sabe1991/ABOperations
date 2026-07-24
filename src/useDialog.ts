@@ -85,7 +85,10 @@ export function useDialog<T extends HTMLElement>(onClose: () => void) {
       document.removeEventListener('keydown', onKeyDown, true)
       document.body.style.overflow = prevOverflow
       // 閉じたら元の要素へフォーカスを戻す（キーボード操作の文脈を保つ）。
-      prevActive?.focus?.()
+      // preventScroll: フォーカス復帰でその要素まで画面がスクロールしないようにする。
+      // 未読メールを開くと即既読化されて一覧が並び替わり、元の行が下へ移動する。素の focus() だと
+      // その移動後の位置まで画面が飛んでしまう（メールを開いて閉じるとスクロール位置がずれる）ため。
+      prevActive?.focus?.({ preventScroll: true })
     }
   }, [])
 

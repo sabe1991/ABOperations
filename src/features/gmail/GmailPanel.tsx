@@ -431,7 +431,7 @@ function MessageModal({
 
 // 本文プレビュー本体。HTML はサニタイズして sandbox iframe に隔離表示、
 // プレーンテキストのみなら <pre> にそのまま出す（HTML でないので iframe 不要）。
-// 本文の下に添付ファイル一覧（#13）を出す。
+// 添付ファイル一覧（#13）は本文の上に出す（長い本文をスクロールしなくてもダウンロードできるよう・ユーザー要望）。
 // 「画像を表示」ボタンはモーダルの操作列に置くため、表示状態(showImages)は親から受け取り、
 // ブロック画像の有無(onImagesBlockedChange)を親へ通知する。
 function MessageBody({
@@ -460,6 +460,7 @@ function MessageBody({
   if (!data) return null
   return (
     <>
+      {data.attachments.length > 0 && <AttachmentList messageId={id} attachments={data.attachments} />}
       {data.html ? (
         <HtmlBody
           html={data.html}
@@ -471,12 +472,11 @@ function MessageBody({
       ) : data.attachments.length === 0 ? (
         <p className="panel__note gmail__bodynote">本文を表示できません</p>
       ) : null}
-      {data.attachments.length > 0 && <AttachmentList messageId={id} attachments={data.attachments} />}
     </>
   )
 }
 
-// 添付ファイル一覧（#13）。各行タップで attachments.get から実データを取得し、ブラウザ保存を起こす。
+// 添付ファイル一覧（#13）。本文の上に置き、各行タップで attachments.get から実データを取得しブラウザ保存を起こす。
 function AttachmentList({
   messageId,
   attachments,
