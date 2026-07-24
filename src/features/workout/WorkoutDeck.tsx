@@ -1,17 +1,11 @@
 import { useState } from 'react'
-import { WEEK_PLAN_MOCK } from './nextWorkout'
-import type {
-  PlannedExercise,
-  PlannedSession,
-  PlannedSet,
-  SessionStatus,
-  WeekPlan,
-} from './nextWorkout'
+import { useWeekPlan } from './useWeekPlan'
+import type { PlannedExercise, PlannedSession, PlannedSet, SessionStatus } from './nextWorkout'
 
 // 姉妹ツール AB Workout の「今週のメニュー」を朝刊の“続き面”として表示するカード。
 // 既定で「次回（未実施の次の1回）」を表示し、＜／＞ で週内の前後の回へ送れる。
-// 朝刊レイアウトの下（PC で下スクロールした所）に置く読み取り専用の欄。データはいま
-// モック（WEEK_PLAN_MOCK）だが、将来 useWeekPlan() 等に差し替えても表示側は変えなくてよい。
+// 朝刊レイアウトの下（PC で下スクロールした所）に置く読み取り専用の欄。
+// データは Secret Gist の week.json を useWeekPlan() で取得する（未取得・失敗・空なら欄ごと出さない）。
 
 // 数値表示（例: 20 → "20"、17.5 → "17.5"）。JS では 20.0 は 20 になるため素直に文字列化でよい。
 function fmt(n: number): string {
@@ -144,20 +138,25 @@ function SessionView({ session, isNext }: { session: PlannedSession; isNext: boo
 }
 
 export function WorkoutDeck() {
-  const plan: WeekPlan = WEEK_PLAN_MOCK
+  const { data: plan } = useWeekPlan()
+  // ユーザーが ‹ › で選んだ回。未操作のうちは null で、既定の「次回」を表示する。
+  const [index, setIndex] = useState<number | null>(null)
+
+  // 取得前・失敗・空プランのときは欄ごと出さない（朝刊の続き面なので無ければ黙って畳む）。
+  if (!plan || plan.sessions.length === 0) return null
   const sessions = plan.sessions
+
   // 未実施の次の1回（＝週内で最初の PENDING）のインデックス。無ければ先頭。
   const nextIndex = Math.max(
     0,
     sessions.findIndex((s) => s.status === 'PENDING'),
   )
-  // いま表示している回。既定は「次回」。＜／＞ で前後へ動かす。
-  const [index, setIndex] = useState(nextIndex)
-  if (sessions.length === 0) return null
-
-  const current = sessions[index]
-  const hasPrev = index > 0
-  const hasNext = index < sessions.length - 1
+  // 表示中の回。既定は「次回」。ユーザー選択があればそれを使い、範囲外は端に丸める
+  // （再取得で回数が減っても破綻しないように）。
+  const current = Math.min(index ?? nextIndex, sessions.length - 1)
+  const session = sessions[current]
+  const hasPrev = current > 0
+  const hasNext = current < sessions.length - 1
 
   return (
     <section className="deck deck--workout" aria-label="今週のメニュー">
@@ -175,7 +174,7 @@ export function WorkoutDeck() {
       <div className="deck-nav">
         <button
           className="deck-nav__btn"
-          onClick={() => setIndex((i) => i - 1)}
+          onClick={() => setIndex(current - 1)}
           disabled={!hasPrev}
           aria-label="前の回"
           title="前の回"
@@ -183,11 +182,11 @@ export function WorkoutDeck() {
           ‹
         </button>
         <span className="deck-nav__pos" aria-live="polite">
-          {index + 1} / {sessions.length} 回目
+          {current + 1} / {sessions.length} 回目
         </span>
         <button
           className="deck-nav__btn"
-          onClick={() => setIndex((i) => i + 1)}
+          onClick={() => setIndex(current + 1)}
           disabled={!hasNext}
           aria-label="次の回"
           title="次の回"
@@ -196,7 +195,7 @@ export function WorkoutDeck() {
         </button>
       </div>
 
-      <SessionView session={current} isNext={index === nextIndex} />
+      <SessionView session={session} isNext={current === nextIndex} />
     </section>
   )
 }
