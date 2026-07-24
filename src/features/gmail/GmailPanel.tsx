@@ -137,6 +137,33 @@ export function GmailPanel() {
     setComposeError(null)
     setCompose(state)
   }
+
+  // メールを開いている間、j＝次のメール・k＝前のメールへ移動できるようにする（ユーザー要望）。
+  // 一覧の並び順で前後に動き、端では止まる（先頭で k・末尾で j は無反応）。移動先が未読なら
+  // handleOpen 経由で開くので既読化も従来どおり効く。作成シートを開いているときや入力欄に
+  // フォーカスがあるときは誤爆を避けて無効にする。
+  useEffect(() => {
+    if (!selected || compose) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'j' && e.key !== 'k') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return
+      if (!messages || messages.length === 0) return
+      const idx = messages.findIndex((x) => x.id === selected!.id)
+      if (idx === -1) return
+      const nextIdx = e.key === 'j' ? idx + 1 : idx - 1
+      if (nextIdx < 0 || nextIdx >= messages.length) return // 端では移動しない
+      e.preventDefault()
+      handleOpen(messages[nextIdx])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // handleOpen はレンダーごとに作られるが、選択中メール・一覧・作成状態が変わるたびに
+    // このエフェクトを張り直して最新のクロージャを捕まえるので依存はこの3つで十分。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, messages, compose])
   function handleSend(msg: OutgoingMessage) {
     setComposeError(null)
     send.mutate(msg, {

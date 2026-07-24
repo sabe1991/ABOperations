@@ -24,6 +24,7 @@ import { useCalendarSheetSignal } from './calendarSheetSignal'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
 import { useDialog } from '../../useDialog'
+import { DatePicker } from '../../components/DatePicker'
 
 // 作成シートに渡す時刻プリフィル（タイムラインのドラッグ作成用）。null なら既定（次の正時から1時間）。
 type CreatePrefill = { startDate: string; startTime: string; endTime: string } | null
@@ -492,27 +493,24 @@ function EventSheet({
         <div className="sheet__times">
           <label className="sheet__time-field">
             <span className="sheet__label">開始日</span>
-            <input
-              className="tasks__add-input"
-              type="date"
+            {/* 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
+                週の始まりは設定に従う自前カレンダー（DatePicker）。 */}
+            <DatePicker
               value={startDate}
-              // 作成時のみ過去日を選べないようにする（#30）。編集時は既存日付を尊重して下限なし。
               min={mode === 'create' ? todayStr : undefined}
-              onChange={(e) => handleStartDateChange(e.target.value)}
+              onChange={handleStartDateChange}
               disabled={readOnly}
-              aria-label="開始日"
+              ariaLabel="開始日"
             />
           </label>
           <label className="sheet__time-field">
             <span className="sheet__label">終了日</span>
-            <input
-              className="tasks__add-input"
-              type="date"
+            <DatePicker
               value={endDate}
               min={startDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={setEndDate}
               disabled={readOnly}
-              aria-label="終了日"
+              ariaLabel="終了日"
             />
           </label>
         </div>
@@ -756,12 +754,10 @@ function RecurrenceSheet({
               />
             )}
             {end.type === 'until' && (
-              <input
-                className="tasks__add-input"
-                type="date"
+              <DatePicker
                 value={end.date}
-                onChange={(e) => patch({ end: { type: 'until', date: e.target.value } })}
-                aria-label="繰り返しの終了日"
+                onChange={(v) => patch({ end: { type: 'until', date: v } })}
+                ariaLabel="繰り返しの終了日"
               />
             )}
           </>

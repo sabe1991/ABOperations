@@ -31,15 +31,15 @@ export default defineConfig({
       // SW登録は自前で行う（src/pwaUpdate.ts の registerSW）。自動注入は無効化して二重登録を防ぐ。
       injectRegister: null,
       // マニフェストに含めない静的アセットもプリキャッシュ対象に加える
-      includeAssets: ['apple-touch-icon.png'],
+      includeAssets: ['apple-touch-icon.png', 'favicon.svg'],
       // start_url / scope は Vite の base(/ABOperations/) からプラグインが自動設定する
       manifest: {
         id: '/ABOperations/',
         name: 'AB Operations',
         short_name: 'AB Operations',
         description: 'Google カレンダー・タスク・メールを1画面に集約した自分専用ダッシュボード',
-        theme_color: '#f7f1e8',
-        background_color: '#f7f1e8',
+        theme_color: '#faf9f5',
+        background_color: '#faf9f5',
         display: 'standalone',
         orientation: 'portrait-primary',
         icons: [

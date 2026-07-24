@@ -8,56 +8,64 @@
     'Hiragino Sans',
     'Noto Sans JP',
     sans-serif;
-  /* 見出し・強調用フォント。プラットフォーム別に着地先を明示する:
-     - macOS: 丸ゴシック(Hiragino Maru Gothic ProN)＝角が丸く親しみのある書体。
-     - Windows 10/11: Yu Gothic UI(游ゴシック UI)。丸ではないが癖のない標準 UI 書体。
-     - 旧 Windows: Meiryo(メイリオ)。
-     - それ以外: system-ui → sans-serif。
-     丸ゴシックは Windows 標準に無いため、丸みは macOS だけの効果になる(見た目は崩れず、
-     Windows では普通のゴシックで安定表示される)。 */
-  --font-display: 'Hiragino Maru Gothic ProN', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
+  /* 見出し・題字・強調用フォント。朝刊(新聞)リデザインに合わせて明朝体(縦画が太く横画が細い、
+     新聞・書籍で使われる格調のある書体)を指定する。プラットフォーム別に着地先を明示する:
+     - macOS: Hiragino Mincho ProN(ヒラギノ明朝)。
+     - macOS(旧)/一部: YuMincho / Yu Mincho(游明朝)。
+     - Windows: Yu Mincho(游明朝)。無い環境向けに Noto Serif JP。
+     - 最終フォールバック: serif(セリフ＝明朝相当の総称)。
+     明朝が無い環境でも serif に着地して「新聞らしい縦横コントラストのある書体」で安定表示される。 */
+  --font-display: 'Hiragino Mincho ProN', 'YuMincho', 'Yu Mincho', 'Noto Serif JP', serif;
   line-height: 1.6;
 
-  /* --- 配色: 温かみ(クリーム地 × テラコッタ/琥珀の暖色アクセント) ---
-     地・面・罫線・文字はすべて青みではなく黄み寄りのニュートラル(温白色〜こげ茶)にして、
-     全体を柔らかく親しみのある印象にする。冷たい純白・純グレーは使わない。 */
-  --bg: light-dark(#f7f1e8, #1c1815);
-  --surface: light-dark(#fffdf8, #26201a);
-  --border: light-dark(#ece2d3, #3a3128);
-  --text: light-dark(#322c25, #efe7d9);
+  /* --- 配色: 朝刊(新聞紙面) × 朱の見出し ---
+     地・面・罫線・文字は黄み寄りのニュートラル(生成りの紙色〜墨色)でそろえ、新聞紙面の
+     落ち着いた印象にする。アクセントは新聞の見出し朱肉のような朱(しゅ)。冷たい純白は使わない。
+     面(surface)は地(bg)と同色にして「カードで浮かせない=紙面のフラットさ」を出す
+     (奥行きは影ではなく罫線で表現する)。 */
+  --bg: light-dark(#faf9f5, #161513);
+  --surface: light-dark(#faf9f5, #161513);
+  /* 細い仕切り罫(段組みの縦罫・淡い区切り)の色。太い墨罫は別途 --rule-strong を使う。 */
+  --border: light-dark(#dcd7cc, #33302a);
+  --text: light-dark(#1c1a16, #eceae4);
   /* 補助テキスト色。小さな文字（時刻・スニペット・期限など）に広く使うため、
-     WCAG AA(通常文字 4.5:1)を満たす濃さにする（明色は surface 上 5.5:1・bg 上 5.0:1）。 */
-  --text-muted: light-dark(#6f665b, #a89c8b);
-  /* アクセント(操作・選択・今日など): テラコッタ(素焼きの器のような暖かいオレンジ赤)。 */
-  --primary: light-dark(#c15a30, #d9713f);
-  --primary-strong: light-dark(#a54a26, #e58a5c);
-  /* 白文字ボタンの背景専用色。アクセント(--primary)は明るめで白文字とのコントラストが
-     不足する(特にダーク)ため、ボタン背景はより濃いテラコッタに分け、白文字で AA 4.5:1 以上
-     を明暗とも確保する(実測 5.16:1 / hover 6.07:1)。#24 の対策。 */
-  --primary-btn: #b0521c;
-  --primary-btn-strong: #9e4a24;
-  /* 差し色2: 琥珀(あたたかい金茶)。淡いハイライトや装飾に使う。 */
-  --amber: light-dark(#d98e2b, #e8a94e);
+     WCAG AA(通常文字 4.5:1)を満たす濃さにする（地の上で明約6.2:1・暗約6.1:1）。 */
+  --text-muted: light-dark(#5f5a51, #a19b8f);
+  /* アクセント(操作・選択・今日・見出しの強調など): 新聞見出しの朱。
+     文字として地の上で明約5.5:1・暗約4.6:1(いずれも AA 4.5:1 以上)。 */
+  --primary: light-dark(#c0342b, #e26a54);
+  --primary-strong: light-dark(#a52a22, #e8836f);
+  /* 白文字ボタンの背景専用色。明るい朱(--primary)は特にダークで白文字とのコントラストが
+     不足するため、ボタン背景は濃い朱に分け、白文字で AA 4.5:1 以上を明暗とも確保する
+     (単色。白文字コントラスト実測 約7.5:1 / hover 約8.4:1)。 */
+  --primary-btn: #a52a22;
+  --primary-btn-strong: #8f2019;
+  /* 差し色2: 金茶(あたたかい黄土)。淡いハイライトや装飾に使う。 */
+  --amber: light-dark(#8a5a00, #d9a84e);
   /* 寒色(最低気温・土曜など「冷たさ/対比」を意味する箇所だけに使う青)。
-     暖色基調でも意味的に青が要る所は残す。 */
-  --cool: light-dark(#3f7cae, #6ba3d6);
+     新聞基調でも意味的に青が要る所は残す。 */
+  --cool: light-dark(#2f6395, #7fb0dd);
   /* 「明日・これから」を表す落ち着いた緑。 */
-  --success: light-dark(#4f8a5a, #74b07d);
-  /* 危険・注意の赤(暖色寄りの朱)。バッジ(赤地に白文字)にも使うため明暗で同じ濃さにする。 */
-  --danger: #d1493a;
-  --warn-bg: light-dark(#fbeccb, #3a2f14);
-  --warn-text: light-dark(#8a5a12, #fcd34d);
+  --success: light-dark(#3f7350, #7fb98d);
+  /* 危険・注意の赤(＝見出しの朱に統一)。バッジ(赤地に白文字)にも使うため単色にする
+     (白文字コントラスト約5.5:1)。 */
+  --danger: #c0342b;
+  --warn-bg: light-dark(#f3e7c8, #3a2f14);
+  --warn-text: light-dark(#8a5512, #fcd34d);
+  /* 太い墨罫(パネル上の柱罫・題字下の二重罫など「新聞らしい太罫」)専用の色。
+     ライトは本文色そのまま＝しっかり黒い罫。ダークは本文色(ほぼ白)の太罫が並ぶと
+     "檻"のように圧迫するため、一段くすませた墨色にして締まりだけ残す。 */
+  --rule-strong: light-dark(#1c1a16, #837c6e);
 
   /* --- 角丸・影 ---
-     硬い罫線に頼らず、大きめの角丸とやわらかい影でカードを軽く浮かせて温かみを出す。
-     影の色は黒ではなく茶系にして地の暖色となじませる(暗色時は黒で深さを出す)。 */
-  --radius: 12px;
-  --radius-lg: 18px;
+     朝刊(新聞紙面)は角丸・影で浮かせず、罫線でフラットに区切るのが基本。
+     角はほぼ立て(2px)、面の影は廃止する。影が要るのは前面に浮くモーダル(--shadow-md)だけ。
+     --radius-pill(丸ピル)はアバターやトグルなど丸い部品用にそのまま残す。 */
+  --radius: 2px;
+  --radius-lg: 2px;
   --radius-pill: 999px;
-  --shadow-sm: 0 1px 2px light-dark(rgba(80, 54, 28, 0.06), rgba(0, 0, 0, 0.3));
-  --shadow-md:
-    0 1px 2px light-dark(rgba(80, 54, 28, 0.05), rgba(0, 0, 0, 0.25)),
-    0 6px 18px light-dark(rgba(80, 54, 28, 0.08), rgba(0, 0, 0, 0.38));
+  --shadow-sm: none;
+  --shadow-md: 0 10px 30px light-dark(rgba(40, 34, 24, 0.14), rgba(0, 0, 0, 0.4));
 
   /* タイポグラフィ・スケール（文字サイズの段階）。
      以前は 0.66〜2rem まで十数種類が場当たりに散らばっていたので、8段階に整理して
@@ -103,10 +111,11 @@ body {
 .btn {
   font: inherit;
   font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--text);
+  background: transparent;
   color: var(--text);
-  border-radius: var(--radius-pill); /* 角を丸くして柔らかい印象に */
+  /* 新聞調：丸ピルをやめ、角をほぼ立てた「インクの箱ボタン」にする。 */
+  border-radius: var(--radius);
   padding: 0.5rem 1.1rem;
   cursor: pointer;
   transition:
@@ -168,52 +177,123 @@ body {
   font-size: var(--fs-sm);
 }
 
-/* --- アプリ本体 --- */
+/* --- アプリ本体：一面マストヘッド（新聞の題字部） --- */
+/* 本体（.app__main）と同じ最大幅・中央寄せ・左右パディングにそろえ、題字や気象欄が
+   下のコンテンツより外へはみ出さないようにする（幅は下の各ブレークポイントで合わせる）。 */
 .app__header {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.55rem 1.25rem 0.6rem;
+  background: var(--bg);
+  border-bottom: 0;
+}
+/* 上段：題字＋操作類。下辺に新聞の「二重罫」を引いて題字部を締める。 */
+.masthead-fp__top {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm); /* ヘッダをわずかに浮かせる */
-  position: relative; /* 中央の日付を絶対配置で真ん中に置くための基準 */
+  padding-bottom: 0.35rem;
+  border-bottom: 3px double var(--rule-strong);
 }
-/* タイトルバー中央の今日の日付。左右の要素幅に依らず常にバー中央に来るよう絶対配置する。 */
-.app__date {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-  pointer-events: none; /* 中央表示はクリックを奪わない（背後の操作を妨げない） */
-}
-/* 狭い画面ではタイトル・設定と干渉しうるので中央の日付は隠す（年入りで少し長いため広めに）。 */
-@media (max-width: 640px) {
-  .app__date {
-    display: none;
-  }
-}
-.app__title {
+/* 題字（新聞名相当）。明朝で大きく、字間を広めに取る。 */
+.app__title,
+.masthead-fp__name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--fs-xl);
-  letter-spacing: 0.01em;
-  /* 見出しの頭に暖色の小さなしるしを添えてブランドらしさを出す。 */
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  display: block;
 }
+/* 旧：題字頭の暖色ドットは新聞調に合わないため廃止。 */
 .app__title::before {
-  content: '';
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, var(--amber), var(--primary));
-  flex-shrink: 0;
+  content: none;
+}
+/* 日付欄＋気象欄（左に日付・右端に天気）。下辺に細い罫を引き、「今日やること」と仕切る（モック準拠）。 */
+.masthead-fp__dateline {
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+/* 一面の気象欄。日付欄の右端に寄せ、絵文字＋地名＋最高/最低気温をコンパクトに出す。 */
+.masthead-fp__wx {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.masthead-fp__wx-loc {
+  color: var(--text);
+}
+.masthead-fp__wx-hi {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.masthead-fp__wx-sep {
+  color: var(--text-muted);
+}
+/* 最低気温は寒色で最高と区別する。 */
+.masthead-fp__wx-lo {
+  color: var(--cool);
+  font-variant-numeric: tabular-nums;
+}
+/* リード：今日やること＋件数（予定・タスク・期限切れ・未読）。 */
+.masthead-fp__lead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  margin-top: 0.3rem;
+}
+.masthead-fp__headline {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+.masthead-fp__summary {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.masthead-fp__summary b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* 期限切れは朱で警告的に。 */
+.masthead-fp__over {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.masthead-fp__stat {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* スマホ：題字を少し小さくして操作類と干渉しないようにし、余白も詰める。 */
+@media (max-width: 640px) {
+  .app__title,
+  .masthead-fp__name {
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+  }
+  .app__header {
+    /* 横パディングは本体（.app__main の 1.25rem）に合わせ、縦だけ詰める。 */
+    padding: 0.5rem 1.25rem 0.55rem;
+  }
 }
 .app__status {
   font-size: var(--fs-xs);
@@ -317,7 +397,11 @@ body {
      800px まで下げ、狭い画面でだけタブ表示にする（ユーザー要望。768px では少し狭かったため 800px に調整）。 */
 .panels {
   display: grid;
-  gap: 1rem;
+  /* 朝刊: 欄と欄の隙間を 1px にし、その下地に罫色を敷くと、隙間が連続したヘアライン罫（段組みの
+     縦罫・横罫）に見える。各 .panel は地色(--bg)で塗るので、境目だけが細い罫として残る。
+     （スマホでは表示パネルが1枚なので隙間は生じず影響しない） */
+  gap: 1px;
+  background: var(--border);
   grid-template-columns: 1fr;
 }
 /* 注意: grid-area（エリア名）の割り当ては ≥800px の中だけで行う。スマホ（≤799px）では
@@ -457,49 +541,32 @@ body {
    - 2列目・3列目（予定7日 / 今月・横幅は 1:1）: 上2行にまたがる。下段（タスク）は2列分スパン。
    - 4列目（広め）: Gmail を全3行スパンで大きく（メールは横幅を少し広めに取る）。 */
 @media (min-width: 1340px) {
-  .app__main {
-    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。 */
+  .app__main,
+  .app__header {
+    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。ヘッダも同じ幅にそろえる。 */
     max-width: 1600px;
   }
   .panels {
-    /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月 / Gmail。
-       予定7日を少し狭め(1.1→1.0)、そのぶん今月カレンダーを広げ(0.76→0.86)、メールも少し狭めた(1.7→1.5)（ユーザー要望）。 */
-    grid-template-columns: minmax(185px, 0.66fr) 1fr 0.86fr 1.5fr;
-    /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
-       今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
-       （0.5 : 1.5＝上段の予定・カレンダーをさらに低めに。ユーザー要望）。min 0 で中身にページを膨らませない。 */
-    grid-template-rows: auto minmax(0, 0.5fr) minmax(0, 1.5fr);
+    /* タスク中心レイアウト（B案）。朝にその日のやることを組み立てる用途に合わせ、
+       中央のタスクを主役（全高）に据える。
+       列: [24h時間軸の側柱(細)] [カレンダー＋今後の予定] [タスク(主役)] [メール]。
+       天気は廃止（ユーザー要望）。24hタイムラインは左端の側柱として残す（ユーザー要望）。 */
+    /* 時間軸の側柱は「◯月◯日(◯)の予定」の見出し・予定名が窮屈だったので少し広げる。
+       タスク列とメール列は同じ幅にそろえる（ユーザー要望）。 */
+    grid-template-columns: minmax(210px, 0.72fr) minmax(210px, 1fr) 1.35fr 1.35fr;
+    /* row1=カレンダー、row2=今後の予定。カレンダーは auto だと低すぎ・厚くしすぎると広すぎたので、
+       今後の予定より低め（0.68:1）に配分して升目が詰まらない範囲でコンパクトに収める。
+       時間軸・タスク・メールは2行ぶんを縦にまたぐ。 */
+    grid-template-rows: minmax(0, 0.68fr) minmax(0, 1fr);
     grid-template-areas:
-      'weather  events month  gmail'
-      'timeline events month  gmail'
-      'timeline tasks  tasks  gmail';
+      'timeline month  tasks gmail'
+      'timeline events tasks gmail';
   }
-  /* 天気カードが万一伸びても row1(auto) が肥大して他を圧迫しないよう上限を設ける（Fable 保険）。 */
-  .panel--weather {
-    max-height: 40vh;
-  }
-
-  /* タスクは下段で2列ぶんの幅を持つため、期限バケツを横並びのカラム（かんばん風）にする。
-     カラム数が変わっても各カラムの幅は均一にする（flex: 1 1 0 で残り幅を等分）。
-     中身のあるバケツだけ描画されるので空カラムは出ない。縦スクロールはパネル本体（panel__body）側。 */
-  .panel--tasks .tasks__groups {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: stretch; /* 各カラムを同じ高さに伸ばし、仕切り線を下まで通す */
-    gap: 0.5rem 1rem;
-  }
-  .panel--tasks .tasks__groups .tasks__group {
-    flex: 1 1 0; /* basis を 0 にして全カラムを等幅にする（要素数に依存しない） */
-    min-width: 0;
-    margin-top: 0; /* 縦積み時の段間マージンを打ち消す（カラム間は gap で確保） */
-    /* カラム間の縦仕切り線。どのチェックボックスがどのバケツかを分かりやすくする（ユーザー要望）。 */
-    border-left: 1px solid var(--border);
-    padding-left: 1rem;
-  }
-  /* 先頭カラムはパネル左端に揃えるため線と余白を付けない。 */
-  .panel--tasks .tasks__groups .tasks__group:first-child {
-    border-left: none;
-    padding-left: 0;
+  /* タスクは主役の縦長カラムなので、期限バケツは横並びかんばんにせず縦に積む
+     （幅の広い下段に置いていた頃の横並び指定は使わない。グループの区切りは
+     既存の見出し下線＋段間マージンが担う）。見出しだけ一段大きくして主役感を出す。 */
+  .panel--tasks .panel__title {
+    font-size: var(--fs-xl);
   }
 }
 
@@ -510,12 +577,14 @@ body {
   right: 0;
   bottom: 0;
   display: flex;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  background: var(--bg);
+  /* 新聞調：上辺は太い墨罫。 */
+  border-top: 2px solid var(--rule-strong);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 20;
 }
 .tabbar__tab {
+  position: relative;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -524,41 +593,31 @@ body {
   padding: 0.7rem 0.25rem;
   border: none;
   background: none;
+  /* 新聞調：タブ名は明朝。 */
+  font-family: var(--font-display);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
+/* 選択中：丸いピル塗りはやめ、朱の上罫＋朱文字で「一面に載っている欄」を示す。 */
 .tabbar__tab--active {
   color: var(--primary);
-  box-shadow: inset 0 3px 0 var(--primary); /* 上辺の太めのアクセントバー */
+  box-shadow: inset 0 3px 0 var(--primary);
 }
-/* 選択中タブのラベルまわりを暖色で淡く塗り、丸みのある「選ばれている感」を出す。 */
-.tabbar__tab--active::before {
-  content: '';
-  position: absolute;
-  inset: 0.3rem 0.6rem;
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  z-index: -1;
-}
-.tabbar__tab {
-  position: relative;
-}
-/* 件数バッジ（未読・期限切れ）。赤い丸に白文字。 */
+/* 件数バッジ（未読・期限切れ）。新聞調：赤い丸はやめ、朱の数字だけで示す。 */
 .tabbar__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  background: var(--danger);
-  color: #fff;
+  min-width: 1rem;
+  padding: 0;
+  background: transparent;
+  color: var(--primary);
   font-size: var(--fs-2xs);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 /* PC ではタブバーを隠す（3カラム並列表示のため不要） */
 @media (min-width: 800px) {
@@ -579,38 +638,32 @@ body {
   color: var(--warn-text);
 }
 
-/* --- パネル --- */
+/* --- パネル（朝刊: カードをやめて紙面の「欄」にする） ---
+   カード（面の背景・角丸・影・四辺枠）を廃し、各欄は上の太い墨罫（柱罫）で仕切るフラットな
+   新聞の段組みにする。欄どうしの縦横の区切りは .panels 側のヘアライン罫（下記）に任せる。 */
 .panel {
-  background: var(--surface);
-  /* 硬い罫線をやめ、ごく淡い枠＋やわらかい影でカードを軽く浮かせる（温かみ・奥行き）。 */
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 1.1rem 1.25rem;
+  background: var(--bg);
+  border: 0;
+  border-top: 2px solid var(--rule-strong);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.7rem 0.9rem;
   /* CSS グリッドの列は既定で「中身の最小幅」より狭くなれない。メール本文(iframe や
      幅広の表・折り返さないテキスト)がある列だけ押し広げられて等幅(1fr)が崩れるため、
      min-width:0 で「中身より狭くなってよい」ことを明示する。 */
   min-width: 0;
 }
 .panel__title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.6rem;
+  /* 朝刊: 見出しは明朝（--font-display は明朝）。暖色の縦バーは廃し、新聞の欄見出しらしく
+     字だけで立てる。太罫（パネル上の柱罫）が頭の区切りを担うので装飾は足さない。 */
   font-family: var(--font-display);
   font-size: var(--fs-lg);
   font-weight: 700;
-  letter-spacing: 0.01em;
-  /* 見出しの左に暖色の短い縦バーを添えて、各パネルの頭を軽く印象づける。 */
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.panel__title::before {
-  content: '';
-  width: 3px;
-  align-self: stretch;
-  min-height: 1rem;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(var(--amber), var(--primary));
-  flex-shrink: 0;
 }
 /* 見出し行（左に見出し・右に「外部サービスを開く」リンク）。パネルの固定ヘッダとして機能する。 */
 .panel__head {
@@ -1274,6 +1327,132 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: -1px;
 }
+
+/* 自前の日付ピッカー（DatePicker）。標準の <input type="date"> をやめ、週の始まりを
+   アプリ設定に合わせた月曜/日曜始まりで出せるカレンダー。トリガーは .tasks__add-input の
+   見た目を流用しつつ、テキスト左寄せ・押せる手がかり（カーソル）を足す。 */
+.datepicker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.datepicker__trigger {
+  text-align: left;
+  cursor: pointer;
+}
+.datepicker__trigger:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.datepicker__placeholder {
+  color: var(--text-muted);
+}
+/* カレンダー本体。シート/モーダルの中に出るので前面に重ねる。 */
+.datepicker__pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  width: min(19rem, 92vw);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  box-shadow: var(--shadow-md);
+  padding: 0.6rem;
+}
+/* 下に余白が足りないときは上向き（トリガーの上）に出す。 */
+.datepicker__pop--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.datepicker__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.datepicker__navbtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.datepicker__navbtn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.datepicker__month {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  letter-spacing: 0.03em;
+}
+.datepicker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+.datepicker__dow {
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  padding-bottom: 0.2rem;
+}
+.datepicker__dow.is-sun {
+  color: var(--danger);
+}
+.datepicker__dow.is-sat {
+  color: var(--cool);
+}
+.datepicker__cell {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-size: var(--fs-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.datepicker__cell--empty {
+  cursor: default;
+}
+.datepicker__cell.is-sun {
+  color: var(--danger);
+}
+.datepicker__cell.is-sat {
+  color: var(--cool);
+}
+.datepicker__cell:not(:disabled):not(.datepicker__cell--empty):hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 今日は枠線で示す（塗りは選択に使うため）。 */
+.datepicker__cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+/* 選択中の日は朱で塗る（白文字とのコントラストを確保した --primary-btn を使う）。 */
+.datepicker__cell.is-selected {
+  background: var(--primary-btn);
+  color: #fff;
+}
+.datepicker__cell.is-selected.is-sun,
+.datepicker__cell.is-selected.is-sat {
+  color: #fff;
+}
+/* min より前の選べない日は沈めてクリック不可に。 */
+.datepicker__cell:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: default;
+}
 /* 選択中の期限チップ。白文字を載せるので、明るいアクセント色(--primary)ではなく
    白文字とのコントラストを確保した専用背景色(--primary-btn)を使う。
    また .btn:hover は文字色を --primary に変えてしまい、背景と同系色で文字が消えるため、
@@ -1723,11 +1902,12 @@ body {
   gap: 1rem;
   max-width: calc(100vw - 2rem);
   padding: 0.6rem 0.9rem 0.6rem 1.1rem;
-  border-radius: var(--radius);
-  /* 地色は明暗で反転させる（明: 濃いこげ茶／暗: 明るいクリーム）。暖色基調になじむ茶系。 */
-  background: light-dark(#332b22, #efe7d9);
-  color: light-dark(#f7f1e8, #26201a);
-  box-shadow: 0 8px 28px rgba(40, 26, 12, 0.35);
+  /* 新聞調：角は立てる。 */
+  border-radius: 0;
+  /* 墨(すみ)のバー。明: 墨地に紙色文字／暗: 紙色地に墨文字（地色を明暗で反転）。 */
+  background: light-dark(#1c1a16, #eceae4);
+  color: light-dark(#faf9f5, #1c1a16);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 .snackbar__text {
   font-size: var(--fs-sm);
@@ -1741,12 +1921,13 @@ body {
 .snackbar__action {
   flex-shrink: 0;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   background: none;
-  /* スナックバーの地色は明暗で反転するため、Undo 文字色も反転させてどちらの地でも
-     読めるようにする。暗い地=琥珀(明るい金茶)、明るい地=テラコッタ(濃いオレンジ赤)。 */
-  color: light-dark(#e8a94e, #c15a30);
+  /* 新聞調：Undo はバーの文字色そのまま＋下線で「押せる語」を示す（朱は使わず墨/紙で統一）。 */
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   padding: 0.2rem 0.3rem;
 }
@@ -1862,8 +2043,9 @@ body {
   width: 100%;
   max-width: 480px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px 14px 0 0;
+  /* 新聞調：角丸をやめて墨枠に。 */
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
   padding: 1rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
@@ -1873,7 +2055,7 @@ body {
 @media (min-width: 560px) {
   .sheet {
     margin-bottom: 1.5rem;
-    border-radius: 14px;
+    border-radius: 0;
   }
   .sheet-backdrop {
     align-items: center;
@@ -1977,8 +2159,9 @@ body {
 }
 .modal {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  /* 新聞調：角丸をやめて墨枠に。前面に浮く要素なので影だけは残す。 */
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
   box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 27rem;
@@ -1990,7 +2173,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 新聞調：見出し下に二重罫を引いて紙面の「囲み記事」らしくする。 */
   margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px double var(--rule-strong);
 }
 .modal__title {
   margin: 0;

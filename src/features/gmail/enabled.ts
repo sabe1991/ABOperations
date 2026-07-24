@@ -14,9 +14,13 @@ const KEY = 'abops:gmailEnabled'
 
 function read(): boolean {
   try {
-    return localStorage.getItem(KEY) === '1'
+    const v = localStorage.getItem(KEY)
+    // 未設定（キーが無い）ときは既定で ON にする（Gmail を既定表示・ユーザー要望）。
+    // 明示的に OFF にした端末は '0' が入るので、それは false として扱う。
+    if (v === null) return true
+    return v === '1'
   } catch {
-    return false
+    return true
   }
 }
 
@@ -30,8 +34,9 @@ export function isGmailEnabled(): boolean {
 export function setGmailEnabled(value: boolean): void {
   enabled = value
   try {
-    if (value) localStorage.setItem(KEY, '1')
-    else localStorage.removeItem(KEY)
+    // 既定が ON になったため、OFF はキー削除ではなく '0' を明示保存して「意図的に OFF」を残す
+    // （削除すると未設定＝既定 ON に戻ってしまうため）。
+    localStorage.setItem(KEY, value ? '1' : '0')
   } catch {
     // localStorage が使えない環境でも致命的ではない（メモリ上の値で動作継続）
   }
