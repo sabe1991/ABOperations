@@ -511,44 +511,23 @@ body {
     max-width: 1600px;
   }
   .panels {
-    /* 列幅: 天気/タイムライン(細) / 予定7日 / 今月 / Gmail。
-       予定7日を少し狭め(1.1→1.0)、そのぶん今月カレンダーを広げ(0.76→0.86)、メールも少し狭めた(1.7→1.5)（ユーザー要望）。 */
-    grid-template-columns: minmax(185px, 0.66fr) 1fr 0.86fr 1.5fr;
-    /* row1 は天気の高さ（auto＝小）で決まる。row2=上段（予定7日・今月）、row3=下段（タスク）。
-       今月はほぼ正方形のカレンダーで上段は高さを要さないため、上段を低め・下段を厚めに配分する
-       （0.5 : 1.5＝上段の予定・カレンダーをさらに低めに。ユーザー要望）。min 0 で中身にページを膨らませない。 */
-    grid-template-rows: auto minmax(0, 0.5fr) minmax(0, 1.5fr);
+    /* タスク中心レイアウト（B案）。朝にその日のやることを組み立てる用途に合わせ、
+       中央のタスクを主役（全高）に据える。
+       列: [24h時間軸の側柱(細)] [カレンダー＋今後の予定] [タスク(主役)] [メール]。
+       天気は廃止（ユーザー要望）。24hタイムラインは左端の側柱として残す（ユーザー要望）。 */
+    grid-template-columns: minmax(160px, 0.5fr) minmax(210px, 1fr) 1.5fr 1.2fr;
+    /* row1=カレンダー(ほぼ正方形・auto)、row2=今後の予定(残り全高)。
+       時間軸・タスク・メールは2行ぶんを縦にまたぐ。 */
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
-      'weather  events month  gmail'
-      'timeline events month  gmail'
-      'timeline tasks  tasks  gmail';
+      'timeline month  tasks gmail'
+      'timeline events tasks gmail';
   }
-  /* 天気カードが万一伸びても row1(auto) が肥大して他を圧迫しないよう上限を設ける（Fable 保険）。 */
-  .panel--weather {
-    max-height: 40vh;
-  }
-
-  /* タスクは下段で2列ぶんの幅を持つため、期限バケツを横並びのカラム（かんばん風）にする。
-     カラム数が変わっても各カラムの幅は均一にする（flex: 1 1 0 で残り幅を等分）。
-     中身のあるバケツだけ描画されるので空カラムは出ない。縦スクロールはパネル本体（panel__body）側。 */
-  .panel--tasks .tasks__groups {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: stretch; /* 各カラムを同じ高さに伸ばし、仕切り線を下まで通す */
-    gap: 0.5rem 1rem;
-  }
-  .panel--tasks .tasks__groups .tasks__group {
-    flex: 1 1 0; /* basis を 0 にして全カラムを等幅にする（要素数に依存しない） */
-    min-width: 0;
-    margin-top: 0; /* 縦積み時の段間マージンを打ち消す（カラム間は gap で確保） */
-    /* カラム間の縦仕切り線。どのチェックボックスがどのバケツかを分かりやすくする（ユーザー要望）。 */
-    border-left: 1px solid var(--border);
-    padding-left: 1rem;
-  }
-  /* 先頭カラムはパネル左端に揃えるため線と余白を付けない。 */
-  .panel--tasks .tasks__groups .tasks__group:first-child {
-    border-left: none;
-    padding-left: 0;
+  /* タスクは主役の縦長カラムなので、期限バケツは横並びかんばんにせず縦に積む
+     （幅の広い下段に置いていた頃の横並び指定は使わない。グループの区切りは
+     既存の見出し下線＋段間マージンが担う）。見出しだけ一段大きくして主役感を出す。 */
+  .panel--tasks .panel__title {
+    font-size: var(--fs-xl);
   }
 }
 

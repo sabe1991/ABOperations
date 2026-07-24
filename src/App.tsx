@@ -16,7 +16,6 @@ import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
 import { NewsPanel } from './features/news/NewsPanel'
-import { WeatherPanel } from './features/weather/WeatherPanel'
 import { useIsFetching } from '@tanstack/react-query'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useLastUpdated } from './useLastUpdated'
@@ -342,16 +341,6 @@ export default function App() {
               </ErrorBoundary>
             </div>
           </section>
-          {isWide && (
-            <section className="panel panel--weather">
-              <h2 className="panel__title">天気</h2>
-              <div className="panel__body">
-                <ErrorBoundary label="天気">
-                  <WeatherPanel />
-                </ErrorBoundary>
-              </div>
-            </section>
-          )}
           {/* メール（Gmail）を表示している端末は Gmail パネル、非表示の端末は代わりにニュースパネルを
               同じ枠に出す（空の「有効化」パネルが画面を占めるのを避けるため・#16 の A 案）。
               Gmail の再表示は設定（⚙）の「メール（Gmail）を表示」から。 */}
