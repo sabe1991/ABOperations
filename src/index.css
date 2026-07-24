@@ -542,8 +542,9 @@ body {
    - 4列目（広め）: Gmail を全3行スパンで大きく（メールは横幅を少し広めに取る）。 */
 @media (min-width: 1340px) {
   .app__main,
-  .app__header {
-    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。ヘッダも同じ幅にそろえる。 */
+  .app__header,
+  .banner {
+    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。ヘッダ・バナーも同じ幅にそろえる。 */
     max-width: 1600px;
   }
   .panels {
@@ -632,6 +633,12 @@ body {
   align-items: center;
   gap: 1rem;
   padding: 0.6rem 1.25rem;
+  /* 本体（.app__main）・ヘッダー（.app__header）と同じ最大幅・中央寄せにそろえる。
+     これをしないと接続切れ等のバナーだけ画面端いっぱいに広がり、他とアンバランスに見える。 */
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 .banner--warn {
   background: var(--warn-bg);
