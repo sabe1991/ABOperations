@@ -111,10 +111,11 @@ body {
 .btn {
   font: inherit;
   font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid var(--text);
+  background: transparent;
   color: var(--text);
-  border-radius: var(--radius-pill); /* 角を丸くして柔らかい印象に */
+  /* 新聞調：丸ピルをやめ、角をほぼ立てた「インクの箱ボタン」にする。 */
+  border-radius: var(--radius);
   padding: 0.5rem 1.1rem;
   cursor: pointer;
   transition:
@@ -247,6 +248,17 @@ body {
   font-size: var(--fs-sm);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+/* スマホ：題字を少し小さくして操作類と干渉しないようにし、余白も詰める。 */
+@media (max-width: 640px) {
+  .app__title,
+  .masthead-fp__name {
+    font-size: 1.4rem;
+    letter-spacing: 0.04em;
+  }
+  .app__header {
+    padding: 0.5rem 0.9rem 0.55rem;
+  }
 }
 .app__status {
   font-size: var(--fs-xs);
@@ -547,12 +559,14 @@ body {
   right: 0;
   bottom: 0;
   display: flex;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  background: var(--bg);
+  /* 新聞調：上辺は太い墨罫。 */
+  border-top: 2px solid var(--rule-strong);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 20;
 }
 .tabbar__tab {
+  position: relative;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -561,41 +575,31 @@ body {
   padding: 0.7rem 0.25rem;
   border: none;
   background: none;
+  /* 新聞調：タブ名は明朝。 */
+  font-family: var(--font-display);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
 }
+/* 選択中：丸いピル塗りはやめ、朱の上罫＋朱文字で「一面に載っている欄」を示す。 */
 .tabbar__tab--active {
   color: var(--primary);
-  box-shadow: inset 0 3px 0 var(--primary); /* 上辺の太めのアクセントバー */
+  box-shadow: inset 0 3px 0 var(--primary);
 }
-/* 選択中タブのラベルまわりを暖色で淡く塗り、丸みのある「選ばれている感」を出す。 */
-.tabbar__tab--active::before {
-  content: '';
-  position: absolute;
-  inset: 0.3rem 0.6rem;
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  z-index: -1;
-}
-.tabbar__tab {
-  position: relative;
-}
-/* 件数バッジ（未読・期限切れ）。赤い丸に白文字。 */
+/* 件数バッジ（未読・期限切れ）。新聞調：赤い丸はやめ、朱の数字だけで示す。 */
 .tabbar__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  background: var(--danger);
-  color: #fff;
+  min-width: 1rem;
+  padding: 0;
+  background: transparent;
+  color: var(--primary);
   font-size: var(--fs-2xs);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 /* PC ではタブバーを隠す（3カラム並列表示のため不要） */
 @media (min-width: 800px) {
@@ -1754,11 +1758,12 @@ body {
   gap: 1rem;
   max-width: calc(100vw - 2rem);
   padding: 0.6rem 0.9rem 0.6rem 1.1rem;
-  border-radius: var(--radius);
-  /* 地色は明暗で反転させる（明: 濃いこげ茶／暗: 明るいクリーム）。暖色基調になじむ茶系。 */
-  background: light-dark(#332b22, #efe7d9);
-  color: light-dark(#f7f1e8, #26201a);
-  box-shadow: 0 8px 28px rgba(40, 26, 12, 0.35);
+  /* 新聞調：角は立てる。 */
+  border-radius: 0;
+  /* 墨(すみ)のバー。明: 墨地に紙色文字／暗: 紙色地に墨文字（地色を明暗で反転）。 */
+  background: light-dark(#1c1a16, #eceae4);
+  color: light-dark(#faf9f5, #1c1a16);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 .snackbar__text {
   font-size: var(--fs-sm);
@@ -1772,12 +1777,13 @@ body {
 .snackbar__action {
   flex-shrink: 0;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   background: none;
-  /* スナックバーの地色は明暗で反転するため、Undo 文字色も反転させてどちらの地でも
-     読めるようにする。暗い地=琥珀(明るい金茶)、明るい地=テラコッタ(濃いオレンジ赤)。 */
-  color: light-dark(#e8a94e, #c15a30);
+  /* 新聞調：Undo はバーの文字色そのまま＋下線で「押せる語」を示す（朱は使わず墨/紙で統一）。 */
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   padding: 0.2rem 0.3rem;
 }
@@ -1893,8 +1899,9 @@ body {
   width: 100%;
   max-width: 480px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px 14px 0 0;
+  /* 新聞調：角丸をやめて墨枠に。 */
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
   padding: 1rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
@@ -1904,7 +1911,7 @@ body {
 @media (min-width: 560px) {
   .sheet {
     margin-bottom: 1.5rem;
-    border-radius: 14px;
+    border-radius: 0;
   }
   .sheet-backdrop {
     align-items: center;
@@ -2008,8 +2015,9 @@ body {
 }
 .modal {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  /* 新聞調：角丸をやめて墨枠に。前面に浮く要素なので影だけは残す。 */
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
   box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 27rem;
@@ -2021,7 +2029,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 新聞調：見出し下に二重罫を引いて紙面の「囲み記事」らしくする。 */
   margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px double var(--rule-strong);
 }
 .modal__title {
   margin: 0;
