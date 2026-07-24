@@ -33,3 +33,17 @@ export function useOverdueCount(): number {
     }).data ?? 0
   )
 }
+
+// 一面マストヘッドの「今日やること」用: 未完了タスクの総件数（全グループ合計）。
+// overdueCount と同じ queryKey なので取得は重複せず（dedupe）、select で件数だけ受ける。
+export function useTaskCount(): number {
+  const { isConnected, needsReconnect, needsScope } = useAuth()
+  return (
+    useQuery({
+      queryKey: ['tasks', 'all'],
+      queryFn: fetchAllTasks,
+      enabled: isConnected && !needsReconnect && !needsScope,
+      select: (tasks) => tasks.length,
+    }).data ?? 0
+  )
+}

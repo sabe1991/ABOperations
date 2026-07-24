@@ -176,52 +176,77 @@ body {
   font-size: var(--fs-sm);
 }
 
-/* --- アプリ本体 --- */
+/* --- アプリ本体：一面マストヘッド（新聞の題字部） --- */
 .app__header {
+  padding: 0.55rem 1.25rem 0.6rem;
+  background: var(--bg);
+  border-bottom: 0;
+}
+/* 上段：題字＋操作類。下辺に新聞の「二重罫」を引いて題字部を締める。 */
+.masthead-fp__top {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm); /* ヘッダをわずかに浮かせる */
-  position: relative; /* 中央の日付を絶対配置で真ん中に置くための基準 */
+  padding-bottom: 0.35rem;
+  border-bottom: 3px double var(--rule-strong);
 }
-/* タイトルバー中央の今日の日付。左右の要素幅に依らず常にバー中央に来るよう絶対配置する。 */
-.app__date {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-  pointer-events: none; /* 中央表示はクリックを奪わない（背後の操作を妨げない） */
-}
-/* 狭い画面ではタイトル・設定と干渉しうるので中央の日付は隠す（年入りで少し長いため広めに）。 */
-@media (max-width: 640px) {
-  .app__date {
-    display: none;
-  }
-}
-.app__title {
+/* 題字（新聞名相当）。明朝で大きく、字間を広めに取る。 */
+.app__title,
+.masthead-fp__name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--fs-xl);
-  letter-spacing: 0.01em;
-  /* 見出しの頭に暖色の小さなしるしを添えてブランドらしさを出す。 */
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  display: block;
 }
+/* 旧：題字頭の暖色ドットは新聞調に合わないため廃止。 */
 .app__title::before {
-  content: '';
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, var(--amber), var(--primary));
-  flex-shrink: 0;
+  content: none;
+}
+/* 日付欄。 */
+.masthead-fp__dateline {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+/* リード：今日やること＋件数（予定・タスク・期限切れ・未読）。 */
+.masthead-fp__lead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  margin-top: 0.1rem;
+}
+.masthead-fp__headline {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+.masthead-fp__summary {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.masthead-fp__summary b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* 期限切れは朱で警告的に。 */
+.masthead-fp__over {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.masthead-fp__stat {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .app__status {
   font-size: var(--fs-xs);

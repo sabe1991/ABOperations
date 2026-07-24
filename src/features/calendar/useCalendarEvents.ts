@@ -102,3 +102,25 @@ export function useWritableCalendars() {
     select: toWritableCalendars,
   })
 }
+
+// 一面マストヘッドの「今日やること」用: 今日ぶんの予定件数。
+// useCalendarEvents と同じ queryKey なので取得は重複せず（dedupe）、select で件数だけ受ける。
+// 今日の判定はローカル日付（YYYY-MM-DD）の一致で行う（startDateStr がこの形式）。
+function localTodayDateStr(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+export function useTodayEventCount(): number {
+  const { isConnected, needsReconnect } = useAuth()
+  const { data: calendars } = useCalendarList()
+  const today = localTodayDateStr()
+  return (
+    useQuery({
+      queryKey: ['calendar', 'upcoming', calendarsSignature(calendars)],
+      queryFn: () => fetchUpcomingEvents(calendars ?? []),
+      enabled: isConnected && !needsReconnect && !!calendars,
+      select: (events) => events.filter((e) => e.startDateStr === today).length,
+    }).data ?? 0
+  )
+}

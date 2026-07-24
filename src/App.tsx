@@ -21,7 +21,8 @@ import { useIsFetching } from '@tanstack/react-query'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useLastUpdated } from './useLastUpdated'
 import { ErrorBoundary } from './ErrorBoundary'
-import { useOverdueCount } from './features/tasks/useTasks'
+import { useOverdueCount, useTaskCount } from './features/tasks/useTasks'
+import { useTodayEventCount } from './features/calendar/useCalendarEvents'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { useGmailEnabled } from './features/gmail/enabled'
 import { SettingsModal } from './features/settings/SettingsModal'
@@ -71,6 +72,10 @@ export default function App() {
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
   const overdueCount = useOverdueCount()
+  // 一面マストヘッドの「今日やること」リード用の集計（未完了タスク総数・今日の予定数）。
+  // いずれも既存クエリの select 版なので追加取得は起きない。
+  const taskCount = useTaskCount()
+  const todayEventCount = useTodayEventCount()
   // データの最終更新時刻（各パネルの取得成功のうち一番新しいもの）。ヘッダー右に表示する。
   const lastUpdated = useLastUpdated()
   // 取得中のクエリ数（>0 なら更新ボタンを回転・無効化する）。
@@ -191,43 +196,62 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="app__header">
-        <h1 className="app__title">AB Operations</h1>
-        {/* タイトルバー中央に今日の日付を表示（左右の要素幅に依らず中央に置くため絶対配置）。 */}
-        <div className="app__date">{formatHeaderDate(new Date())}</div>
-        <div className="app__headerRight">
-          {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
-              スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
-          {lastUpdated > 0 && (
-            <span className="app__updated" title="データの最終更新時刻">
-              <span className="app__updated-label">最終更新 </span>
-              {formatUpdatedTime(lastUpdated)}
+      {/* 一面マストヘッド（新聞の題字部）。上段に題字と操作類、その下に二重罫、日付欄、
+          「今日やること」のリード（今日の予定・タスク・未読・期限切れの件数）を置く。 */}
+      <header className="app__header masthead-fp">
+        <div className="masthead-fp__top">
+          <h1 className="app__title masthead-fp__name">AB Operations</h1>
+          <div className="app__headerRight">
+            {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
+                スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
+            {lastUpdated > 0 && (
+              <span className="app__updated" title="データの最終更新時刻">
+                <span className="app__updated-label">最終更新 </span>
+                {formatUpdatedTime(lastUpdated)}
+              </span>
+            )}
+            {/* 手動更新ボタン（全データ再取得）。スマホでは R キーが無いので常設する（#51）。
+                取得中は回転アイコン＋無効化。PC の R キーと同じ invalidateQueries を呼ぶ。 */}
+            <button
+              className={`app__refresh${fetching ? ' app__refresh--spinning' : ''}`}
+              onClick={() => queryClient.invalidateQueries()}
+              disabled={fetching}
+              aria-label="データを更新"
+              title="データを更新"
+            >
+              ↻
+            </button>
+            <ConnectionStatus
+              needsReconnect={needsReconnect}
+              connecting={connecting}
+              onReconnect={handleConnect}
+            />
+            <button
+              className="app__settings"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="設定を開く"
+              title="設定"
+            >
+              ⚙
+            </button>
+          </div>
+        </div>
+        {/* 日付欄（新聞の日付表示）。二重罫は CSS で masthead-fp__top の下辺に引く。 */}
+        <div className="masthead-fp__dateline">{formatHeaderDate(new Date())}</div>
+        {/* リード：今日やること＋件数。期限切れは朱で警告的に、0件のときは出さない。 */}
+        <div className="masthead-fp__lead">
+          <span className="masthead-fp__headline">今日やること</span>
+          <span className="masthead-fp__summary">
+            予定<b>{todayEventCount}</b>件・タスク<b>{taskCount}</b>件
+          </span>
+          {overdueCount > 0 && (
+            <span className="masthead-fp__over">期限切れ{overdueCount}件</span>
+          )}
+          {unreadCount > 0 && (
+            <span className="masthead-fp__stat">
+              未読{unreadCount >= 20 ? '20+' : unreadCount}
             </span>
           )}
-          {/* 手動更新ボタン（全データ再取得）。スマホでは R キーが無いので常設する（#51）。
-              取得中は回転アイコン＋無効化。PC の R キーと同じ invalidateQueries を呼ぶ。 */}
-          <button
-            className={`app__refresh${fetching ? ' app__refresh--spinning' : ''}`}
-            onClick={() => queryClient.invalidateQueries()}
-            disabled={fetching}
-            aria-label="データを更新"
-            title="データを更新"
-          >
-            ↻
-          </button>
-          <ConnectionStatus
-            needsReconnect={needsReconnect}
-            connecting={connecting}
-            onReconnect={handleConnect}
-          />
-          <button
-            className="app__settings"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="設定を開く"
-            title="設定"
-          >
-            ⚙
-          </button>
         </div>
       </header>
 
