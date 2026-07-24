@@ -2653,7 +2653,7 @@ body {
 }
 .deck__title {
   font-family: var(--font-display);
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-xl);
   font-weight: 600;
   margin: 0.1rem 0 0;
   letter-spacing: 0.02em;
@@ -2666,7 +2666,7 @@ body {
 }
 .deck__progress b {
   font-family: var(--font-display);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-md);
   color: var(--text);
   font-weight: 600;
 }
@@ -2693,7 +2693,7 @@ body {
 }
 .deck-session__name {
   font-family: var(--font-display);
-  font-size: var(--fs-xl);
+  font-size: var(--fs-lg);
   font-weight: 600;
 }
 .deck-session__meta {
@@ -2724,7 +2724,7 @@ body {
 }
 .deck-item__name {
   font-family: var(--font-display);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 /* 部位チップ。カラフルにはせず、墨のヘアライン枠＋補助色の単色トーンにとどめる（ユーザー指定）。 */
@@ -2741,12 +2741,12 @@ body {
 .deck-item__target {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   white-space: nowrap;
 }
 .deck-item__target b {
   font-family: var(--font-display);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 .deck-item__mul {
