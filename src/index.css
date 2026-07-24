@@ -178,7 +178,12 @@ body {
 }
 
 /* --- アプリ本体：一面マストヘッド（新聞の題字部） --- */
+/* 本体（.app__main）と同じ最大幅・中央寄せ・左右パディングにそろえ、題字や気象欄が
+   下のコンテンツより外へはみ出さないようにする（幅は下の各ブレークポイントで合わせる）。 */
 .app__header {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
   padding: 0.55rem 1.25rem 0.6rem;
   background: var(--bg);
   border-bottom: 0;
@@ -207,12 +212,14 @@ body {
 .app__title::before {
   content: none;
 }
-/* 日付欄＋気象欄（左に日付・右端に天気）。 */
+/* 日付欄＋気象欄（左に日付・右端に天気）。下辺に細い罫を引き、「今日やること」と仕切る（モック準拠）。 */
 .masthead-fp__dateline {
   margin-top: 0.35rem;
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
   font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -248,7 +255,7 @@ body {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 0.15rem 0.9rem;
-  margin-top: 0.1rem;
+  margin-top: 0.3rem;
 }
 .masthead-fp__headline {
   font-family: var(--font-display);
@@ -284,7 +291,8 @@ body {
     letter-spacing: 0.04em;
   }
   .app__header {
-    padding: 0.5rem 0.9rem 0.55rem;
+    /* 横パディングは本体（.app__main の 1.25rem）に合わせ、縦だけ詰める。 */
+    padding: 0.5rem 1.25rem 0.55rem;
   }
 }
 .app__status {
@@ -533,8 +541,9 @@ body {
    - 2列目・3列目（予定7日 / 今月・横幅は 1:1）: 上2行にまたがる。下段（タスク）は2列分スパン。
    - 4列目（広め）: Gmail を全3行スパンで大きく（メールは横幅を少し広めに取る）。 */
 @media (min-width: 1340px) {
-  .app__main {
-    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。 */
+  .app__main,
+  .app__header {
+    /* 密度型では横幅をたっぷり使う（従来の 1100px 制限を解除）。ヘッダも同じ幅にそろえる。 */
     max-width: 1600px;
   }
   .panels {
@@ -545,10 +554,10 @@ body {
     /* 時間軸の側柱は「◯月◯日(◯)の予定」の見出し・予定名が窮屈だったので少し広げる。
        タスク列とメール列は同じ幅にそろえる（ユーザー要望）。 */
     grid-template-columns: minmax(210px, 0.72fr) minmax(210px, 1fr) 1.35fr 1.35fr;
-    /* row1=カレンダー、row2=今後の予定。カレンダーが低く見えたので row1 を厚めに配分し、
-       月カレンダーの升目が縦に伸びて見やすくなるようにする（auto ではなく可変の fr にする）。
+    /* row1=カレンダー、row2=今後の予定。カレンダーは auto だと低すぎ・厚くしすぎると広すぎたので、
+       今後の予定より低め（0.68:1）に配分して升目が詰まらない範囲でコンパクトに収める。
        時間軸・タスク・メールは2行ぶんを縦にまたぐ。 */
-    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.68fr) minmax(0, 1fr);
     grid-template-areas:
       'timeline month  tasks gmail'
       'timeline events tasks gmail';
