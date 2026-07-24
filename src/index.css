@@ -1327,6 +1327,132 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: -1px;
 }
+
+/* 自前の日付ピッカー（DatePicker）。標準の <input type="date"> をやめ、週の始まりを
+   アプリ設定に合わせた月曜/日曜始まりで出せるカレンダー。トリガーは .tasks__add-input の
+   見た目を流用しつつ、テキスト左寄せ・押せる手がかり（カーソル）を足す。 */
+.datepicker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.datepicker__trigger {
+  text-align: left;
+  cursor: pointer;
+}
+.datepicker__trigger:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.datepicker__placeholder {
+  color: var(--text-muted);
+}
+/* カレンダー本体。シート/モーダルの中に出るので前面に重ねる。 */
+.datepicker__pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  width: min(19rem, 92vw);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  box-shadow: var(--shadow-md);
+  padding: 0.6rem;
+}
+/* 下に余白が足りないときは上向き（トリガーの上）に出す。 */
+.datepicker__pop--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.datepicker__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.datepicker__navbtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.datepicker__navbtn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.datepicker__month {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  letter-spacing: 0.03em;
+}
+.datepicker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+.datepicker__dow {
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  padding-bottom: 0.2rem;
+}
+.datepicker__dow.is-sun {
+  color: var(--danger);
+}
+.datepicker__dow.is-sat {
+  color: var(--cool);
+}
+.datepicker__cell {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-size: var(--fs-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.datepicker__cell--empty {
+  cursor: default;
+}
+.datepicker__cell.is-sun {
+  color: var(--danger);
+}
+.datepicker__cell.is-sat {
+  color: var(--cool);
+}
+.datepicker__cell:not(:disabled):not(.datepicker__cell--empty):hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 今日は枠線で示す（塗りは選択に使うため）。 */
+.datepicker__cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+/* 選択中の日は朱で塗る（白文字とのコントラストを確保した --primary-btn を使う）。 */
+.datepicker__cell.is-selected {
+  background: var(--primary-btn);
+  color: #fff;
+}
+.datepicker__cell.is-selected.is-sun,
+.datepicker__cell.is-selected.is-sat {
+  color: #fff;
+}
+/* min より前の選べない日は沈めてクリック不可に。 */
+.datepicker__cell:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: default;
+}
 /* 選択中の期限チップ。白文字を載せるので、明るいアクセント色(--primary)ではなく
    白文字とのコントラストを確保した専用背景色(--primary-btn)を使う。
    また .btn:hover は文字色を --primary に変えてしまい、背景と同系色で文字が消えるため、

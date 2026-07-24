@@ -24,6 +24,7 @@ import { useShowSourceLabels } from '../settings/displayPrefs'
 import { ListSkeleton } from '../../Skeleton'
 import { PanelError } from '../../ErrorBoundary'
 import { useDialog } from '../../useDialog'
+import { DatePicker } from '../../components/DatePicker'
 
 // 表示用のバケツ（api の TaskGroup とは別に、表示側で due から細かく分ける）。
 type Bucket = 'overdue' | 'today' | 'tomorrow' | 'later' | 'noDue'
@@ -670,12 +671,13 @@ function EditSheet({
           ))}
         </div>
         {dueMode === 'custom' && (
-          <input
-            className="tasks__add-input sheet__date"
-            type="date"
+          // 期限に過去日は選べないようにする（min=今日）。週の始まりは設定に従う（自前カレンダー）。
+          <DatePicker
+            className="sheet__date"
             value={customDate}
-            onChange={(e) => setCustomDate(e.target.value)}
-            aria-label="期限の日付"
+            min={localTodayStr()}
+            onChange={(v) => setCustomDate(v)}
+            ariaLabel="期限の日付"
           />
         )}
 

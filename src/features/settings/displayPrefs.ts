@@ -88,7 +88,8 @@ export function useShowExternalImages(): boolean {
   return useSyncExternalStore(subscribeShowExtImages, getShowExternalImages)
 }
 
-// weekStart: 月ミニカレンダーの週の開始曜日。0=日曜始まり（既定）, 1=月曜始まり。
+// weekStart: 週の開始曜日。0=日曜始まり（既定）, 1=月曜始まり。
+// 月ミニカレンダー（MonthCalendar）と、日付入力の自前カレンダー（DatePicker）の両方に効く。
 export type WeekStart = 0 | 1
 const WEEK_START_KEY = 'abops:weekStart'
 
