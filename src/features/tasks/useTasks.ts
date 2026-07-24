@@ -34,16 +34,16 @@ export function useOverdueCount(): number {
   )
 }
 
-// 一面マストヘッドの「今日やること」用: 未完了タスクの総件数（全グループ合計）。
+// 一面マストヘッドの「今日やること」用: 今日が期限のタスク件数（group==='today' のみ・ユーザー要望）。
 // overdueCount と同じ queryKey なので取得は重複せず（dedupe）、select で件数だけ受ける。
-export function useTaskCount(): number {
+export function useTodayTaskCount(): number {
   const { isConnected, needsReconnect, needsScope } = useAuth()
   return (
     useQuery({
       queryKey: ['tasks', 'all'],
       queryFn: fetchAllTasks,
       enabled: isConnected && !needsReconnect && !needsScope,
-      select: (tasks) => tasks.length,
+      select: (tasks) => tasks.filter((t) => t.group === 'today').length,
     }).data ?? 0
   )
 }

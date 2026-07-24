@@ -207,13 +207,40 @@ body {
 .app__title::before {
   content: none;
 }
-/* 日付欄。 */
+/* 日付欄＋気象欄（左に日付・右端に天気）。 */
 .masthead-fp__dateline {
   margin-top: 0.35rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
   font-family: var(--font-display);
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
+}
+/* 一面の気象欄。日付欄の右端に寄せ、絵文字＋地名＋最高/最低気温をコンパクトに出す。 */
+.masthead-fp__wx {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.masthead-fp__wx-loc {
+  color: var(--text);
+}
+.masthead-fp__wx-hi {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.masthead-fp__wx-sep {
+  color: var(--text-muted);
+}
+/* 最低気温は寒色で最高と区別する。 */
+.masthead-fp__wx-lo {
+  color: var(--cool);
+  font-variant-numeric: tabular-nums;
 }
 /* リード：今日やること＋件数（予定・タスク・期限切れ・未読）。 */
 .masthead-fp__lead {
@@ -515,10 +542,13 @@ body {
        中央のタスクを主役（全高）に据える。
        列: [24h時間軸の側柱(細)] [カレンダー＋今後の予定] [タスク(主役)] [メール]。
        天気は廃止（ユーザー要望）。24hタイムラインは左端の側柱として残す（ユーザー要望）。 */
-    grid-template-columns: minmax(160px, 0.5fr) minmax(210px, 1fr) 1.5fr 1.2fr;
-    /* row1=カレンダー(ほぼ正方形・auto)、row2=今後の予定(残り全高)。
+    /* 時間軸の側柱は「◯月◯日(◯)の予定」の見出し・予定名が窮屈だったので少し広げる。
+       タスク列とメール列は同じ幅にそろえる（ユーザー要望）。 */
+    grid-template-columns: minmax(210px, 0.72fr) minmax(210px, 1fr) 1.35fr 1.35fr;
+    /* row1=カレンダー、row2=今後の予定。カレンダーが低く見えたので row1 を厚めに配分し、
+       月カレンダーの升目が縦に伸びて見やすくなるようにする（auto ではなく可変の fr にする）。
        時間軸・タスク・メールは2行ぶんを縦にまたぐ。 */
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
     grid-template-areas:
       'timeline month  tasks gmail'
       'timeline events tasks gmail';

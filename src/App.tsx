@@ -16,11 +16,13 @@ import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
 import { NewsPanel } from './features/news/NewsPanel'
+import { useWeather } from './features/weather/useWeather'
+import { weatherCodeInfo } from './features/weather/api'
 import { useIsFetching } from '@tanstack/react-query'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useLastUpdated } from './useLastUpdated'
 import { ErrorBoundary } from './ErrorBoundary'
-import { useOverdueCount, useTaskCount } from './features/tasks/useTasks'
+import { useOverdueCount, useTodayTaskCount } from './features/tasks/useTasks'
 import { useTodayEventCount } from './features/calendar/useCalendarEvents'
 import { useUnreadCount } from './features/gmail/useGmail'
 import { useGmailEnabled } from './features/gmail/enabled'
@@ -71,9 +73,9 @@ export default function App() {
   // タブのバッジ用の件数。親でも同じクエリを呼ぶが、queryKey が同じなので取得は重複せず
   // （dedupe）、select で件数だけ受けるので件数が変わらない限り再描画されない（Fable 助言）。
   const overdueCount = useOverdueCount()
-  // 一面マストヘッドの「今日やること」リード用の集計（未完了タスク総数・今日の予定数）。
+  // 一面マストヘッドの「今日やること」リード用の集計（今日が期限のタスク数・今日の予定数）。
   // いずれも既存クエリの select 版なので追加取得は起きない。
-  const taskCount = useTaskCount()
+  const todayTaskCount = useTodayTaskCount()
   const todayEventCount = useTodayEventCount()
   // データの最終更新時刻（各パネルの取得成功のうち一番新しいもの）。ヘッダー右に表示する。
   const lastUpdated = useLastUpdated()
@@ -235,13 +237,16 @@ export default function App() {
             </button>
           </div>
         </div>
-        {/* 日付欄（新聞の日付表示）。二重罫は CSS で masthead-fp__top の下辺に引く。 */}
-        <div className="masthead-fp__dateline">{formatHeaderDate(new Date())}</div>
+        {/* 日付欄（新聞の日付表示）＋一面の気象欄（右寄せ）。二重罫は masthead-fp__top の下辺。 */}
+        <div className="masthead-fp__dateline">
+          <span>{formatHeaderDate(new Date())}</span>
+          <MastheadWeather />
+        </div>
         {/* リード：今日やること＋件数。期限切れは朱で警告的に、0件のときは出さない。 */}
         <div className="masthead-fp__lead">
           <span className="masthead-fp__headline">今日やること</span>
           <span className="masthead-fp__summary">
-            予定<b>{todayEventCount}</b>件・タスク<b>{taskCount}</b>件
+            予定<b>{todayEventCount}</b>件・タスク<b>{todayTaskCount}</b>件
           </span>
           {overdueCount > 0 && (
             <span className="masthead-fp__over">期限切れ{overdueCount}件</span>
@@ -412,6 +417,26 @@ export default function App() {
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       <UpdateToast />
     </div>
+  )
+}
+
+// 一面マストヘッドの気象欄。今日の天気（絵文字・地名・最高/最低気温）をコンパクトに出す。
+// Open-Meteo は認証不要なのでログイン状態に関係なく取得できる。データが無ければ何も出さない。
+function MastheadWeather() {
+  const { data } = useWeather()
+  if (!data || data.daily.length === 0) return null
+  const today = data.daily[0]
+  const { emoji, label } = weatherCodeInfo(today.code)
+  return (
+    <span className="masthead-fp__wx" title={label}>
+      <span className="masthead-fp__wx-emoji" aria-hidden>
+        {emoji}
+      </span>
+      <span className="masthead-fp__wx-loc">{data.locationName}</span>
+      <b className="masthead-fp__wx-hi">{Math.round(today.tempMax)}°</b>
+      <span className="masthead-fp__wx-sep">/</span>
+      <span className="masthead-fp__wx-lo">{Math.round(today.tempMin)}°</span>
+    </span>
   )
 }
 
