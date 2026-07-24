@@ -16,6 +16,7 @@ import { MonthCalendar } from './features/calendar/MonthCalendar'
 import { TasksPanel } from './features/tasks/TasksPanel'
 import { GmailPanel } from './features/gmail/GmailPanel'
 import { NewsPanel } from './features/news/NewsPanel'
+import { WorkoutDeck } from './features/workout/WorkoutDeck'
 import { useWeather } from './features/weather/useWeather'
 import { weatherCodeInfo } from './features/weather/api'
 import { useIsFetching } from '@tanstack/react-query'
@@ -197,90 +198,94 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* 一面マストヘッド（新聞の題字部）。上段に題字と操作類、その下に二重罫、日付欄、
+      {/* ダッシュボード1画面分（題字部＋バナー＋3パネル）。PC ではこの塊を画面高（100dvh）に
+          ぴったり収め、ここより下（.deck 続き面）へはページを下スクロールして辿る。
+          スマホでは従来どおりページ全体が普通にスクロールする（この塊は素通しの入れ物になる）。 */}
+      <div className="app__screen">
+        {/* 一面マストヘッド（新聞の題字部）。上段に題字と操作類、その下に二重罫、日付欄、
           「今日やること」のリード（今日の予定・タスク・未読・期限切れの件数）を置く。 */}
-      <header className="app__header masthead-fp">
-        <div className="masthead-fp__top">
-          <h1 className="app__title masthead-fp__name">AB Operations</h1>
-          <div className="app__headerRight">
-            {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
+        <header className="app__header masthead-fp">
+          <div className="masthead-fp__top">
+            <h1 className="app__title masthead-fp__name">AB Operations</h1>
+            <div className="app__headerRight">
+              {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
                 スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
-            {lastUpdated > 0 && (
-              <span className="app__updated" title="データの最終更新時刻">
-                <span className="app__updated-label">最終更新 </span>
-                {formatUpdatedTime(lastUpdated)}
+              {lastUpdated > 0 && (
+                <span className="app__updated" title="データの最終更新時刻">
+                  <span className="app__updated-label">最終更新 </span>
+                  {formatUpdatedTime(lastUpdated)}
+                </span>
+              )}
+              {/* 手動更新ボタン（全データ再取得）。スマホでは R キーが無いので常設する（#51）。
+                取得中は回転アイコン＋無効化。PC の R キーと同じ invalidateQueries を呼ぶ。 */}
+              <button
+                className={`app__refresh${fetching ? ' app__refresh--spinning' : ''}`}
+                onClick={() => queryClient.invalidateQueries()}
+                disabled={fetching}
+                aria-label="データを更新"
+                title="データを更新"
+              >
+                ↻
+              </button>
+              <ConnectionStatus
+                needsReconnect={needsReconnect}
+                connecting={connecting}
+                onReconnect={handleConnect}
+              />
+              <button
+                className="app__settings"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="設定を開く"
+                title="設定"
+              >
+                ⚙
+              </button>
+            </div>
+          </div>
+          {/* 日付欄（新聞の日付表示）＋一面の気象欄（右寄せ）。二重罫は masthead-fp__top の下辺。 */}
+          <div className="masthead-fp__dateline">
+            <span>{formatHeaderDate(new Date())}</span>
+            <MastheadWeather />
+          </div>
+          {/* リード：今日やること＋件数。期限切れは朱で警告的に、0件のときは出さない。 */}
+          <div className="masthead-fp__lead">
+            <span className="masthead-fp__headline">今日やること</span>
+            <span className="masthead-fp__summary">
+              予定<b>{todayEventCount}</b>件・タスク<b>{todayTaskCount}</b>件
+            </span>
+            {overdueCount > 0 && (
+              <span className="masthead-fp__over">期限切れ{overdueCount}件</span>
+            )}
+            {unreadCount > 0 && (
+              <span className="masthead-fp__stat">
+                未読{unreadCount >= 20 ? '20+' : unreadCount}
               </span>
             )}
-            {/* 手動更新ボタン（全データ再取得）。スマホでは R キーが無いので常設する（#51）。
-                取得中は回転アイコン＋無効化。PC の R キーと同じ invalidateQueries を呼ぶ。 */}
-            <button
-              className={`app__refresh${fetching ? ' app__refresh--spinning' : ''}`}
-              onClick={() => queryClient.invalidateQueries()}
-              disabled={fetching}
-              aria-label="データを更新"
-              title="データを更新"
-            >
-              ↻
-            </button>
-            <ConnectionStatus
-              needsReconnect={needsReconnect}
-              connecting={connecting}
-              onReconnect={handleConnect}
-            />
-            <button
-              className="app__settings"
-              onClick={() => setSettingsOpen(true)}
-              aria-label="設定を開く"
-              title="設定"
-            >
-              ⚙
+          </div>
+        </header>
+
+        {/* セッション切れバナー（画面上部に1本だけ） */}
+        {needsReconnect && (
+          <div className="banner banner--warn" role="alert">
+            <span>接続が切れました。</span>
+            <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
+              {connecting ? '再接続中…' : '再接続'}
             </button>
           </div>
-        </div>
-        {/* 日付欄（新聞の日付表示）＋一面の気象欄（右寄せ）。二重罫は masthead-fp__top の下辺。 */}
-        <div className="masthead-fp__dateline">
-          <span>{formatHeaderDate(new Date())}</span>
-          <MastheadWeather />
-        </div>
-        {/* リード：今日やること＋件数。期限切れは朱で警告的に、0件のときは出さない。 */}
-        <div className="masthead-fp__lead">
-          <span className="masthead-fp__headline">今日やること</span>
-          <span className="masthead-fp__summary">
-            予定<b>{todayEventCount}</b>件・タスク<b>{todayTaskCount}</b>件
-          </span>
-          {overdueCount > 0 && (
-            <span className="masthead-fp__over">期限切れ{overdueCount}件</span>
-          )}
-          {unreadCount > 0 && (
-            <span className="masthead-fp__stat">
-              未読{unreadCount >= 20 ? '20+' : unreadCount}
-            </span>
-          )}
-        </div>
-      </header>
+        )}
 
-      {/* セッション切れバナー（画面上部に1本だけ） */}
-      {needsReconnect && (
-        <div className="banner banner--warn" role="alert">
-          <span>接続が切れました。</span>
-          <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
-            {connecting ? '再接続中…' : '再接続'}
-          </button>
-        </div>
-      )}
-
-      {/* 権限不足バナー（例: タスク追加前の古い許可のまま使っている端末）。
+        {/* 権限不足バナー（例: タスク追加前の古い許可のまま使っている端末）。
           再ログインではなく不足スコープの追加同意を促す。 */}
-      {!needsReconnect && needsScope && (
-        <div className="banner banner--warn" role="alert">
-          <span>タスクを表示するには追加の許可が必要です。</span>
-          <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
-            {connecting ? '許可を取得中…' : '許可する'}
-          </button>
-        </div>
-      )}
+        {!needsReconnect && needsScope && (
+          <div className="banner banner--warn" role="alert">
+            <span>タスクを表示するには追加の許可が必要です。</span>
+            <button className="btn btn--small" onClick={handleConnect} disabled={connecting}>
+              {connecting ? '許可を取得中…' : '許可する'}
+            </button>
+          </div>
+        )}
 
-      {/* 状態を持つ3パネル（予定7日リスト・タスク・Gmail）は常に全てマウントしておく（Fable 助言）。
+        {/* 状態を持つ3パネル（予定7日リスト・タスク・Gmail）は常に全てマウントしておく（Fable 助言）。
           スマホでは非選択タブを CSS で隠すだけなので、タブを行き来してもスクロール位置や展開状態が
           保持され、裏側の取得も途切れない。レイアウトは3状態（index.css 参照）:
             - 〜959px（スマホ）: タブで1枚だけ表示。
@@ -292,81 +297,87 @@ export default function App() {
           広い画面（≥960px）では各パネルを「見出し（固定）＋中身（.panel__body で内部スクロール）」の
           縦積みにし、パネルの高さを画面高で固定する（項目数で全体の縦がガタつかない）。.panel__body の
           ラッパーは全幅で常に描画するので、コンポーネントの親は変わらず再マウントは起きない。 */}
-      <main className="app__main">
-        <div className="panels">
-          {isWide && (
-            <section className="panel panel--timeline">
-              <TimelineHeading />
+        <main className="app__main">
+          <div className="panels">
+            {isWide && (
+              <section className="panel panel--timeline">
+                <TimelineHeading />
+                <div className="panel__body">
+                  <ErrorBoundary label="今日の予定">
+                    <TodayTimeline />
+                  </ErrorBoundary>
+                </div>
+              </section>
+            )}
+            <section
+              id="panel-calendar"
+              role="tabpanel"
+              aria-labelledby="tab-calendar"
+              className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}
+            >
+              {/* 見出し「今後の予定」は「＋予定」ボタンと同じ行にするため CalendarPanel 内で描画する */}
               <div className="panel__body">
-                <ErrorBoundary label="今日の予定">
-                  <TodayTimeline />
+                <ErrorBoundary label="予定">
+                  <CalendarPanel />
                 </ErrorBoundary>
               </div>
             </section>
-          )}
-          <section
-            id="panel-calendar"
-            role="tabpanel"
-            aria-labelledby="tab-calendar"
-            className={`panel panel--events${tab === 'calendar' ? ' panel--active' : ''}`}
-          >
-            {/* 見出し「今後の予定」は「＋予定」ボタンと同じ行にするため CalendarPanel 内で描画する */}
-            <div className="panel__body">
-              <ErrorBoundary label="予定">
-                <CalendarPanel />
-              </ErrorBoundary>
-            </div>
-          </section>
-          {isWide && (
-            <section className="panel panel--month">
+            {isWide && (
+              <section className="panel panel--month">
+                <div className="panel__head">
+                  <h2 className="panel__title">カレンダー</h2>
+                  <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
+                </div>
+                <div className="panel__body">
+                  <ErrorBoundary label="カレンダー">
+                    <MonthCalendar />
+                  </ErrorBoundary>
+                </div>
+              </section>
+            )}
+            <section
+              id="panel-tasks"
+              role="tabpanel"
+              aria-labelledby="tab-tasks"
+              className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}
+            >
               <div className="panel__head">
-                <h2 className="panel__title">カレンダー</h2>
-                <PanelLink href="https://calendar.google.com/" label="Google カレンダーを開く" />
+                <h2 className="panel__title">タスク</h2>
+                <PanelLink href="https://tasks.google.com/" label="Google タスクを開く" />
               </div>
               <div className="panel__body">
-                <ErrorBoundary label="カレンダー">
-                  <MonthCalendar />
+                <ErrorBoundary label="タスク">
+                  <TasksPanel />
                 </ErrorBoundary>
               </div>
             </section>
-          )}
-          <section
-            id="panel-tasks"
-            role="tabpanel"
-            aria-labelledby="tab-tasks"
-            className={`panel panel--tasks${tab === 'tasks' ? ' panel--active' : ''}`}
-          >
-            <div className="panel__head">
-              <h2 className="panel__title">タスク</h2>
-              <PanelLink href="https://tasks.google.com/" label="Google タスクを開く" />
-            </div>
-            <div className="panel__body">
-              <ErrorBoundary label="タスク">
-                <TasksPanel />
-              </ErrorBoundary>
-            </div>
-          </section>
-          {/* メール（Gmail）を表示している端末は Gmail パネル、非表示の端末は代わりにニュースパネルを
+            {/* メール（Gmail）を表示している端末は Gmail パネル、非表示の端末は代わりにニュースパネルを
               同じ枠に出す（空の「有効化」パネルが画面を占めるのを避けるため・#16 の A 案）。
               Gmail の再表示は設定（⚙）の「メール（Gmail）を表示」から。 */}
-          <section
-            id="panel-gmail"
-            role="tabpanel"
-            aria-labelledby="tab-gmail"
-            className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}
-          >
-            <div className="panel__head">
-              <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
-              {gmailActive && <PanelLink {...gmailLink()} label="Gmail を開く" />}
-            </div>
-            <div className="panel__body">
-              <ErrorBoundary label={gmailActive ? 'メール' : 'ニュース'}>
-                {gmailActive ? <GmailPanel /> : <NewsPanel />}
-              </ErrorBoundary>
-            </div>
-          </section>
-        </div>
-      </main>
+            <section
+              id="panel-gmail"
+              role="tabpanel"
+              aria-labelledby="tab-gmail"
+              className={`panel panel--gmail${tab === 'gmail' ? ' panel--active' : ''}`}
+            >
+              <div className="panel__head">
+                <h2 className="panel__title">{gmailActive ? 'メール' : 'ニュース'}</h2>
+                {gmailActive && <PanelLink {...gmailLink()} label="Gmail を開く" />}
+              </div>
+              <div className="panel__body">
+                <ErrorBoundary label={gmailActive ? 'メール' : 'ニュース'}>
+                  {gmailActive ? <GmailPanel /> : <NewsPanel />}
+                </ErrorBoundary>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+
+      {/* 朝刊の“続き面”。上の1画面ダッシュボードの下に、姉妹ツール AB Workout の
+          「今週のメニュー（次回1回分）」を載せる。PC で下スクロールした所に出す読み取り専用の欄。
+          スマホには出さない（.deck--workout を CSS で display:none）。データはいまモック。 */}
+      <WorkoutDeck />
 
       {/* スマホ用タブバー（画面下端固定）。PC では CSS で非表示。
           未読・期限切れ件数をバッジ表示（0 のタブには付けない）。 */}

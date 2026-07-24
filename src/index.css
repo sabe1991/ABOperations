@@ -431,17 +431,16 @@ body {
   }
 }
 
-/* 広い画面（≥800px）共通: ダッシュボード全体を画面高にぴったり収め、ページ全体はスクロールさせず
-   各パネル内だけをスクロールさせる（項目数が増えても全体の縦がガタつかないようにする・Fable レビュー反映）。
+/* 広い画面（≥800px）共通: ダッシュボードの“1画面分”（.app__screen）を画面高にぴったり収め、
+   その中では各パネル内だけをスクロールさせる（項目数が増えても全体の縦がガタつかない・Fable レビュー反映）。
+   ただし .app__screen の下には“続き面”（.deck、例: 今週のメニュー）を積めるようにし、
+   そこへはページを下スクロールして辿る（朝刊風に画面が下へ伸びるのは許容する・ユーザー方針）。
+   そのため body の overflow:hidden は掛けず、画面高固定は .app 全体ではなく .app__screen だけに掛ける。
    高さの連鎖（どれか1つでも min-height:0 が欠けると中身に押し広げられて破綻する）:
-   .app(100dvh・縦flex) → .app__main(flex:1・縦flex) → .panels(flex:1・grid) → .panel(縦flex)
+   .app__screen(100dvh・縦flex) → .app__main(flex:1・縦flex) → .panels(flex:1・grid) → .panel(縦flex)
    → .panel__body(flex:1・overflow-y:auto)。見出し(.panel__title)は縮まず固定、本文だけスクロール。 */
 @media (min-width: 800px) {
-  body {
-    /* 1px の丸め誤差などでページスクロールバーが出るのを確実に防ぐ保険。 */
-    overflow: hidden;
-  }
-  .app {
+  .app__screen {
     height: 100vh; /* dvh 非対応ブラウザ向けフォールバック（先に書いて下で上書き） */
     height: 100dvh;
     display: flex;
@@ -2617,4 +2616,185 @@ body {
   .snackbar {
     animation: none;
   }
+}
+
+/* ===== 続き面: 今週のメニュー（AB Workout 連携） =====
+   朝刊の1画面ダッシュボード（.app__screen）の下に積む読み取り専用の欄。
+   スマホには出さない（下の @media で display:none）。本アプリの朝刊トーン
+   （明朝の見出し・罫線でフラットに区切る・朱アクセント）にそろえる。 */
+.deck--workout {
+  /* 本体（.app__main）と同じ最大幅・左右パディングにそろえつつ、記事は読みやすい幅に絞る。 */
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 3rem;
+  /* 続き面の始まりを新聞の二重罫で明示（上の1画面との区切り）。 */
+  border-top: 3px double var(--rule-strong);
+}
+/* スマホでは出さない（「スマホ版は増やさない」方針）。 */
+@media (max-width: 799px) {
+  .deck--workout {
+    display: none;
+  }
+}
+.deck__masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+.deck__eyebrow {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+  font-weight: 700;
+}
+.deck__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  margin: 0.1rem 0 0;
+  letter-spacing: 0.02em;
+}
+.deck__progress {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.deck__progress b {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* 次回セッションの見出し帯。 */
+.deck-session {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 1rem 0 0.2rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.deck-session__flag {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--bg);
+  background: var(--primary);
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  align-self: center;
+}
+.deck-session__name {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+.deck-session__meta {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 種目リスト（罫線区切りの縦並び）。 */
+.deck-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deck-item {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.deck-item:last-child {
+  border-bottom: none;
+}
+.deck-item__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.deck-item__name {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+/* 部位チップ。カラフルにはせず、墨のヘアライン枠＋補助色の単色トーンにとどめる（ユーザー指定）。 */
+.deck-item__chip {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.06rem 0.42rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.deck-item__target {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  white-space: nowrap;
+}
+.deck-item__target b {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.deck-item__mul {
+  color: var(--text-muted);
+  margin: 0 0.15rem;
+}
+.deck-item__slash {
+  color: var(--text-muted);
+  margin: 0 0.35rem;
+}
+.deck-item__sets {
+  color: var(--primary);
+  font-weight: 600;
+}
+.deck-item__sub {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+/* ウォームアップの小タグ。数値情報なので寒色（青）で控えめに区別する。 */
+.deck-item__warmup {
+  font-size: var(--fs-2xs);
+  color: var(--cool);
+  border: 1px solid var(--cool);
+  border-radius: var(--radius);
+  padding: 0 0.35rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.deck-item__note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  flex: 1;
+  min-width: 12rem;
+}
+.deck-item__note::before {
+  content: '\201C'; /* “ */
+}
+.deck-item__note::after {
+  content: '\201D'; /* ” */
+}
+.deck__foot {
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
 }
