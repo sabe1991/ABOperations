@@ -106,10 +106,6 @@ export function WorkoutDeck() {
           <ExerciseRow key={i} ex={ex} />
         ))}
       </ul>
-
-      <div className="deck__foot">
-        <span>更新: AB Workout（Android）→ 自動同期</span>
-      </div>
     </section>
   )
 }

@@ -2791,10 +2791,3 @@ body {
 .deck-item__note::after {
   content: '\201D'; /* ” */
 }
-.deck__foot {
-  margin-top: 1rem;
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--border);
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
-}
