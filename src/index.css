@@ -325,7 +325,11 @@ body {
      800px まで下げ、狭い画面でだけタブ表示にする（ユーザー要望。768px では少し狭かったため 800px に調整）。 */
 .panels {
   display: grid;
-  gap: 1rem;
+  /* 朝刊: 欄と欄の隙間を 1px にし、その下地に罫色を敷くと、隙間が連続したヘアライン罫（段組みの
+     縦罫・横罫）に見える。各 .panel は地色(--bg)で塗るので、境目だけが細い罫として残る。
+     （スマホでは表示パネルが1枚なので隙間は生じず影響しない） */
+  gap: 1px;
+  background: var(--border);
   grid-template-columns: 1fr;
 }
 /* 注意: grid-area（エリア名）の割り当ては ≥800px の中だけで行う。スマホ（≤799px）では
@@ -587,38 +591,32 @@ body {
   color: var(--warn-text);
 }
 
-/* --- パネル --- */
+/* --- パネル（朝刊: カードをやめて紙面の「欄」にする） ---
+   カード（面の背景・角丸・影・四辺枠）を廃し、各欄は上の太い墨罫（柱罫）で仕切るフラットな
+   新聞の段組みにする。欄どうしの縦横の区切りは .panels 側のヘアライン罫（下記）に任せる。 */
 .panel {
-  background: var(--surface);
-  /* 硬い罫線をやめ、ごく淡い枠＋やわらかい影でカードを軽く浮かせる（温かみ・奥行き）。 */
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 1.1rem 1.25rem;
+  background: var(--bg);
+  border: 0;
+  border-top: 2px solid var(--rule-strong);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.7rem 0.9rem;
   /* CSS グリッドの列は既定で「中身の最小幅」より狭くなれない。メール本文(iframe や
      幅広の表・折り返さないテキスト)がある列だけ押し広げられて等幅(1fr)が崩れるため、
      min-width:0 で「中身より狭くなってよい」ことを明示する。 */
   min-width: 0;
 }
 .panel__title {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.6rem;
+  /* 朝刊: 見出しは明朝（--font-display は明朝）。暖色の縦バーは廃し、新聞の欄見出しらしく
+     字だけで立てる。太罫（パネル上の柱罫）が頭の区切りを担うので装飾は足さない。 */
   font-family: var(--font-display);
   font-size: var(--fs-lg);
   font-weight: 700;
-  letter-spacing: 0.01em;
-  /* 見出しの左に暖色の短い縦バーを添えて、各パネルの頭を軽く印象づける。 */
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.panel__title::before {
-  content: '';
-  width: 3px;
-  align-self: stretch;
-  min-height: 1rem;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(var(--amber), var(--primary));
-  flex-shrink: 0;
 }
 /* 見出し行（左に見出し・右に「外部サービスを開く」リンク）。パネルの固定ヘッダとして機能する。 */
 .panel__head {
