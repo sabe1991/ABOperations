@@ -2671,25 +2671,88 @@ body {
   font-weight: 600;
 }
 
-/* 次回セッションの見出し帯。 */
+/* 回送りナビ（前へ／位置／次へ）。マストヘッドの下、セッション見出しの上に置く。 */
+.deck-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.deck-nav__pos {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5em;
+  text-align: center;
+}
+.deck-nav__btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.deck-nav__btn:hover:not(:disabled) {
+  border-color: var(--rule-strong);
+  color: var(--primary);
+}
+.deck-nav__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* セッション見出し帯。 */
 .deck-session {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  margin: 1rem 0 0.2rem;
+  margin: 0.6rem 0 0.2rem;
   padding-bottom: 0.7rem;
   border-bottom: 1px solid var(--rule-strong);
 }
+/* 状態バッジ。基本は輪郭のみのピル。状態ごとに色を出し分ける（色は用途どおり：
+   完了=緑、次回=朱の塗り、予定=朱の輪郭、スキップ=墨の輪郭）。 */
 .deck-session__flag {
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--bg);
-  background: var(--primary);
   padding: 0.12rem 0.5rem;
   border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   white-space: nowrap;
   align-self: center;
+}
+/* 予定（未実施だが「次回」ではない回）: 朱の輪郭。 */
+.deck-session__flag--pending {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+/* 完了: 緑の塗り。 */
+.deck-session__flag--completed {
+  color: var(--bg);
+  background: var(--success);
+  border-color: var(--success);
+}
+/* スキップ: 墨の輪郭（控えめ）。 */
+.deck-session__flag--skipped {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+/* 次回（未実施の次の1回）: 朱の塗りで最も強調。--pending より後に置いて上書きする。 */
+.deck-session__flag--next {
+  color: var(--bg);
+  background: var(--primary);
+  border-color: var(--primary);
 }
 .deck-session__name {
   font-family: var(--font-display);
