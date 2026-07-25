@@ -8,6 +8,7 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { toUserMessage } from './errorMessage'
+import { AuthError } from './google/fetchJson'
 
 // 取得エラーの表示（再試行ボタン付き）。各パネルの isError 分岐から使う。
 // message は「予定の取得に失敗しました」等の日本語プレフィックス。
@@ -20,6 +21,18 @@ export function PanelError({
   error?: unknown
   onRetry?: () => void
 }) {
+  // 認証切れ(401)だけは特別扱いする。この状態では画面上部に「接続が切れました。＋再接続」
+  // バナーが必ず出ており（AuthError は queryClient の onError で markExpired を呼ぶため）、
+  // 各カードにも「再試行」を出すとボタンが画面に何個も並ぶ。しかもトークンを失っている以上
+  // 再試行は必ず同じ 401 になり、復帰できるのは「再接続」だけなので押させる意味がない。
+  // よってここでは案内文だけを短く出し、操作はバナーに一本化する。
+  if (error instanceof AuthError) {
+    return (
+      <div className="panel__note panel__note--error" role="alert">
+        <span>接続が切れています。上部の「再接続」から再開してください。</span>
+      </div>
+    )
+  }
   return (
     <div className="panel__note panel__note--error" role="alert">
       <span>
