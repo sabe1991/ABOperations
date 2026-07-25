@@ -2,6 +2,7 @@
 
 ## Added
 
+- **Android 用の専用アプリ(APK)を用意した**。Chrome の PWA インストールが WebAPK にならずショートカット止まりになる問題を、Chrome の自動生成に頼らず自分で APK を作ることで回避する。方式は TWA(Trusted Web Activity＝中身は Chrome が全画面で本サイトを表示する Google 公式のアプリ形式)で、**本リポジトリのコードは変更していない**(表示の実体は Web 側のまま。deploy すればアプリ側も自動で最新版になる)。Android プロジェクトは `~/Claude/Androidアプリ/ABOperations`、URL バーを消すための Digital Asset Links 宣言は新規リポジトリ `sabe1991.github.io` の `/.well-known/assetlinks.json` に配置した。本 README の「対応デバイス・使い方」にも追記 (2026-07-26)
 - インストール診断欄に**Service Worker(アプリのキャッシュ配信を担う裏方プログラム)の登録状態**の行を追加した。`beforeinstallprompt` は SW が有効になっていないと発火しないため、「未受信」の原因が SW 未登録なのか別要因なのかを切り分けられるようにする(有効/準備中/未登録/非対応を色分け表示。`navigator.serviceWorker.getRegistration()` を `InstallDiagnostics` 内で参照) (2026-07-25)
 - 設定＞情報に**「アプリのインストール（診断）」欄**を追加した(Android で「ホーム画面に追加」がショートカット止まりになり WebAPK＝ランチャーに並ぶ本物のアプリにならない問題の切り分け用)。開発者ツールを使えない利用者が画面上で状態を読んで報告できるよう、(1)表示モード(アプリ表示 standalone / ブラウザ表示)、(2)インストール可能通知の受信有無(＝ブラウザが `beforeinstallprompt` を出したか。受信済みなら今すぐインストール可)を色分けで表示し、受信済みのときは欄内の「⬇ この端末にインストール」ボタンからその場でインストールできる。未受信のときは原因の説明文を出す。`pwaInstall.ts` に診断用の購読フック `usePwaDiag`(発火履歴 `everPrompted` を含む)を追加(`InstallDiagnostics`) (2026-07-25)
 - **メール一覧で、添付ファイルのあるメールに📎印を表示**するようにした(ユーザー要望)。一覧の取得(`fetchInbox`)は本文パーツを取らない `format=metadata` のため添付の有無が分からなかったので、あわせて Gmail の `has:attachment` 検索(本家の📎判定と同じ)で添付ありメールの id 一覧を取り、突き合わせて `GmailMessage.hasAttachment` を立てる。`GmailRow` の1行目(差出人〜受信時刻)に📎を出す。`has:attachment` 検索が失敗しても一覧本体は表示できるよう空扱いにフォールバックする (2026-07-25)

@@ -50,6 +50,7 @@ Google カレンダー・Google Tasks・Gmail に天気・ニュースを加え�
 自宅 Mac / 会社 Windows / Android / iPhone — **すべてブラウザで同じ URL を開くだけ**です。
 
 - スマホは「ホーム画面に追加」でアプリ風に起動できます（PWA＝ブラウザのページをアプリのように扱う仕組み）。
+- **Android は専用アプリ（APK）を用意しています**。Chrome の PWA インストールが「ただのショートカット」しか作れない不具合を回避するため、TWA（Trusted Web Activity＝中身は Chrome が全画面で本サイトを表示する Google 公式のアプリ形式）で APK 化しました。プロジェクトは `~/Claude/Androidアプリ/ABOperations` にあります。**Web 側を deploy すればアプリ側も自動で最新版になります**（アプリを入れ直す必要はありません）。
 - 新しい端末では初回だけ Google ログイン（認証）が必要です。
 - **設定は端末ごと**に保存されます（ブラウザの `localStorage`＝ブラウザ内の保存領域。端末間で同期はしません）。「会社PCだけ Gmail をオフ」のように端末別の使い分けができます。
 - ⚠ iOS（iPhone）のホーム画面起動では Google ログインが動かない事例が報告されています。動かない場合は iPhone のみ Safari のブックマーク運用としてください（Android は問題なし）。
