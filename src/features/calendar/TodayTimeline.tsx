@@ -5,7 +5,7 @@
 // 0:00〜24:00 を描画し、今日は現在時刻に赤い横線を引き、初回/日付切替時に見やすい位置へスクロールする。
 // 操作: 予定クリックで編集シートを開く（#18）、空き時間のドラッグで作成シートを開く（#17 Phase A）。
 // どちらも CalendarPanel の既存シート／ミューテーションへシグナル（calendarSheetSignal）で委譲する。
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useCalendarEvents } from './useCalendarEvents'
 import { useUpdateEvent } from './useCalendarMutations'
 import { requestCreateEventAt, requestEditEvent } from './calendarSheetSignal'
@@ -14,7 +14,7 @@ import { eventToDraft } from './api'
 import type { CalendarEvent } from './api'
 import { TimelineSkeleton } from '../../Skeleton'
 
-const HOUR_PX = 48 // 1時間あたりの高さ(px)
+const HOUR_PX = 48 // 1時間あたりの高さ(px)の下限。実際の高さ(hourPx)はスクロール領域を埋めるよう動的に決める
 // タイムラインの表示開始時刻(分)。早朝(0:00〜6:00)は予定が少なく縦を無駄に使うので省略する
 // （ユーザー要望）。軸・スクロール・ドラッグ座標はすべてこの値を「上端=0px」の基準にする。
 const DAY_START_MIN = 6 * 60
@@ -156,6 +156,8 @@ export function TodayTimeline() {
   const evDragRef = useRef<EventDragRef | null>(null)
   // ドラッグ完了直後に発火する click を無視するためのフラグ（ドラッグ移動とクリック編集の取り違え防止）。
   const suppressClickRef = useRef(false)
+  // スクロール領域の実測高さ（px）。1時間あたりの高さ(hourPx)を「領域を下まで埋める」よう決めるのに使う。
+  const [scrollH, setScrollH] = useState(0)
 
   const now = new Date()
   const todayStr = fmtDate(now)
@@ -188,8 +190,15 @@ export function TodayTimeline() {
   const winStart = DAY_START_MIN
   const winEnd = DAY_END_MIN
 
+  // 1時間あたりの高さ(px)。早朝(0:00〜6:00)を省いた分だけ軸が短くなり下部に空白が出るのを防ぐため、
+  // スクロール領域の高さを表示時間数(18)で割った値を1時間の高さにして「下(24:00)まで等間隔に埋める」。
+  // ちょうど埋まるので内部スクロールは不要になる。ただし領域が極端に低いと目盛りが潰れるので、
+  // 基準の高さ(HOUR_PX=48)を下限にし、その場合だけ従来どおり内部スクロールで深夜まで辿れるようにする。
+  const hoursCount = (winEnd - winStart) / 60
+  const hourPx = scrollH > 0 ? Math.max(HOUR_PX, scrollH / hoursCount) : HOUR_PX
+
   const placed = layout(timed)
-  const axisHeight = ((winEnd - winStart) / 60) * HOUR_PX
+  const axisHeight = ((winEnd - winStart) / 60) * hourPx
   const hours: number[] = []
   for (let h = winStart / 60; h <= winEnd / 60; h++) hours.push(h)
   // 赤い現在時刻線は「今日」を表示しているときだけ出す（他の日に「現在時刻」は無い）。
@@ -225,10 +234,21 @@ export function TodayTimeline() {
     const axisRect = axis.getBoundingClientRect()
     const scRect = scroller.getBoundingClientRect()
     const axisTopInScroll = axisRect.top - scRect.top + scroller.scrollTop
-    const refTop = axisTopInScroll + ((refMin - winStart) / 60) * HOUR_PX
+    const refTop = axisTopInScroll + ((refMin - winStart) / 60) * hourPx
     scroller.scrollTop = Math.max(0, refTop - scroller.clientHeight * anchorRatio) // ブラウザが上限もクランプする
     scrolledForDateRef.current = selectedDate
-  }, [events, selectedDate, isToday, nowMin, timed, winStart])
+  }, [events, selectedDate, isToday, nowMin, timed, winStart, hourPx])
+
+  // スクロール領域の高さを実測し、リサイズ（ウィンドウ変更・端末回転・レイアウト変化）に追従する。
+  // 初回はペイント前に測って（useLayoutEffect）軸の高さのちらつきを防ぐ。
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setScrollH(el.clientHeight)
+    const ro = new ResizeObserver(() => setScrollH(el.clientHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // --- 空き時間ドラッグで作成シートを開く（#17 Phase A） ---
   // ポインタ位置(clientY)を軸上の分(0〜1440, 15分スナップ)に変換する。
@@ -238,7 +258,7 @@ export function TodayTimeline() {
     if (!axis) return 0
     const rect = axis.getBoundingClientRect()
     // 軸の上端(0px)は 0:00 ではなく表示開始(6:00)に対応するので、基準ぶんを足して絶対分に直す。
-    const raw = DAY_START_MIN + ((clientY - rect.top) / HOUR_PX) * 60
+    const raw = DAY_START_MIN + ((clientY - rect.top) / hourPx) * 60
     const snapped = Math.round(raw / SNAP_MIN) * SNAP_MIN
     return Math.max(DAY_START_MIN, Math.min(24 * 60, snapped))
   }
@@ -324,7 +344,7 @@ export function TodayTimeline() {
     if (!d) return
     const deltaRaw = e.clientY - d.pointerStartY
     if (Math.abs(deltaRaw) >= EVENT_DRAG_THRESHOLD_PX) d.moved = true
-    const deltaMin = Math.round(deltaRaw / HOUR_PX / (SNAP_MIN / 60)) * SNAP_MIN
+    const deltaMin = Math.round(deltaRaw / hourPx / (SNAP_MIN / 60)) * SNAP_MIN
     const duration = d.origEndMin - d.origStartMin
     let startMin = d.origStartMin
     let endMin = d.origEndMin
@@ -452,7 +472,7 @@ export function TodayTimeline() {
           onPointerCancel={() => setDrag(null)}
         >
           {hours.map((h) => {
-            const top = ((h * 60 - winStart) / 60) * HOUR_PX
+            const top = ((h * 60 - winStart) / 60) * hourPx
             return (
               <div key={h} className="timeline__hour" style={{ top }}>
                 <span className="timeline__hour-label">{String(h).padStart(2, '0')}:00</span>
@@ -466,8 +486,8 @@ export function TodayTimeline() {
             const dragging = preview?.phase === 'drag'
             const dispStartMin = preview ? preview.startMin : p.startMin
             const dispEndMin = preview ? preview.endMin : p.endMin
-            const top = ((dispStartMin - winStart) / 60) * HOUR_PX
-            const height = Math.max(18, ((dispEndMin - dispStartMin) / 60) * HOUR_PX - 1)
+            const top = ((dispStartMin - winStart) / 60) * hourPx
+            const height = Math.max(18, ((dispEndMin - dispStartMin) / 60) * hourPx - 1)
             const left = `calc(${GUTTER}px + (100% - ${GUTTER}px) * ${p.lane} / ${p.lanes})`
             const width = `calc((100% - ${GUTTER}px) / ${p.lanes} - 2px)`
             // 時刻＋タイトルの2行が枠内に収まらない高さ（約32px未満）は「短い予定」とし、
@@ -533,8 +553,8 @@ export function TodayTimeline() {
             <div
               className="timeline__drag-sel"
               style={{
-                top: ((Math.min(drag.startMin, drag.curMin) - winStart) / 60) * HOUR_PX,
-                height: Math.max(2, (Math.abs(drag.curMin - drag.startMin) / 60) * HOUR_PX),
+                top: ((Math.min(drag.startMin, drag.curMin) - winStart) / 60) * hourPx,
+                height: Math.max(2, (Math.abs(drag.curMin - drag.startMin) / 60) * hourPx),
                 left: GUTTER,
               }}
               aria-hidden
@@ -544,7 +564,7 @@ export function TodayTimeline() {
             <div
               ref={nowRef}
               className="timeline__now"
-              style={{ top: ((nowMin - winStart) / 60) * HOUR_PX }}
+              style={{ top: ((nowMin - winStart) / 60) * hourPx }}
               aria-label="現在時刻"
             />
           )}

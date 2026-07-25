@@ -85,7 +85,10 @@ export default function App() {
   // 取得中のクエリ数（>0 なら更新ボタンを回転・無効化する）。
   const fetching = useIsFetching() > 0
   // ブラウザが「インストール可能」と判定したときだけ true（＝インストールボタンを出す）。
-  const canInstall = useCanInstall()
+  // ただしタッチ端末（スマホ・タブレット）でだけ出し、PC では出さない（ユーザー要望）。
+  // インストールが要るのは主に Android。マウス操作の PC（hover 可・pointer 精細）は対象外にする。
+  const isTouchDevice = useMediaQuery('(hover: none) and (pointer: coarse)')
+  const canInstall = useCanInstall() && isTouchDevice
   const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。

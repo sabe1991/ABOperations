@@ -35,15 +35,25 @@ let started = false
 export function initPwaInstall(): void {
   if (started) return
   started = true
+  // 診断ログ（Android 実機で `beforeinstallprompt` が発火するか、Chrome DevTools のリモート
+  // インスペクト＝chrome://inspect のコンソールで確認するため）。standalone=true なら既に
+  // インストール済みの状態で開いており、その場合ブラウザはインストールプロンプトを出さない。
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    // iOS Safari 用（display-mode を返さないため navigator.standalone を併用）。
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  console.info('[PWA] initPwaInstall', { standalone })
   window.addEventListener('beforeinstallprompt', (e) => {
     // 既定の自動バナーを抑止し、こちらの好きなタイミング（ボタン押下時）に出せるようにする。
     e.preventDefault()
     deferred = e as BeforeInstallPromptEvent
+    console.info('[PWA] beforeinstallprompt が発火（インストール可能）')
     emit()
   })
   window.addEventListener('appinstalled', () => {
     installed = true
     deferred = null
+    console.info('[PWA] appinstalled（インストール完了）')
     emit()
   })
 }

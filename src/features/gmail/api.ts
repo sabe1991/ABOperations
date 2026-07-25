@@ -50,6 +50,7 @@ export interface GmailMessage {
   dateMs: number
   unread: boolean
   starred: boolean
+  hasAttachment: boolean // 添付ファイルの有無（一覧で📎を出すのに使う。Gmail の has:attachment に一致）
 }
 
 function headerValue(headers: { name: string; value: string }[] | undefined, name: string): string {
@@ -109,6 +110,9 @@ async function fetchMessageMeta(id: string): Promise<GmailMessage> {
     dateMs: m.internalDate ? Number(m.internalDate) : 0,
     unread: (m.labelIds ?? []).includes('UNREAD'),
     starred: (m.labelIds ?? []).includes('STARRED'),
+    // 添付の有無は format=metadata では分からない（本文パーツを取らないため）。
+    // fetchInbox 側で has:attachment 検索の結果を突き合わせて上書きする（既定は false）。
+    hasAttachment: false,
   }
 }
 
@@ -120,12 +124,19 @@ export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMes
   // 受信トレイ全体を落とさないよう、既読は取れなければ空扱いにして未読だけでも表示する。
   // ただし未読（主要な表示対象）が取れない場合は、既読だけ出すと「未読0件」と誤解させる
   // 嘘の表示になるため、その理由を投げて失敗として扱う（401 等は再接続UXへ流れる）。
-  const [unreadRes, readRes] = await Promise.allSettled([
+  // あわせて「添付ファイルのあるメール」の id 一覧も取る（Gmail の has:attachment 検索。
+  // Gmail 本家の📎表示と同じ判定）。一覧の全件（未読＋既読）をカバーできるよう件数を広めに取り、
+  // 取得後に id を突き合わせて📎を出す。この検索が失敗しても一覧本体は出せるよう空扱いにする。
+  const [unreadRes, readRes, attachRes] = await Promise.allSettled([
     fetchMessageIds('in:inbox is:unread', maxUnread),
     fetchMessageIds('in:inbox is:read', maxRead),
+    fetchMessageIds('in:inbox has:attachment', maxUnread + maxRead),
   ])
   if (unreadRes.status === 'rejected') throw unreadRes.reason
   const unreadIds = unreadRes.value
+  const attachIds = new Set(
+    (attachRes.status === 'fulfilled' ? attachRes.value : []).map((x) => x.id),
+  )
   // 既読リストだけ失敗したときは、未読は出しつつ既読を空にする。黙って既読が消えると
   // 「既読メールが無い」と誤解しうるので、切り分け用にコンソールへ警告を残す。
   if (readRes.status === 'rejected') {
@@ -140,7 +151,11 @@ export async function fetchInbox(maxUnread = 20, maxRead = 30): Promise<GmailMes
   // 全件失敗（例: 401 認証切れ・403 権限不足）のときだけ、その理由を投げ直して
   // 再接続/追加同意の共通UXへ流す（部分失敗は握って成功分を表示する）。
   throwIfAllRejected(settled)
-  const metas = fulfilledValues(settled)
+  // has:attachment 検索に一致した id には📎フラグを立てる。
+  const metas = fulfilledValues(settled).map((m) => ({
+    ...m,
+    hasAttachment: attachIds.has(m.id),
+  }))
   const desc = (a: GmailMessage, b: GmailMessage) => b.dateMs - a.dateMs
   const unread = metas.filter((m) => m.unread).sort(desc)
   const read = metas.filter((m) => !m.unread).sort(desc)

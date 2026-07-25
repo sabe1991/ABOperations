@@ -1702,6 +1702,12 @@ body {
   padding: 0.1rem 0 0.5rem;
   flex-wrap: wrap; /* スター追加でボタンが増えたので狭い幅では折り返す */
 }
+/* 一覧行の添付ファイル印（表示のみ）。差出人と受信時刻の間に📎を出す。 */
+.gmail__attach-mark {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
 /* 一覧行のスター印（表示のみ）。差出人と受信時刻の間に金色の★を出す。 */
 .gmail__star-mark {
   flex-shrink: 0;

@@ -342,6 +342,12 @@ function GmailRow({
       <button type="button" className="gmail__row" onClick={() => onOpen(m)}>
         <div className="gmail__line1">
           <span className="gmail__from">{m.fromName}</span>
+          {/* 添付ファイルのあるメールは一覧でも📎で分かるようにする（Gmail 本家と同じ・ユーザー要望）。 */}
+          {m.hasAttachment && (
+            <span className="gmail__attach-mark" aria-label="添付ファイルあり" title="添付ファイルあり">
+              📎
+            </span>
+          )}
           {/* スター付きは一覧でも★で分かるようにする（表示のみ・付け外しはメールを開いて行う）。 */}
           {m.starred && (
             <span className="gmail__star-mark" aria-label="スター付き" title="スター付き">
