@@ -32,6 +32,7 @@ import type { NewsSource } from '../news/newsSource'
 import { geocodeLocation } from '../weather/api'
 import type { GeocodeResult } from '../weather/api'
 import { setWeatherLocation, useWeatherLocation } from '../weather/location'
+import { promptInstall, usePwaDiag } from '../../pwaInstall'
 
 // 設定タブの識別子と見出し。
 type SettingsTab = 'display' | 'account' | 'about'
@@ -282,6 +283,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 </p>
               </section>
 
+              {/* アプリ（ホーム画面）としてインストールできる状態かの診断。Android で
+                  「ショートカットにしかならない」問題を、ユーザー自身が状態を読んで報告できるように。 */}
+              <InstallDiagnostics />
+
               {/* PC でのキーボードショートカットの案内（見つけにくいので明記・#60）。 */}
               <section className="settings__section">
                 <h3 className="settings__heading">キーボードショートカット（PC）</h3>
@@ -308,6 +313,68 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// アプリのインストール状態の診断（設定＞情報）。
+// Android で「ホーム画面に追加」がショートカット止まりになり WebAPK（ランチャーに並ぶ本物のアプリ）
+// にならない問題の切り分け用。開発者ツールを使えない利用者が、画面上で状態を読んで報告できるようにする。
+// 判定の意味:
+//   - 表示モード: standalone=すでにアプリとして開いている / browser=ブラウザのタブで開いている
+//   - インストール可能通知: 受信済み=ブラウザがインストール可能と判断済み（ここからインストールすれば
+//     WebAPK になる）／未受信=ブラウザがまだ「インストール可能」と見なせていない（条件未達・未対応・
+//     すでにインストール済みのいずれか）。未受信のままだと、メニューの「ホーム画面に追加」は
+//     ショートカット止まりになりやすい。
+function InstallDiagnostics() {
+  const diag = usePwaDiag()
+  const rows: { label: string; value: string; ok: boolean }[] = [
+    {
+      label: '表示モード',
+      value: diag.standalone ? 'アプリ表示（standalone）' : 'ブラウザ表示',
+      ok: diag.standalone,
+    },
+    {
+      label: 'インストール可能通知',
+      value: diag.installable
+        ? '受信済み（今すぐインストールできます）'
+        : diag.everPrompted
+          ? '一度受信（現在は消費済み）'
+          : diag.standalone || diag.installed
+            ? 'なし（すでにインストール済み）'
+            : '未受信（まだインストール可能と見なされていません）',
+      ok: diag.installable || diag.everPrompted || diag.standalone || diag.installed,
+    },
+  ]
+  return (
+    <section className="settings__section">
+      <h3 className="settings__heading">アプリのインストール（診断）</h3>
+      <ul className="settings__diag">
+        {rows.map((r) => (
+          <li key={r.label} className="settings__diag-row">
+            <span className="settings__diag-label">{r.label}</span>
+            <span className={`settings__diag-value${r.ok ? ' is-ok' : ' is-warn'}`}>{r.value}</span>
+          </li>
+        ))}
+      </ul>
+      {diag.installable && (
+        <button
+          type="button"
+          className="btn btn--small"
+          onClick={() => promptInstall()}
+          style={{ marginTop: '0.5rem' }}
+        >
+          ⬇ この端末にインストール
+        </button>
+      )}
+      {!diag.installable && !diag.standalone && !diag.installed && (
+        <p className="settings__note">
+          「インストール可能通知」が<strong>未受信</strong>の場合、ブラウザがこのページをまだ
+          インストール可能と見なせていません。Android の Chrome で開き直し、少し操作して数秒待つと
+          受信することがあります。受信すればこの欄に「今すぐインストールできます」と出て、上の
+          ボタンからインストール（＝ランチャーに並ぶアプリ）になります。
+        </p>
+      )}
+    </section>
   )
 }
 

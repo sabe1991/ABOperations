@@ -46,6 +46,37 @@ type Snack = { text: string; undo: (() => void) | null }
 // 作成シートの状態: 新規作成 / 返信（元メール付き） / 閉じている（null）。
 type ComposeState = { mode: 'new' } | { mode: 'reply'; message: GmailMessage } | null
 
+// 添付ファイルのクリップ（ゼムクリップ）アイコン。絵文字ではなく線画アイコンで表す（ユーザー要望）。
+// currentColor で描くので親の文字色に追従する。図案は MIT ライセンスの Lucide「paperclip」に準拠。
+function PaperclipIcon({
+  size = 14,
+  label,
+  className,
+}: {
+  size?: number
+  label?: string
+  className?: string
+}) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  )
+}
+
 // バイト数を読みやすい単位にする（添付ファイルサイズ表示・#13）。
 function formatBytes(n: number): string {
   if (!n) return ''
@@ -342,10 +373,10 @@ function GmailRow({
       <button type="button" className="gmail__row" onClick={() => onOpen(m)}>
         <div className="gmail__line1">
           <span className="gmail__from">{m.fromName}</span>
-          {/* 添付ファイルのあるメールは一覧でも📎で分かるようにする（Gmail 本家と同じ・ユーザー要望）。 */}
+          {/* 添付ファイルのあるメールは一覧でもクリップアイコンで分かるようにする（Gmail 本家と同じ・ユーザー要望）。 */}
           {m.hasAttachment && (
-            <span className="gmail__attach-mark" aria-label="添付ファイルあり" title="添付ファイルあり">
-              📎
+            <span className="gmail__attach-mark" title="添付ファイルあり">
+              <PaperclipIcon size={13} label="添付ファイルあり" />
             </span>
           )}
           {/* スター付きは一覧でも★で分かるようにする（表示のみ・付け外しはメールを開いて行う）。 */}
@@ -558,7 +589,7 @@ function AttachmentList({
               disabled={busyId === att.attachmentId}
             >
               <span className="gmail__attachment-icon" aria-hidden>
-                📎
+                <PaperclipIcon size={16} />
               </span>
               <span className="gmail__attachment-name">{att.filename}</span>
               <span className="gmail__attachment-meta">

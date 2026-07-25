@@ -24,6 +24,9 @@ interface BeforeInstallPromptEvent extends Event {
 let deferred: BeforeInstallPromptEvent | null = null
 // すでにインストール済みか（appinstalled を受けたら true。ボタンを引っ込めるのに使う）。
 let installed = false
+// これまでに一度でも `beforeinstallprompt` を受け取ったか（診断表示用。deferred は prompt() で
+// 消費すると null に戻るため、「そもそも発火したか」を別に残しておく）。
+let everPrompted = false
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -47,6 +50,7 @@ export function initPwaInstall(): void {
     // 既定の自動バナーを抑止し、こちらの好きなタイミング（ボタン押下時）に出せるようにする。
     e.preventDefault()
     deferred = e as BeforeInstallPromptEvent
+    everPrompted = true
     console.info('[PWA] beforeinstallprompt が発火（インストール可能）')
     emit()
   })
@@ -69,6 +73,62 @@ export function useCanInstall(): boolean {
     () => deferred !== null && !installed,
     () => false, // SSR は使わないが useSyncExternalStore の要求に合わせて既定値を返す
   )
+}
+
+// 設定画面の「インストール診断」用に、現在のインストール状態をまとめて購読する。
+// 非エンジニアのユーザーが、Android で「ショートカットにしかならない（WebAPK にならない）」
+// 原因を自分で読み取って報告できるようにするための表示。
+export interface PwaDiag {
+  // ブラウザが「インストール可能」と判断して beforeinstallprompt を出したか。
+  // true=このブラウザ的にはインストール可能。false=条件未達／未対応／既にインストール済み。
+  installable: boolean
+  // これまで一度でも beforeinstallprompt が発火したか（今は消費済みでも履歴として true）。
+  everPrompted: boolean
+  // appinstalled を受け取ったか（この画面を開いている間にインストールが完了したか）。
+  installed: boolean
+  // 現在この画面がインストール済みアプリ（スタンドアロン表示）として開かれているか。
+  standalone: boolean
+}
+export function usePwaDiag(): PwaDiag {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    // getSnapshot は同期・参照安定が必要だが、standalone は matchMedia の即時評価で毎回同じ真偽になる。
+    // ただしオブジェクトを毎回作ると無限再描画になるため、キャッシュして内容が変わった時だけ差し替える。
+    () => getDiagSnapshot(),
+    () => diagCacheDefault,
+  )
+}
+const diagCacheDefault: PwaDiag = {
+  installable: false,
+  everPrompted: false,
+  installed: false,
+  standalone: false,
+}
+let diagCache: PwaDiag = diagCacheDefault
+function getDiagSnapshot(): PwaDiag {
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  const next: PwaDiag = {
+    installable: deferred !== null && !installed,
+    everPrompted,
+    installed,
+    standalone,
+  }
+  // 中身が同じなら前回と同じ参照を返す（useSyncExternalStore の再描画ループ防止）。
+  if (
+    diagCache.installable === next.installable &&
+    diagCache.everPrompted === next.everPrompted &&
+    diagCache.installed === next.installed &&
+    diagCache.standalone === next.standalone
+  ) {
+    return diagCache
+  }
+  diagCache = next
+  return next
 }
 
 // 「インストール」ボタンから呼ぶ。保持していたプロンプトを表示し、ユーザーの選択を待つ。

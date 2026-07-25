@@ -5,7 +5,7 @@
 // 0:00〜24:00 を描画し、今日は現在時刻に赤い横線を引き、初回/日付切替時に見やすい位置へスクロールする。
 // 操作: 予定クリックで編集シートを開く（#18）、空き時間のドラッグで作成シートを開く（#17 Phase A）。
 // どちらも CalendarPanel の既存シート／ミューテーションへシグナル（calendarSheetSignal）で委譲する。
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCalendarEvents } from './useCalendarEvents'
 import { useUpdateEvent } from './useCalendarMutations'
 import { requestCreateEventAt, requestEditEvent } from './calendarSheetSignal'
@@ -158,6 +158,8 @@ export function TodayTimeline() {
   const suppressClickRef = useRef(false)
   // スクロール領域の実測高さ（px）。1時間あたりの高さ(hourPx)を「領域を下まで埋める」よう決めるのに使う。
   const [scrollH, setScrollH] = useState(0)
+  // 高さ計測用の ResizeObserver。コールバック ref から張り替えるため保持しておく。
+  const roRef = useRef<ResizeObserver | null>(null)
 
   const now = new Date()
   const todayStr = fmtDate(now)
@@ -240,14 +242,19 @@ export function TodayTimeline() {
   }, [events, selectedDate, isToday, nowMin, timed, winStart, hourPx])
 
   // スクロール領域の高さを実測し、リサイズ（ウィンドウ変更・端末回転・レイアウト変化）に追従する。
-  // 初回はペイント前に測って（useLayoutEffect）軸の高さのちらつきを防ぐ。
-  useLayoutEffect(() => {
-    const el = scrollRef.current
+  // コールバック ref にしているのは、初回はデータ読込中でスケルトンを描くため、この要素が
+  // 存在しないタイミングがあるから。要素が実際に現れた瞬間（スケルトン→本物の時間軸への
+  // 切替時を含む）にこの関数が呼ばれ、そこで確実に計測・監視を張れる。useEffect(・, [])だと
+  // 初回マウント時に要素がまだ無く、以後 deps が変わらず再計測されない不具合になっていた。
+  const setScrollNode = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el
+    roRef.current?.disconnect()
+    roRef.current = null
     if (!el) return
     setScrollH(el.clientHeight)
     const ro = new ResizeObserver(() => setScrollH(el.clientHeight))
     ro.observe(el)
-    return () => ro.disconnect()
+    roRef.current = ro
   }, [])
 
   // --- 空き時間ドラッグで作成シートを開く（#17 Phase A） ---
@@ -461,7 +468,7 @@ export function TodayTimeline() {
           })}
         </div>
       )}
-      <div className="timeline__scroll" ref={scrollRef}>
+      <div className="timeline__scroll" ref={setScrollNode}>
         <div
           className="timeline__axis"
           ref={axisRef}
