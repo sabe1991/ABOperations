@@ -246,11 +246,9 @@ export default function App() {
               >
                 ↻
               </button>
-              <ConnectionStatus
-                needsReconnect={needsReconnect}
-                connecting={connecting}
-                onReconnect={handleConnect}
-              />
+              {/* 「再接続」ボタンはここには置かない。接続が切れたときは下のバナー
+                （「接続が切れました。」＋再接続ボタン）が1本だけ出る。以前はヘッダにも
+                同じボタンがあり、切断時に画面上に2つ並んで重複していた。 */}
               <button
                 className="app__settings"
                 onClick={() => setSettingsOpen(true)}
@@ -504,20 +502,3 @@ function UpdateToast() {
   )
 }
 
-// 再接続が必要なときだけ「再接続」ボタンを表示する。通常時は何も出さない。
-function ConnectionStatus({
-  needsReconnect,
-  connecting,
-  onReconnect,
-}: {
-  needsReconnect: boolean
-  connecting: boolean
-  onReconnect: () => void
-}) {
-  if (!needsReconnect) return null
-  return (
-    <button className="btn btn--small" onClick={onReconnect} disabled={connecting}>
-      再接続
-    </button>
-  )
-}
