@@ -248,6 +248,28 @@ export async function fetchEventDaysInRange(
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
+// Google カレンダー(本家のWeb/アプリ)で作った予定の説明文は、HTML(`<br>`・`<a>`・`&amp;` など)を
+// 含むことがある。このアプリのメモ欄は素のテキストで表示・編集するため、表示前に読みやすい
+// プレーンテキストへ直す。ざっくり: 改行にすべき境界(`<br>`・段落/リストの閉じタグ)を改行にし、
+// 残りのタグ除去と実体参照(`&amp;`→`&` など)の復号はブラウザの HTML パーサに任せる(textContent を読む)。
+// textContent だけを読むので DOM へ差し込まず、XSS の心配は無い。
+export function htmlToPlainText(input: string): string {
+  if (!input) return ''
+  // HTML の印(タグ or 実体参照)が無ければ素のテキストとみなし、そのまま返す
+  // (「a < b」のような不等号入りの素テキストを壊さないため)。
+  if (!/<[a-z/][^>]*>|&[a-z]+;|&#\d+;/i.test(input)) return input
+  const withBreaks = input
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
+  const doc = new DOMParser().parseFromString(withBreaks, 'text/html')
+  const text = doc.body.textContent ?? ''
+  // 連続改行を詰め、行末の空白を落として整える。
+  return text
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim()
+}
+
 // 予定作成・編集フォームが受け渡す下書き（ローカル表記）。
 export interface EventDraft {
   calendarId: string

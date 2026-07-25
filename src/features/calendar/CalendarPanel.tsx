@@ -14,7 +14,7 @@ import {
   useUpdateEvent,
   useUpdateRecurrence,
 } from './useCalendarMutations'
-import { isWithinUpcomingWindow } from './api'
+import { htmlToPlainText, isWithinUpcomingWindow } from './api'
 import type { CalendarEvent, EventDraft, WritableCalendar } from './api'
 import { defaultRule } from './recurrence'
 import type { Freq, RecurrenceRule } from './recurrence'
@@ -379,7 +379,8 @@ function EventSheet({
           calendarId: event.calendarId,
           title: event.title,
           location: event.location,
-          description: event.description,
+          // Google カレンダー由来の HTML メモ(<br> 等)を素のテキストに直して表示・編集する。
+          description: htmlToPlainText(event.description),
           allDay: event.allDay,
           startDate: event.startDateStr,
           endDate: event.endDateStr,

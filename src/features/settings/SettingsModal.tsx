@@ -3,7 +3,7 @@
 //  - アカウント … ログイン中のメール表示・サインアウト / 接続状態・再接続
 //  - 情報     … アプリ情報（ビルド版＝コミットハッシュ・ビルド日時）
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDialog } from '../../useDialog'
 import { handleTablistKeyDown } from '../../roving'
 import { GMAIL_SCOPES, SCOPES } from '../../config'
@@ -327,11 +327,50 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 //     ショートカット止まりになりやすい。
 function InstallDiagnostics() {
   const diag = usePwaDiag()
+  // Service Worker（アプリのキャッシュ配信を担う裏方プログラム）の登録状態。
+  // beforeinstallprompt は SW が登録・有効になっていないと発火しないため、ここが最重要の確認点。
+  // getRegistration は非同期なので、購読ストアではなくこの画面のローカル状態として取得する。
+  const [sw, setSw] = useState<'checking' | 'active' | 'installing' | 'none' | 'unsupported'>(
+    'checking',
+  )
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      setSw('unsupported')
+      return
+    }
+    let alive = true
+    navigator.serviceWorker
+      .getRegistration()
+      .then((reg) => {
+        if (!alive) return
+        if (reg?.active) setSw('active')
+        else if (reg?.installing || reg?.waiting) setSw('installing')
+        else setSw('none')
+      })
+      .catch(() => {
+        if (alive) setSw('none')
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+  const swText: Record<typeof sw, string> = {
+    checking: '確認中…',
+    active: '有効（登録済み）',
+    installing: '準備中（登録処理の途中）',
+    none: '未登録',
+    unsupported: '非対応のブラウザ',
+  }
   const rows: { label: string; value: string; ok: boolean }[] = [
     {
       label: '表示モード',
       value: diag.standalone ? 'アプリ表示（standalone）' : 'ブラウザ表示',
       ok: diag.standalone,
+    },
+    {
+      label: 'Service Worker',
+      value: swText[sw],
+      ok: sw === 'active',
     },
     {
       label: 'インストール可能通知',
