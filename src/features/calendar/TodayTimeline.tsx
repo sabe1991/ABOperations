@@ -15,6 +15,10 @@ import type { CalendarEvent } from './api'
 import { TimelineSkeleton } from '../../Skeleton'
 
 const HOUR_PX = 48 // 1時間あたりの高さ(px)
+// タイムラインの表示開始時刻(分)。早朝(0:00〜6:00)は予定が少なく縦を無駄に使うので省略する
+// （ユーザー要望）。軸・スクロール・ドラッグ座標はすべてこの値を「上端=0px」の基準にする。
+const DAY_START_MIN = 6 * 60
+const DAY_END_MIN = 24 * 60
 const GUTTER = 34 // 左の時刻ラベル幅(px)。ラベル("24:00")が収まる範囲でできるだけ詰めて、
 // ラベルとドラッグ範囲（予定・選択矩形）の隙間を小さくする。
 const SNAP_MIN = 15 // ドラッグ作成の時刻スナップ幅(分)
@@ -174,11 +178,15 @@ export function TodayTimeline() {
       if (endMin <= startMin) endMin = startMin + 30 // 0分予定に最低高さ
       return { ev, startMin, endMin }
     })
+    // 表示開始(6:00)より前で終わる予定は省略時間帯に丸ごと入るので出さない。
+    // 6:00 をまたぐ予定は開始を 6:00 にクランプして頭だけ見せる。
+    .filter((t) => t.endMin > DAY_START_MIN)
+    .map((t) => ({ ...t, startMin: Math.max(DAY_START_MIN, t.startMin) }))
 
-  // 0:00〜24:00 を描画し、パネル内スクロールで早朝・深夜にもアクセスできる（ユーザー要望）。
+  // 6:00〜24:00 を描画し、パネル内スクロールで日中・深夜にアクセスできる（早朝は省略・ユーザー要望）。
   // 初回スクロール位置は下の useEffect で現在時刻基準に合わせる（#29）。
-  const winStart = 0
-  const winEnd = 24 * 60
+  const winStart = DAY_START_MIN
+  const winEnd = DAY_END_MIN
 
   const placed = layout(timed)
   const axisHeight = ((winEnd - winStart) / 60) * HOUR_PX
@@ -229,9 +237,10 @@ export function TodayTimeline() {
     const axis = axisRef.current
     if (!axis) return 0
     const rect = axis.getBoundingClientRect()
-    const raw = ((clientY - rect.top) / HOUR_PX) * 60
+    // 軸の上端(0px)は 0:00 ではなく表示開始(6:00)に対応するので、基準ぶんを足して絶対分に直す。
+    const raw = DAY_START_MIN + ((clientY - rect.top) / HOUR_PX) * 60
     const snapped = Math.round(raw / SNAP_MIN) * SNAP_MIN
-    return Math.max(0, Math.min(24 * 60, snapped))
+    return Math.max(DAY_START_MIN, Math.min(24 * 60, snapped))
   }
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -320,8 +329,8 @@ export function TodayTimeline() {
     let startMin = d.origStartMin
     let endMin = d.origEndMin
     if (d.mode === 'move') {
-      // 移動: 長さを保ったまま 0:00〜24:00 の範囲に収める。
-      startMin = Math.max(0, Math.min(24 * 60 - duration, d.origStartMin + deltaMin))
+      // 移動: 長さを保ったまま 6:00〜24:00 の表示範囲に収める（早朝は省略しているため）。
+      startMin = Math.max(DAY_START_MIN, Math.min(24 * 60 - duration, d.origStartMin + deltaMin))
       endMin = startMin + duration
     } else {
       // リサイズ: 終了だけ動かす。最短は開始+15分、最長は 24:00。
@@ -524,7 +533,7 @@ export function TodayTimeline() {
             <div
               className="timeline__drag-sel"
               style={{
-                top: (Math.min(drag.startMin, drag.curMin) / 60) * HOUR_PX,
+                top: ((Math.min(drag.startMin, drag.curMin) - winStart) / 60) * HOUR_PX,
                 height: Math.max(2, (Math.abs(drag.curMin - drag.startMin) / 60) * HOUR_PX),
                 left: GUTTER,
               }}

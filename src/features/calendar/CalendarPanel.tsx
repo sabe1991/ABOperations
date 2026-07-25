@@ -108,8 +108,18 @@ export function CalendarPanel() {
   const rootRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!scrollDate) return
-    const el = rootRef.current?.querySelector(`[data-date="${scrollDate}"]`)
-    if (el) (el as HTMLElement).scrollIntoView({ block: 'start', behavior: 'smooth' })
+    // 「今後の予定」一覧のスクロール領域（.calendar__scroll）の中だけを動かす。
+    // el.scrollIntoView() は該当要素までスクロールできる“すべての祖先”を動かすため、
+    // 内側のカードだけでなくページ（ビューポート）全体まで一緒にスクロールしてしまっていた
+    // （ユーザー報告）。ここでは対象見出しとスクロール領域の位置差ぶんだけ、この領域の
+    // scrollTop を足して、画面全体は動かさずカード内だけを目的の日へ移動させる。
+    const scroller = rootRef.current?.querySelector<HTMLElement>('.calendar__scroll')
+    const el = rootRef.current?.querySelector<HTMLElement>(`[data-date="${scrollDate}"]`)
+    if (scroller && el) {
+      const scRect = scroller.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      scroller.scrollTo({ top: scroller.scrollTop + (elRect.top - scRect.top), behavior: 'smooth' })
+    }
     // その日に予定が無い（見出しが無い）ときは何もしない。
   }, [scrollSeq, scrollDate])
 

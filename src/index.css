@@ -1,13 +1,15 @@
 :root {
   color-scheme: light dark;
-  /* 本文フォント: OS 標準の読みやすいスタック。 */
+  /* 本文フォント: 朝刊(新聞紙面)リデザインに合わせ、本文も含めて全体を明朝体(縦画が太く
+     横画が細い、新聞・書籍で使われる格調のある書体)に統一する(ユーザー要望)。着地先は
+     見出し用の --font-display と同じスタック(macOS=ヒラギノ明朝→游明朝、Windows=游明朝、
+     無ければ Noto Serif JP、最終フォールバックは serif=明朝相当の総称)にそろえる。 */
   font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    'Hiragino Sans',
-    'Noto Sans JP',
-    sans-serif;
+    'Hiragino Mincho ProN',
+    'YuMincho',
+    'Yu Mincho',
+    'Noto Serif JP',
+    serif;
   /* 見出し・題字・強調用フォント。朝刊(新聞)リデザインに合わせて明朝体(縦画が太く横画が細い、
      新聞・書籍で使われる格調のある書体)を指定する。プラットフォーム別に着地先を明示する:
      - macOS: Hiragino Mincho ProN(ヒラギノ明朝)。
@@ -234,6 +236,12 @@ body {
   color: var(--text-muted);
   white-space: nowrap;
 }
+/* 一面気象欄の天気アイコン（線画）。日付欄の文字（ベースライン揃え）の中で上下中央に置く。 */
+.masthead-fp__wx-icon {
+  color: var(--text-muted);
+  align-self: center;
+  flex-shrink: 0;
+}
 .masthead-fp__wx-loc {
   color: var(--text);
 }
@@ -255,7 +263,8 @@ body {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 0.15rem 0.9rem;
-  margin-top: 0.3rem;
+  /* 日付欄の下罫と「今日やること」の間が空きすぎて見えたので詰める（0.3rem→0.1rem・ユーザー要望）。 */
+  margin-top: 0.1rem;
 }
 .masthead-fp__headline {
   font-family: var(--font-display);
@@ -316,6 +325,18 @@ body {
   .app__updated-label {
     display: none;
   }
+}
+/* インストールボタン（PWA を WebAPK として入れる導線・#7）。朱の枠で目立たせつつ、
+   常設の操作ではないので控えめな小ボタンにする。狭い画面では文字を隠しアイコンだけにする。 */
+.app__install {
+  border-color: var(--primary);
+  color: var(--primary);
+  white-space: nowrap;
+}
+.app__install:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .app__settings {
   border: 1px solid var(--border);
@@ -564,9 +585,10 @@ body {
        タスク列とメール列は同じ幅にそろえる（ユーザー要望）。 */
     grid-template-columns: minmax(210px, 0.72fr) minmax(210px, 1fr) 1.35fr 1.35fr;
     /* row1=カレンダー、row2=今後の予定。カレンダーは auto だと低すぎ・厚くしすぎると広すぎたので、
-       今後の予定より低め（0.68:1）に配分して升目が詰まらない範囲でコンパクトに収める。
+       今後の予定より低め（0.58:1）に配分して升目が詰まらない範囲でコンパクトに収める
+       （0.68→0.58 にしてカレンダーの高さを少しだけ下げた・ユーザー要望）。
        時間軸・タスク・メールは2行ぶんを縦にまたぐ。 */
-    grid-template-rows: minmax(0, 0.68fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.58fr) minmax(0, 1fr);
     grid-template-areas:
       'timeline month  tasks gmail'
       'timeline events tasks gmail';
@@ -1523,9 +1545,10 @@ body {
   justify-content: center;
   gap: 0.9rem;
 }
-.weather__now-emoji {
-  font-size: var(--fs-2xl);
-  line-height: 1;
+/* 現在の天気アイコン（線画・currentColor）。本文色で描き、気温の左に置く。 */
+.weather__now-icon {
+  color: var(--text);
+  flex-shrink: 0;
 }
 .weather__now-temp {
   font-size: var(--fs-2xl);
@@ -1579,9 +1602,9 @@ body {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
 }
-.weather__day-emoji {
-  font-size: var(--fs-lg);
-  line-height: 1;
+/* 明日・明後日の天気アイコン（線画・currentColor）。 */
+.weather__day-icon {
+  color: var(--text);
 }
 .weather__day-temp {
   display: flex;

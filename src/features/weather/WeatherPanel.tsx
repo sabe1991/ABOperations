@@ -4,6 +4,7 @@
 import { useWeather } from './useWeather'
 import { weatherCodeInfo } from './api'
 import type { DailyForecast } from './api'
+import { WeatherIcon } from './WeatherIcon'
 import { WeatherSkeleton } from '../../Skeleton'
 
 // 予報の日付ラベル（今日/明日/明後日、それ以降は M/D）。
@@ -27,11 +28,9 @@ export function WeatherPanel() {
 
   return (
     <div className="weather">
-      {/* 現在の天気（大きめの絵文字＋気温）。右に地点名と今日の最高/最低。 */}
+      {/* 現在の天気（大きめのアイコン＋気温）。右に地点名と今日の最高/最低。 */}
       <div className="weather__now">
-        <span className="weather__now-emoji" aria-hidden="true">
-          {cur.emoji}
-        </span>
+        <WeatherIcon code={data.currentCode} size={40} label={cur.label} className="weather__now-icon" />
         <span className="weather__now-temp">{Math.round(data.currentTemp)}°</span>
         <span className="weather__now-meta">
           <span className="weather__loc">{data.locationName}</span>
@@ -62,10 +61,8 @@ export function WeatherPanel() {
           return (
             <div key={d.date} className="weather__day" title={info.label}>
               <span className="weather__day-label">{dayLabel(d.date, i)}</span>
-              {/* 天気は絵文字だけだと読み上げられないので、日本語ラベルを画像扱いで持たせる（#57）。 */}
-              <span className="weather__day-emoji" role="img" aria-label={info.label}>
-                {info.emoji}
-              </span>
+              {/* 天気はアイコンで表す。読み上げ用に日本語ラベルを画像扱いで持たせる（#57）。 */}
+              <WeatherIcon code={d.code} size={22} label={info.label} className="weather__day-icon" />
               <span className="weather__day-temp">
                 <span className="weather__hi" aria-label={`最高 ${Math.round(d.tempMax)}度`}>
                   {Math.round(d.tempMax)}°

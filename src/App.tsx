@@ -19,6 +19,7 @@ import { NewsPanel } from './features/news/NewsPanel'
 import { WorkoutDeck } from './features/workout/WorkoutDeck'
 import { useWeather } from './features/weather/useWeather'
 import { weatherCodeInfo } from './features/weather/api'
+import { WeatherIcon } from './features/weather/WeatherIcon'
 import { useIsFetching } from '@tanstack/react-query'
 import { useMediaQuery, WIDE_QUERY } from './useMediaQuery'
 import { useLastUpdated } from './useLastUpdated'
@@ -31,6 +32,7 @@ import { SettingsModal } from './features/settings/SettingsModal'
 import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
 import { applyUpdate, dismissUpdate, useNeedRefresh } from './pwaUpdate'
+import { promptInstall, useCanInstall } from './pwaInstall'
 import { gmailLink } from './features/gmail/gmailLink'
 import { PanelLink } from './PanelLink'
 import { handleTablistKeyDown } from './roving'
@@ -82,6 +84,8 @@ export default function App() {
   const lastUpdated = useLastUpdated()
   // 取得中のクエリ数（>0 なら更新ボタンを回転・無効化する）。
   const fetching = useIsFetching() > 0
+  // ブラウザが「インストール可能」と判定したときだけ true（＝インストールボタンを出す）。
+  const canInstall = useCanInstall()
   const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
@@ -208,6 +212,18 @@ export default function App() {
           <div className="masthead-fp__top">
             <h1 className="app__title masthead-fp__name">AB Operations</h1>
             <div className="app__headerRight">
+              {/* インストールボタン（ブラウザがインストール可能と判定したときだけ表示）。
+                Android でショートカットではなくランチャーに並ぶ本物のアプリ（WebAPK）として
+                入れられるよう、Chrome 公式のインストールフローを直接呼ぶ（#7）。 */}
+              {canInstall && (
+                <button
+                  className="btn btn--small app__install"
+                  onClick={() => promptInstall()}
+                  title="この端末にアプリとしてインストール"
+                >
+                  ⬇ インストール
+                </button>
+              )}
               {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
                 スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
               {lastUpdated > 0 && (
@@ -437,12 +453,10 @@ function MastheadWeather() {
   const { data } = useWeather()
   if (!data || data.daily.length === 0) return null
   const today = data.daily[0]
-  const { emoji, label } = weatherCodeInfo(today.code)
+  const { label } = weatherCodeInfo(today.code)
   return (
     <span className="masthead-fp__wx" title={label}>
-      <span className="masthead-fp__wx-emoji" aria-hidden>
-        {emoji}
-      </span>
+      <WeatherIcon code={today.code} size={15} className="masthead-fp__wx-icon" />
       <span className="masthead-fp__wx-loc">{data.locationName}</span>
       <b className="masthead-fp__wx-hi">{Math.round(today.tempMax)}°</b>
       <span className="masthead-fp__wx-sep">/</span>
