@@ -32,7 +32,6 @@ import { SettingsModal } from './features/settings/SettingsModal'
 import { queryClient } from './queryClient'
 import { requestQuickAddFocus } from './features/tasks/quickAddFocus'
 import { applyUpdate, dismissUpdate, useNeedRefresh } from './pwaUpdate'
-import { promptInstall, useCanInstall } from './pwaInstall'
 import { gmailLink } from './features/gmail/gmailLink'
 import { PanelLink } from './PanelLink'
 import { handleTablistKeyDown } from './roving'
@@ -84,11 +83,6 @@ export default function App() {
   const lastUpdated = useLastUpdated()
   // 取得中のクエリ数（>0 なら更新ボタンを回転・無効化する）。
   const fetching = useIsFetching() > 0
-  // ブラウザが「インストール可能」と判定したときだけ true（＝インストールボタンを出す）。
-  // ただしタッチ端末（スマホ・タブレット）でだけ出し、PC では出さない（ユーザー要望）。
-  // インストールが要るのは主に Android。マウス操作の PC（hover 可・pointer 精細）は対象外にする。
-  const isTouchDevice = useMediaQuery('(hover: none) and (pointer: coarse)')
-  const canInstall = useCanInstall() && isTouchDevice
   const gmailActive = useGmailEnabled() && grantedScopes.includes(SCOPES.gmailModify)
   const unreadCount = useUnreadCount(gmailActive)
   // タブごとのバッジ数（0 のタブは付けない）。予定タブはバッジ無し。
@@ -215,18 +209,6 @@ export default function App() {
           <div className="masthead-fp__top">
             <h1 className="app__title masthead-fp__name">AB Operations</h1>
             <div className="app__headerRight">
-              {/* インストールボタン（ブラウザがインストール可能と判定したときだけ表示）。
-                Android でショートカットではなくランチャーに並ぶ本物のアプリ（WebAPK）として
-                入れられるよう、Chrome 公式のインストールフローを直接呼ぶ（#7）。 */}
-              {canInstall && (
-                <button
-                  className="btn btn--small app__install"
-                  onClick={() => promptInstall()}
-                  title="この端末にアプリとしてインストール"
-                >
-                  ⬇ インストール
-                </button>
-              )}
               {/* データの最終更新時刻（設定ボタンの左）。まだ何も取得できていなければ出さない。
                 スマホでは「最終更新」の語を隠して時刻だけ出す（CSS の .app__updated-label）。 */}
               {lastUpdated > 0 && (

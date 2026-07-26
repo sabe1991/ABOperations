@@ -326,18 +326,6 @@ body {
     display: none;
   }
 }
-/* インストールボタン（PWA を WebAPK として入れる導線・#7）。朱の枠で目立たせつつ、
-   常設の操作ではないので控えめな小ボタンにする。狭い画面では文字を隠しアイコンだけにする。 */
-.app__install {
-  border-color: var(--primary);
-  color: var(--primary);
-  white-space: nowrap;
-}
-.app__install:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  border-color: var(--primary);
-  color: var(--primary);
-}
 .app__settings {
   border: 1px solid var(--border);
   background: var(--surface);
@@ -2359,35 +2347,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-}
-/* インストール診断の項目一覧（設定＞情報）。ラベル（左）と状態（右）を1行ずつ並べる。 */
-.settings__diag {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.settings__diag-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-  font-size: var(--fs-sm);
-}
-.settings__diag-label {
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-.settings__diag-value {
-  text-align: right;
-}
-/* 状態の色分け: 望ましい状態は通常色、注意が必要な状態は朱で目立たせる。 */
-.settings__diag-value.is-ok {
-  color: var(--text);
-}
-.settings__diag-value.is-warn {
-  color: var(--primary);
 }
 .settings__shortcuts li {
   display: flex;
